@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>General Gas Properties Simulator</title>
+<style>
+  :root{
+    --bg:#15181a;
+    --paper-line: rgba(255,255,255,0.045);
+    --ink:#e8e6df;
+    --ink-dim:#9aa0a6;
+    --accent:#e8a33d;
+    --accent2:#5eead4;
+    --border:#33393d;
+    --card:#1d2124;
+    --card2:#20252a;
+    --danger:#e0685a;
+    --lock:#6c7278;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --font-serif: 'Fraunces', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(var(--paper-line) 1px, transparent 1px) 0 0/26px 26px,
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px) 0 0/26px 26px,
+      var(--bg);
+    color:var(--ink);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .page{ max-width:760px; margin:0 auto; padding:18px 16px 48px; }
+  header{ text-align:center; margin-bottom:10px; }
+  header h1{ font-family:var(--font-serif); font-weight:600; font-size:1.5rem; margin:0 0 2px; }
+  header .sub{ color:var(--ink-dim); font-size:0.76rem; letter-spacing:0.04em; }
+
+  section{ margin-top:18px; }
+  .section-title{
+    font-family:var(--font-serif);
+    font-size:1.02rem;
+    margin:0 0 10px;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .section-title .hint-small{ color:var(--ink-dim); font-size:0.68rem; font-family:var(--font-mono); }
+
+  /* ---- top config row: gas + mode ---- */
+  .config-row{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  @media (min-width:560px){ .config-row{ grid-template-columns:1fr 1fr; } }
+  .config-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  .config-card label{
+    display:block;
+    font-size:0.72rem;
+    color:var(--ink-dim);
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  select, input[type=number]{
+    width:100%;
+    background:#22262a;
+    color:var(--ink);
+    border:1px solid var(--border);
+    border-radius:7px;
+    padding:9px 10px;
+    font-family:var(--font-mono);
+    font-size:0.88rem;
+  }
+  select:focus, input:focus{ outline:1px solid var(--accent2); }
+  .custom-ab{
+    display:none;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+  .custom-ab.show{ display:grid; }
+  .custom-ab .field label{ margin-bottom:4px; }
+  .gas-constants{
+    margin-top:10px;
+    font-size:0.74rem;
+    color:var(--accent2);
+    min-height:1.2em;
+    line-height:1.5;
+  }
+  .gas-constants .na{ color:var(--ink-dim); font-style:italic; }
+
+  /* ---- 3D scene (reused pattern) ---- */
+  .scene-outer{ position:relative; margin:14px auto 4px; display:flex; flex-direction:column; align-items:center; }
+  .scene-wrap{ perspective:900px; width:100%; display:flex; justify-content:center; }
+  .rotator{ position:relative; transform-style:preserve-3d; cursor:grab; touch-action:none; }
+  .rotator.grabbing{ cursor:grabbing; }
+  #shellHost, #particleHost{ position:absolute; top:0; left:0; transform-style:preserve-3d; }
+  .face{ position:absolute; top:0; left:0; border:1px solid rgba(94,234,212,0.35); background:rgba(94,234,212,0.05); }
+  .face.f-top{ background:linear-gradient(rgba(255,255,255,0.05), rgba(94,234,212,0.02)), rgba(94,234,212,0.16); border-color:rgba(160,255,235,0.55); }
+  .face.f-front{
+    background:
+      linear-gradient(155deg, rgba(255,255,255,0.06) 0%, rgba(94,234,212,0.02) 40%, transparent 70%),
+      repeating-linear-gradient(0deg, rgba(94,234,212,0.05) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(90deg, rgba(94,234,212,0.05) 0 1px, transparent 1px 26px),
+      rgba(94,234,212,0.06);
+    border-color:rgba(120,240,220,0.45);
+  }
+  .face.f-bottom{ background:linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.28)); border-color:rgba(94,234,212,0.18); }
+  .face.f-back{ background:rgba(18,32,30,0.55); border-color:rgba(94,234,212,0.15); }
+  .face.solid{
+    background:linear-gradient(100deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 30%, rgba(0,0,0,0.25) 100%), #22262a;
+    border:1px solid rgba(255,255,255,0.18);
+    box-shadow: inset 0 0 22px rgba(0,0,0,0.55);
+  }
+  .piston{
+    position:absolute; top:0; left:0;
+    background:
+      linear-gradient(100deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 12%, transparent 30%),
+      repeating-linear-gradient(45deg, rgba(232,163,61,0.30) 0 6px, rgba(180,120,30,0.22) 6px 12px),
+      linear-gradient(rgba(232,163,61,0.35), rgba(180,110,25,0.4));
+    border:2px solid var(--accent);
+    box-shadow:0 0 14px rgba(232,163,61,0.45), inset 0 0 16px rgba(0,0,0,0.35);
+    transition: transform 0.4s cubic-bezier(.3,.9,.3,1);
+  }
+  .particle{ position:absolute; top:0; left:0; border-radius:50%; will-change:transform; }
+  .hint{ color:var(--ink-dim); font-size:0.7rem; letter-spacing:0.05em; margin-top:4px; }
+  .ground-shadow{
+    position:absolute; left:50%; width:260px; height:46px;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.28) 45%, transparent 75%);
+    filter:blur(2px); pointer-events:none;
+  }
+  .clip-note{
+    text-align:center;
+    color:var(--danger);
+    font-size:0.68rem;
+    min-height:1.2em;
+    margin-top:2px;
+  }
+
+  /* ---- state summary ---- */
+  .state-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+  }
+  @media (min-width:560px){ .state-grid{ grid-template-columns:repeat(4,1fr); } }
+  .state-cell{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    text-align:center;
+    position:relative;
+  }
+  .state-cell .lbl-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .state-cell .lbl{ color:var(--ink-dim); font-size:0.66rem; letter-spacing:0.1em; text-transform:uppercase; }
+  .state-cell .val{ font-size:1.25rem; font-weight:700; color:var(--accent); margin-top:2px; }
+  .state-cell .unit{ font-size:0.68rem; color:var(--ink-dim); }
+  .lockbadge{
+    font-size:0.6rem; color:var(--lock);
+    letter-spacing:0.02em;
+    white-space:nowrap;
+  }
+  .formula-line{
+    text-align:center;
+    color:var(--accent2);
+    font-size:0.78rem;
+    margin-top:10px;
+  }
+
+  /* ---- controls ---- */
+  .controls{ display:grid; grid-template-columns:1fr; gap:12px; }
+  @media (min-width:560px){ .controls{ grid-template-columns:repeat(4,1fr); } }
+  .control-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 12px 14px;
+    transition:opacity 0.2s;
+  }
+  .control-card.locked{ opacity:0.55; }
+  .cg-label{ display:flex; justify-content:space-between; align-items:center; font-family:var(--font-serif); font-size:0.9rem; margin-bottom:2px; }
+  .cg-step{ display:block; color:var(--ink-dim); font-size:0.66rem; margin-bottom:8px; }
+  .cg-row{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .cg-row .cg-value{ flex:1; text-align:center; font-size:0.98rem; font-weight:600; }
+  .step-btn{
+    width:40px; height:40px; border-radius:8px;
+    border:1px solid var(--border); background:#22262a; color:var(--ink);
+    font-size:1.2rem; line-height:1; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+    transition:background 0.15s, transform 0.1s;
+  }
+  .step-btn:active{ transform:scale(0.92); }
+  .step-btn:not(:disabled):hover{ background:#2a2f34; }
+  .step-btn:disabled{ opacity:0.28; cursor:not-allowed; }
+  .step-btn.dec{ color:var(--danger); }
+  .step-btn.inc{ color:var(--accent2); }
+
+  /* ---- record row ---- */
+  .record-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .btn{
+    background:#22262a; color:var(--ink); border:1px solid var(--border);
+    border-radius:8px; padding:10px 16px; font-family:var(--font-mono); font-size:0.85rem;
+    cursor:pointer; transition:background 0.15s;
+  }
+  .btn:hover:not(:disabled){ background:#2a2f34; }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn.primary{ border-color:var(--accent2); color:var(--accent2); }
+  .btn.warn{ border-color:var(--danger); color:var(--danger); }
+  .record-status{ color:var(--ink-dim); font-size:0.76rem; }
+
+  /* ---- table ---- */
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; }
+  table{ width:100%; border-collapse:collapse; font-size:0.8rem; min-width:520px; }
+  th,td{ padding:8px 10px; text-align:center; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th{ background:var(--card2); color:var(--ink-dim); font-weight:600; font-size:0.7rem; letter-spacing:0.04em; text-transform:uppercase; }
+  tr:last-child td{ border-bottom:none; }
+  td.rowdel{ cursor:pointer; color:var(--danger); }
+  .table-controls{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px; }
+  .table-controls .field{ display:flex; align-items:center; gap:6px; }
+  .table-controls label{ font-size:0.72rem; color:var(--ink-dim); white-space:nowrap; }
+  .table-controls select{ width:auto; min-width:140px; }
+  .empty-row td{ color:var(--ink-dim); font-style:italic; }
+
+  /* ---- graph ---- */
+  .graph-controls{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px; }
+  .graph-controls .field{ display:flex; align-items:center; gap:6px; }
+  .graph-controls label{ font-size:0.72rem; color:var(--ink-dim); }
+  .graph-controls select{ width:auto; min-width:110px; }
+  .chart-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px; }
+  svg.chart{ width:100%; height:auto; display:block; }
+  .fit-readout{
+    min-height:1.4em;
+    color:var(--accent2);
+    font-size:0.8rem;
+    margin-bottom:8px;
+  }
+  .btn.active{ background:#243430; border-color:var(--accent2); color:var(--accent2); }
+
+  .export-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+
+  footer{
+    margin-top:26px; color:var(--ink-dim); font-size:0.66rem; line-height:1.6;
+    border-top:1px dashed var(--border); padding-top:10px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>General Gas Properties Simulator</h1>
+    <div class="sub">ideal &amp; van der Waals gases &middot; expandable piston container</div>
+  </header>
+
+  <section class="config-row">
+    <div class="config-card">
+      <label for="gasSelect">Gas</label>
+      <select id="gasSelect">
+        <option value="ideal">Ideal gas (no corrections)</option>
+        <option value="H2">H₂ — hydrogen</option>
+        <option value="N2">N₂ — nitrogen</option>
+        <option value="O2">O₂ — oxygen</option>
+        <option value="F2">F₂ — fluorine</option>
+        <option value="Ne">Ne — neon</option>
+        <option value="Ar">Ar — argon</option>
+        <option value="CO">CO — carbon monoxide</option>
+        <option value="CO2">CO₂ — carbon dioxide</option>
+        <option value="X">X — custom van der Waals gas</option>
+      </select>
+      <div class="custom-ab" id="customAB">
+        <div class="field">
+          <label for="customA">a (L²·bar·mol⁻²)</label>
+          <input type="number" id="customA" value="1.0" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label for="customB">b (L·mol⁻¹)</label>
+          <input type="number" id="customB" value="0.03" step="0.001" min="0">
+        </div>
+      </div>
+      <div class="gas-constants" id="gasConstants"></div>
+    </div>
+    <div class="config-card">
+      <label for="modeSelect">Hold constant</label>
+      <select id="modeSelect">
+        <option value="nT">n &amp; T constant — Boyle's Law (P ↔ V)</option>
+        <option value="nP">n &amp; P constant — Charles's Law (V ↔ T)</option>
+        <option value="nV">n &amp; V constant — Gay-Lussac's Law (P ↔ T)</option>
+        <option value="VT">V &amp; T constant (P ↔ n)</option>
+        <option value="VP">V &amp; P constant (T ↔ n)</option>
+        <option value="PT">P &amp; T constant — Avogadro's Law (V ↔ n)</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="scene-outer" id="sceneOuter">
+    <div class="scene-wrap" id="sceneWrap">
+      <div class="ground-shadow" id="groundShadow"></div>
+      <div class="rotator" id="rotator">
+        <div id="shellHost"></div>
+        <div class="piston" id="piston"></div>
+        <div id="particleHost"></div>
+      </div>
+    </div>
+    <div class="hint">drag / swipe the box to rotate it</div>
+    <div class="clip-note" id="clipNote"></div>
+  </section>
+
+  <section>
+    <div class="state-grid">
+      <div class="state-cell" id="cellV">
+        <div class="lbl-row"><span class="lbl">Volume</span><span class="lockbadge" id="lockV"></span></div>
+        <div class="val" id="dispV">50.00</div>
+        <div class="unit">mL</div>
+      </div>
+      <div class="state-cell" id="cellT">
+        <div class="lbl-row"><span class="lbl">Temperature</span><span class="lockbadge" id="lockT"></span></div>
+        <div class="val" id="dispT">300.00</div>
+        <div class="unit">K</div>
+      </div>
+      <div class="state-cell" id="cellP">
+        <div class="lbl-row"><span class="lbl">Pressure</span><span class="lockbadge" id="lockP"></span></div>
+        <div class="val" id="dispP">100.00</div>
+        <div class="unit">kPa</div>
+      </div>
+      <div class="state-cell" id="cellN">
+        <div class="lbl-row"><span class="lbl">Moles</span><span class="lockbadge" id="lockN"></span></div>
+        <div class="val" id="dispN">2.005</div>
+        <div class="unit">mmol</div>
+      </div>
+    </div>
+    <div class="formula-line" id="formulaLine"></div>
+  </section>
+
+  <section>
+    <div class="controls">
+      <div class="control-card" id="cardV">
+        <div class="cg-label">Volume</div>
+        <span class="cg-step">± 5 mL &middot; 10–200</span>
+        <div class="cg-row">
+          <button class="step-btn dec" id="vDown">&minus;</button>
+          <span class="cg-value" id="vDisp">50 mL</span>
+          <button class="step-btn inc" id="vUp">+</button>
+        </div>
+      </div>
+      <div class="control-card" id="cardT">
+        <div class="cg-label">Temperature</div>
+        <span class="cg-step">± 5 K &middot; 100–700</span>
+        <div class="cg-row">
+          <button class="step-btn dec" id="tDown">&minus;</button>
+          <span class="cg-value" id="tDisp">300 K</span>
+          <button class="step-btn inc" id="tUp">+</button>
+        </div>
+      </div>
+      <div class="control-card" id="cardP">
+        <div class="cg-label">Pressure</div>
+        <span class="cg-step">± 10 kPa &middot; 10–1000</span>
+        <div class="cg-row">
+          <button class="step-btn dec" id="pDown">&minus;</button>
+          <span class="cg-value" id="pDisp">100 kPa</span>
+          <button class="step-btn inc" id="pUp">+</button>
+        </div>
+      </div>
+      <div class="control-card" id="cardN">
+        <div class="cg-label">Moles</div>
+        <span class="cg-step">± 0.5 mmol &middot; free range</span>
+        <div class="cg-row">
+          <button class="step-btn dec" id="nDown">&minus;</button>
+          <span class="cg-value" id="nDisp">2.005 mmol</span>
+          <button class="step-btn inc" id="nUp">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="config-card">
+      <label for="userNameInput">Name / title <span class="hint-small">(used on exported CSV &amp; graph)</span></label>
+      <input type="text" id="userNameInput" placeholder="e.g. Jordan Lee — Section 3">
+    </div>
+  </section>
+
+  <section class="record-row">
+    <button class="btn primary" id="recordBtn">● Record data point</button>
+    <button class="btn" id="resetBtn">↺ Reset to defaults</button>
+    <span class="record-status" id="recordStatus">0 / 10 points recorded</span>
+  </section>
+
+  <section>
+    <h2 class="section-title">Data table <span class="hint-small">up to 10 points</span></h2>
+    <div class="table-controls">
+      <div class="field">
+        <label for="inverseSelect">Add inverse column</label>
+        <select id="inverseSelect">
+          <option value="none">None</option>
+          <option value="V">1 / Volume</option>
+          <option value="T">1 / Temperature</option>
+          <option value="P">1 / Pressure</option>
+          <option value="n">1 / Moles</option>
+        </select>
+      </div>
+      <button class="btn" id="clearTableBtn">Clear table</button>
+      <button class="btn" id="exportCsvBtn">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead><tr id="tableHeadRow"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Graph</h2>
+    <div class="graph-controls">
+      <div class="field">
+        <label for="xAxisSelect">X axis</label>
+        <select id="xAxisSelect"></select>
+      </div>
+      <div class="field">
+        <label for="yAxisSelect">Y axis</label>
+        <select id="yAxisSelect"></select>
+      </div>
+      <button class="btn" id="swapAxesBtn">⇄ Swap axes</button>
+      <button class="btn" id="fitLineBtn">Show linear fit</button>
+    </div>
+    <div class="fit-readout" id="fitReadout"></div>
+    <div class="chart-card">
+      <svg class="chart" id="chartSvg" viewBox="0 0 640 380" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="export-row">
+      <button class="btn" id="exportPngBtn">Export graph as PNG</button>
+    </div>
+  </section>
+
+  <footer>
+    Ideal gas: PV = nRT. Real gas: van der Waals (P + a·n²/V²)(V − n·b) = nRT, solved numerically where needed.
+    R = 8.314 L·kPa·mol⁻¹·K⁻¹. Van der Waals constants are literature values converted to kPa·L²·mol⁻² and L·mol⁻¹.
+    The container visual is capped at 10–200 mL — values computed outside this range are still shown numerically but the
+    piston is drawn pinned at its physical limit. Near a gas's critical point the van der Waals equation can have more
+    than one mathematical solution for volume or moles; the solver returns one physically reasonable root and may not
+    reflect phase-transition behavior. Particle count and speed are illustrative, not literal molecule counts or velocities.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // physics
+  // ============================================================
+  const R = 8.314; // kPa*L/(mol*K) == kPa*mL/(mmol*K) via unit cancellation
+
+  const GASES = {
+    ideal: {a:0, b:0, label:'Ideal gas'},
+    H2:  {a:24.76,  b:0.02661, label:'H₂'},
+    N2:  {a:140.84, b:0.03913, label:'N₂'},
+    O2:  {a:137.80, b:0.03183, label:'O₂'},
+    F2:  {a:118.70, b:0.02900, label:'F₂'},
+    Ne:  {a:21.63,  b:0.01709, label:'Ne'},
+    Ar:  {a:136.28, b:0.03219, label:'Ar'},
+    CO:  {a:150.50, b:0.03985, label:'CO'},
+    CO2: {a:364.00, b:0.04267, label:'CO₂'}
+  };
+
+  const idealP = (V,T,n) => n*R*T/V;
+  const idealT = (P,V,n) => P*V/(n*R);
+  const idealV = (P,T,n) => n*R*T/P;
+  const idealN = (P,V,T) => P*V/(R*T);
+
+  const vdwP = (V,T,n,a,b) => (n*R*T)/(V-n*b) - a*n*n/(V*V);
+  const vdwT = (P,V,n,a,b) => ((P + a*n*n/(V*V))*(V-n*b))/(n*R);
+
+  function bisect(f, lo, hi, iters){
+    iters = iters || 100;
+    let flo=f(lo), fhi=f(hi);
+    if(!isFinite(flo)||!isFinite(fhi)) return NaN;
+    if(flo===0) return lo;
+    if(fhi===0) return hi;
+    if((flo>0)===(fhi>0)) return NaN;
+    for(let i=0;i<iters;i++){
+      const mid=(lo+hi)/2;
+      const fm=f(mid);
+      if(!isFinite(fm)){ hi=mid; continue; }
+      if((fm>0)===(flo>0)){ lo=mid; flo=fm; } else { hi=mid; }
+    }
+    return (lo+hi)/2;
+  }
+
+  function vdwV(P,T,n,a,b){
+    if(a===0 && b===0) return idealV(P,T,n);
+    const lo = n*b*1.0000001 + 1e-9;
+    const hi = Math.max(lo*10, idealV(P,T,n)*50, 1e7);
+    const out = bisect(V => vdwP(V,T,n,a,b) - P, lo, hi);
+    return isFinite(out) ? out : idealV(P,T,n);
+  }
+  function vdwN(P,V,T,a,b){
+    if(a===0 && b===0) return idealN(P,V,T);
+    const hi = (V/b)*0.999999;
+    const lo = 1e-9;
+    const out = bisect(n => vdwP(V,T,n,a,b) - P, lo, hi);
+    return isFinite(out) ? out : idealN(P,V,T);
+  }
+
+  function currentAB(){
+    if(state.gas==='X') return {a: state.customA*100, b: state.customB}; // bar*L^2/mol^2 -> kPa*L^2/mol^2
+    return GASES[state.gas];
+  }
+  function solveP(V,T,n){ const {a,b}=currentAB(); return (a===0&&b===0) ? idealP(V,T,n) : vdwP(V,T,n,a,b); }
+  function solveV(P,T,n){ const {a,b}=currentAB(); return (a===0&&b===0) ? idealV(P,T,n) : vdwV(P,T,n,a,b); }
+  function solveT(P,V,n){ const {a,b}=currentAB(); return (a===0&&b===0) ? idealT(P,V,n) : vdwT(P,V,n,a,b); }
+  function solveN(P,V,T){ const {a,b}=currentAB(); return (a===0&&b===0) ? idealN(P,V,T) : vdwN(P,V,T,a,b); }
+
+  // ============================================================
+  // state
+  // ============================================================
+  const LIMITS = {
+    V: {min:10,  max:200,  step:5},
+    T: {min:100, max:700,  step:5},
+    P: {min:10,  max:1000, step:10},
+    n: {min:0.001, max:100000, step:0.5}
+  };
+
+  const DEFAULTS = { gas:'ideal', mode:'nT', V:50, T:300, P:100 };
+
+  const MODES = {
+    nT: {constants:['n','T'], active:['P','V'], label:"Boyle's Law"},
+    nP: {constants:['n','P'], active:['T','V'], label:"Charles's Law"},
+    nV: {constants:['n','V'], active:['T','P'], label:"Gay-Lussac's Law"},
+    VT: {constants:['V','T'], active:['P','n'], label:""},
+    VP: {constants:['V','P'], active:['T','n'], label:""},
+    PT: {constants:['P','T'], active:['V','n'], label:"Avogadro's Law"}
+  };
+
+  const state = {
+    gas:'ideal',
+    customA: 1.0,
+    customB: 0.03,
+    mode:'nT',
+    V:DEFAULTS.V, T:DEFAULTS.T, P:DEFAULTS.P, n:0
+  };
+  state.n = idealN(state.P, state.V, state.T);
+
+  function clamp(v,lo,hi){ return Math.min(hi, Math.max(lo, v)); }
+  function round2(v){ return Math.round(v*100)/100; }
+  function round3(v){ return Math.round(v*1000)/1000; }
+
+  function recomputeOther(changedKey){
+    const {active} = MODES[state.mode];
+    const other = active[0]===changedKey ? active[1] : active[0];
+    let val;
+    switch(other){
+      case 'P': val = solveP(state.V, state.T, state.n); break;
+      case 'V': val = solveV(state.P, state.T, state.n); break;
+      case 'T': val = solveT(state.P, state.V, state.n); break;
+      case 'n': val = solveN(state.P, state.V, state.T); break;
+    }
+    if(isFinite(val) && val>0){
+      state[other] = val;
+    }
+  }
+
+  function enforceConsistency(){
+    const {active} = MODES[state.mode];
+    recomputeOther(active[0]);
+  }
+
+  // ============================================================
+  // 3D box + particles (container visual capped at LIMITS.V range)
+  // ============================================================
+  const HALF_W = 130, HALF_H = 75, HALF_D = 75;
+  const shellHost = document.getElementById('shellHost');
+  function makeFace(w,h,transform,extraClass){
+    const el = document.createElement('div');
+    el.className = 'face' + (extraClass ? ' '+extraClass : '');
+    el.style.width = w+'px'; el.style.height = h+'px';
+    el.style.marginLeft = (-w/2)+'px'; el.style.marginTop = (-h/2)+'px';
+    el.style.transform = transform;
+    return el;
+  }
+  const Wfull=HALF_W*2, Hfull=HALF_H*2, Dfull=HALF_D*2;
+  shellHost.appendChild(makeFace(Wfull, Hfull, `translateZ(${HALF_D}px)`, 'f-front'));
+  shellHost.appendChild(makeFace(Wfull, Hfull, `translateZ(${-HALF_D}px) rotateY(180deg)`, 'f-back'));
+  shellHost.appendChild(makeFace(Dfull, Hfull, `rotateY(-90deg) translateZ(${HALF_W}px)`, 'solid'));
+  shellHost.appendChild(makeFace(Wfull, Dfull, `rotateX(90deg) translateZ(${HALF_H}px)`, 'f-top'));
+  shellHost.appendChild(makeFace(Wfull, Dfull, `rotateX(-90deg) translateZ(${HALF_H}px)`, 'f-bottom'));
+
+  const piston = document.getElementById('piston');
+  piston.style.width = Dfull+'px'; piston.style.height = Hfull+'px';
+  piston.style.marginLeft = (-Dfull/2)+'px'; piston.style.marginTop = (-Hfull/2)+'px';
+  const clipNote = document.getElementById('clipNote');
+
+  function renderVolumeForPiston(){
+    const Vclamped = clamp(state.V, LIMITS.V.min, LIMITS.V.max);
+    const x = pistonWorldX(Vclamped);
+    piston.style.transform = `rotateY(90deg) translateZ(${x}px)`;
+    if(state.V > LIMITS.V.max + 1e-6){
+      clipNote.textContent = `Volume (${round2(state.V)} mL) exceeds the container's visual limit — piston shown fully open.`;
+    } else if(state.V < LIMITS.V.min - 1e-6){
+      clipNote.textContent = `Volume (${round2(state.V)} mL) is below the container's visual limit — piston shown fully closed.`;
+    } else {
+      clipNote.textContent = '';
+    }
+  }
+  function pistonWorldX(V_mL){
+    const w = (V_mL / LIMITS.V.max) * (HALF_W*2);
+    return -HALF_W + w;
+  }
+
+  const rotator = document.getElementById('rotator');
+  const sceneWrap = document.getElementById('sceneWrap');
+  let rotX=-24, rotY=-34, dragging=false, lastX=0, lastY=0;
+  function applyRotation(){ rotator.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`; }
+  applyRotation();
+  function pointerDown(x,y){ dragging=true; lastX=x; lastY=y; rotator.classList.add('grabbing'); }
+  function pointerMove(x,y){
+    if(!dragging) return;
+    const dx=x-lastX, dy=y-lastY; lastX=x; lastY=y;
+    rotY += dx*0.4; rotX = clamp(rotX - dy*0.4, -70, 20);
+    applyRotation();
+  }
+  function pointerUp(){ dragging=false; rotator.classList.remove('grabbing'); }
+  sceneWrap.addEventListener('pointerdown', e=>{ pointerDown(e.clientX,e.clientY); sceneWrap.setPointerCapture(e.pointerId); });
+  sceneWrap.addEventListener('pointermove', e=> pointerMove(e.clientX,e.clientY));
+  sceneWrap.addEventListener('pointerup', pointerUp);
+  sceneWrap.addEventListener('pointercancel', pointerUp);
+
+  const sceneOuter = document.getElementById('sceneOuter');
+  const BASE_W=420, BASE_H=340;
+  sceneWrap.style.width=BASE_W+'px'; sceneWrap.style.height=BASE_H+'px';
+  sceneWrap.style.position='relative';
+  rotator.style.position='absolute'; rotator.style.left='50%'; rotator.style.top='52%';
+  function resizeScene(){
+    const avail = sceneOuter.clientWidth;
+    const factor = Math.min(1, avail/BASE_W);
+    sceneWrap.style.transform = `scale(${factor})`;
+    sceneWrap.style.transformOrigin = 'top center';
+    sceneOuter.style.height = (BASE_H*factor)+'px';
+  }
+  window.addEventListener('resize', resizeScene);
+  resizeScene();
+  const groundShadow = document.getElementById('groundShadow');
+  groundShadow.style.top = (BASE_H*0.52 + HALF_H + 34)+'px';
+  groundShadow.style.transform = 'translateX(-50%)';
+
+  const particleHost = document.getElementById('particleHost');
+  const PARTICLE_R = 4;
+  let particles = [];
+  function randRange(lo,hi){ return lo + Math.random()*(hi-lo); }
+  function speedScaleFor(T){ return 42 * Math.sqrt(T/300); }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function heatT(){ return clamp((state.T - LIMITS.T.min)/(LIMITS.T.max - LIMITS.T.min), 0, 1); }
+  function particleColors(){
+    const t = heatT();
+    const mid = [Math.round(lerp(196,255,t)), Math.round(lerp(120,240,t)), Math.round(lerp(40,140,t))];
+    const outer = [Math.round(lerp(90,214,t)), Math.round(lerp(55,120,t)), Math.round(lerp(15,30,t))];
+    const glowAlpha = lerp(0.35,0.85,t);
+    return {
+      bg: `radial-gradient(circle at 32% 28%, #fff7e0 0%, rgb(${mid.join(',')}) 45%, rgb(${outer.join(',')}) 100%)`,
+      glow: `rgba(255,${Math.round(lerp(163,220,t))},${Math.round(lerp(61,120,t))},${glowAlpha})`
+    };
+  }
+  function applyParticleColors(){ const c=particleColors(); particles.forEach(p=>{ p.el.style.background=c.bg; }); }
+
+  function bounds(){
+    const Vclamped = clamp(state.V, LIMITS.V.min, LIMITS.V.max);
+    const rightX = pistonWorldX(Vclamped);
+    return {
+      xmin:-HALF_W+PARTICLE_R, xmax: rightX-PARTICLE_R,
+      ymin:-HALF_H+PARTICLE_R, ymax: HALF_H-PARTICLE_R,
+      zmin:-HALF_D+PARTICLE_R, zmax: HALF_D-PARTICLE_R
+    };
+  }
+  function spawnParticle(){
+    const b = bounds();
+    const speed = speedScaleFor(state.T);
+    const theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
+    const p = {
+      x: randRange(b.xmin, Math.max(b.xmin+1,b.xmax)),
+      y: randRange(b.ymin,b.ymax), z: randRange(b.zmin,b.zmax),
+      vx: speed*Math.sin(phi)*Math.cos(theta), vy: speed*Math.sin(phi)*Math.sin(theta), vz: speed*Math.cos(phi),
+      el: document.createElement('div')
+    };
+    p.el.className='particle';
+    p.el.style.width=(PARTICLE_R*2)+'px'; p.el.style.height=(PARTICLE_R*2)+'px';
+    p.el.style.marginLeft=(-PARTICLE_R)+'px'; p.el.style.marginTop=(-PARTICLE_R)+'px';
+    p.el.style.background = particleColors().bg;
+    particleHost.appendChild(p.el);
+    particles.push(p);
+    return p;
+  }
+  function targetCount(){ return Math.round(clamp(state.n*9, 12, 90)); }
+  function adjustParticleCount(){
+    const target=targetCount();
+    while(particles.length<target) spawnParticle();
+    while(particles.length>target){ const p=particles.pop(); p.el.remove(); }
+  }
+  function rescaleSpeeds(oldT,newT){
+    if(oldT<=0) return;
+    const ratio=Math.sqrt(newT/oldT);
+    particles.forEach(p=>{ p.vx*=ratio; p.vy*=ratio; p.vz*=ratio; });
+  }
+  function clampParticlesToBounds(){
+    const b=bounds();
+    particles.forEach(p=>{
+      if(p.x>b.xmax){ p.x=b.xmax; p.vx=-Math.abs(p.vx); }
+      if(p.x<b.xmin){ p.x=b.xmin; p.vx=Math.abs(p.vx); }
+      if(p.y>b.ymax){ p.y=b.ymax; p.vy=-Math.abs(p.vy); }
+      if(p.y<b.ymin){ p.y=b.ymin; p.vy=Math.abs(p.vy); }
+      if(p.z>b.zmax){ p.z=b.zmax; p.vz=-Math.abs(p.vz); }
+      if(p.z<b.zmin){ p.z=b.zmin; p.vz=Math.abs(p.vz); }
+    });
+  }
+  for(let i=0;i<targetCount();i++) spawnParticle();
+
+  let lastFrameT = performance.now();
+  const SPEED_MIN = speedScaleFor(LIMITS.T.min), SPEED_MAX = speedScaleFor(LIMITS.T.max);
+  function frame(now){
+    let dt=(now-lastFrameT)/1000; lastFrameT=now; dt=Math.min(dt,0.05);
+    const b=bounds();
+    const glow = particleColors().glow;
+    for(const p of particles){
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt;
+      if(p.x>b.xmax){ p.x=b.xmax; p.vx=-Math.abs(p.vx); } else if(p.x<b.xmin){ p.x=b.xmin; p.vx=Math.abs(p.vx); }
+      if(p.y>b.ymax){ p.y=b.ymax; p.vy=-Math.abs(p.vy); } else if(p.y<b.ymin){ p.y=b.ymin; p.vy=Math.abs(p.vy); }
+      if(p.z>b.zmax){ p.z=b.zmax; p.vz=-Math.abs(p.vz); } else if(p.z<b.zmin){ p.z=b.zmin; p.vz=Math.abs(p.vz); }
+      const speed=Math.sqrt(p.vx*p.vx+p.vy*p.vy+p.vz*p.vz);
+      const speedT=clamp((speed-SPEED_MIN)/Math.max(1,(SPEED_MAX-SPEED_MIN)),0,1);
+      const halo=lerp(3,11,speedT);
+      p.el.style.boxShadow = `0 0 ${halo.toFixed(1)}px ${glow}`;
+      p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, ${p.z}px) rotateY(${-rotY}deg) rotateX(${-rotX}deg)`;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ============================================================
+  // UI: gas + mode selectors
+  // ============================================================
+  const gasSelect = document.getElementById('gasSelect');
+  const modeSelect = document.getElementById('modeSelect');
+  const customAB = document.getElementById('customAB');
+  const customA = document.getElementById('customA');
+  const customB = document.getElementById('customB');
+  const gasConstants = document.getElementById('gasConstants');
+
+  function updateGasConstantsDisplay(){
+    if(state.gas==='ideal'){
+      gasConstants.innerHTML = `<span class="na">Ideal gas — no van der Waals correction (a = 0, b = 0)</span>`;
+      return;
+    }
+    const {a,b} = currentAB(); // a in kPa*L^2/mol^2, b in L/mol
+    const aBar = a/100;
+    gasConstants.innerHTML =
+      `van der Waals constants: a = ${aBar.toPrecision(4)} L²·bar·mol⁻² (${a.toPrecision(4)} kPa·L²·mol⁻²), `+
+      `b = ${b.toPrecision(4)} L·mol⁻¹`;
+  }
+
+  gasSelect.addEventListener('change', ()=>{
+    state.gas = gasSelect.value;
+    customAB.classList.toggle('show', state.gas==='X');
+    const oldT = state.T;
+    enforceConsistency();
+    applyParticleColors();
+    refreshAll();
+    updateGasConstantsDisplay();
+  });
+  customA.addEventListener('input', ()=>{ state.customA = parseFloat(customA.value)||0; enforceConsistency(); refreshAll(); updateGasConstantsDisplay(); });
+  customB.addEventListener('input', ()=>{ state.customB = parseFloat(customB.value)||0; enforceConsistency(); refreshAll(); updateGasConstantsDisplay(); });
+  modeSelect.addEventListener('change', ()=>{ state.mode = modeSelect.value; refreshAll(); syncAxisDefaults(); });
+
+  // ============================================================
+  // UI: controls
+  // ============================================================
+  const dispV=document.getElementById('dispV'), dispT=document.getElementById('dispT'),
+        dispP=document.getElementById('dispP'), dispN=document.getElementById('dispN');
+  const lockV=document.getElementById('lockV'), lockT=document.getElementById('lockT'),
+        lockP=document.getElementById('lockP'), lockN=document.getElementById('lockN');
+  const cardV=document.getElementById('cardV'), cardT=document.getElementById('cardT'),
+        cardP=document.getElementById('cardP'), cardN=document.getElementById('cardN');
+  const vDisp=document.getElementById('vDisp'), tDisp=document.getElementById('tDisp'),
+        pDisp=document.getElementById('pDisp'), nDisp=document.getElementById('nDisp');
+  const vDown=document.getElementById('vDown'), vUp=document.getElementById('vUp');
+  const tDown=document.getElementById('tDown'), tUp=document.getElementById('tUp');
+  const pDown=document.getElementById('pDown'), pUp=document.getElementById('pUp');
+  const nDown=document.getElementById('nDown'), nUp=document.getElementById('nUp');
+  const formulaLine = document.getElementById('formulaLine');
+
+  function fmt(v, dp){
+    if(!isFinite(v)) return '—';
+    return (Math.round(v*Math.pow(10,dp))/Math.pow(10,dp)).toString();
+  }
+
+  function updateDisplay(){
+    dispV.textContent = fmt(state.V,2);
+    dispT.textContent = fmt(state.T,2);
+    dispP.textContent = fmt(state.P,2);
+    dispN.textContent = fmt(state.n,3);
+    vDisp.textContent = fmt(state.V,2)+' mL';
+    tDisp.textContent = fmt(state.T,2)+' K';
+    pDisp.textContent = fmt(state.P,2)+' kPa';
+    nDisp.textContent = fmt(state.n,3)+' mmol';
+
+    const {constants} = MODES[state.mode];
+    const isConst = k => constants.includes(k);
+    lockV.textContent = isConst('V') ? '🔒 const' : '';
+    lockT.textContent = isConst('T') ? '🔒 const' : '';
+    lockP.textContent = isConst('P') ? '🔒 const' : '';
+    lockN.textContent = isConst('n') ? '🔒 const' : '';
+    cardV.classList.toggle('locked', isConst('V'));
+    cardT.classList.toggle('locked', isConst('T'));
+    cardP.classList.toggle('locked', isConst('P'));
+    cardN.classList.toggle('locked', isConst('n'));
+
+    vDown.disabled = isConst('V') || state.V<=LIMITS.V.min;
+    vUp.disabled   = isConst('V') || state.V>=LIMITS.V.max;
+    tDown.disabled = isConst('T') || state.T<=LIMITS.T.min;
+    tUp.disabled   = isConst('T') || state.T>=LIMITS.T.max;
+    pDown.disabled = isConst('P') || state.P<=LIMITS.P.min;
+    pUp.disabled   = isConst('P') || state.P>=LIMITS.P.max;
+    nDown.disabled = isConst('n') || state.n<=LIMITS.n.min;
+    nUp.disabled   = isConst('n') || state.n>=LIMITS.n.max;
+
+    const eq = (state.gas==='ideal') ? 'PV = nRT' : '(P + a·n²/V²)(V − n·b) = nRT';
+    formulaLine.textContent = `${eq}   —   holding ${constants.join(' & ')} constant`;
+
+    renderVolumeForPiston();
+  }
+
+  function setVar(key, delta){
+    const oldT = state.T;
+    const lim = LIMITS[key];
+    state[key] = clamp(round2(state[key] + delta), lim.min, lim.max);
+    recomputeOther(key);
+    if(key==='T' || (MODES[state.mode].active.includes('T'))) rescaleSpeeds(oldT, state.T);
+    if(key==='n') adjustParticleCount();
+    applyParticleColors();
+    clampParticlesToBounds();
+    updateDisplay();
+  }
+
+  vDown.addEventListener('click', ()=> setVar('V', -LIMITS.V.step));
+  vUp.addEventListener('click',   ()=> setVar('V',  LIMITS.V.step));
+  tDown.addEventListener('click', ()=> setVar('T', -LIMITS.T.step));
+  tUp.addEventListener('click',   ()=> setVar('T',  LIMITS.T.step));
+  pDown.addEventListener('click', ()=> setVar('P', -LIMITS.P.step));
+  pUp.addEventListener('click',   ()=> setVar('P',  LIMITS.P.step));
+  nDown.addEventListener('click', ()=> setVar('n', -LIMITS.n.step));
+  nUp.addEventListener('click',   ()=> setVar('n',  LIMITS.n.step));
+
+  const resetBtn = document.getElementById('resetBtn');
+  resetBtn.addEventListener('click', ()=>{
+    const oldT = state.T;
+    state.V = DEFAULTS.V;
+    state.T = DEFAULTS.T;
+    state.P = DEFAULTS.P;
+    state.n = solveN(state.P, state.V, state.T);
+    rescaleSpeeds(oldT, state.T);
+    applyParticleColors();
+    adjustParticleCount();
+    clampParticlesToBounds();
+    updateDisplay();
+    clearTable();
+  });
+
+  function refreshAll(){
+    clampParticlesToBounds();
+    adjustParticleCount();
+    updateDisplay();
+  }
+
+  // ============================================================
+  // recording table
+  // ============================================================
+  const records = [];
+  const MAX_RECORDS = 10;
+  const recordBtn = document.getElementById('recordBtn');
+  const recordStatus = document.getElementById('recordStatus');
+  const inverseSelect = document.getElementById('inverseSelect');
+  const clearTableBtn = document.getElementById('clearTableBtn');
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const tableHeadRow = document.getElementById('tableHeadRow');
+  const tableBody = document.getElementById('tableBody');
+
+  const VARINFO = {
+    V:{label:'Volume', unit:'mL'}, T:{label:'Temperature', unit:'K'},
+    P:{label:'Pressure', unit:'kPa'}, n:{label:'Moles', unit:'mmol'}
+  };
+
+  function recordPoint(){
+    if(records.length >= MAX_RECORDS) return;
+    records.push({ gas: state.gas, mode: state.mode, V: state.V, T: state.T, P: state.P, n: state.n });
+    renderTable();
+    renderChart();
+  }
+  recordBtn.addEventListener('click', recordPoint);
+
+  function clearTable(){
+    records.length = 0;
+    renderTable();
+    renderChart();
+  }
+  clearTableBtn.addEventListener('click', clearTable);
+
+  function deleteRow(idx){
+    records.splice(idx,1);
+    renderTable();
+    renderChart();
+  }
+
+  function renderTable(){
+    recordBtn.disabled = records.length >= MAX_RECORDS;
+    recordStatus.textContent = `${records.length} / ${MAX_RECORDS} points recorded`;
+
+    const invKey = inverseSelect.value;
+    let headHtml = `<th>#</th><th>Gas</th><th>V (mL)</th><th>T (K)</th><th>P (kPa)</th><th>n (mmol)</th>`;
+    if(invKey!=='none'){
+      headHtml += `<th>1/${invKey} (1/${VARINFO[invKey].unit})</th>`;
+    }
+    headHtml += `<th></th>`;
+    tableHeadRow.innerHTML = headHtml;
+
+    if(records.length===0){
+      const cols = invKey!=='none' ? 8 : 7;
+      tableBody.innerHTML = `<tr class="empty-row"><td colspan="${cols}">No data points recorded yet.</td></tr>`;
+      return;
+    }
+    let rows = '';
+    records.forEach((r,i)=>{
+      const gasLabel = GASES[r.gas] ? GASES[r.gas].label : r.gas;
+      rows += `<tr>
+        <td>${i+1}</td>
+        <td>${gasLabel}</td>
+        <td>${fmt(r.V,2)}</td>
+        <td>${fmt(r.T,2)}</td>
+        <td>${fmt(r.P,2)}</td>
+        <td>${fmt(r.n,3)}</td>`;
+      if(invKey!=='none'){
+        const inv = r[invKey]!==0 ? 1/r[invKey] : NaN;
+        rows += `<td>${isFinite(inv) ? inv.toPrecision(5) : '—'}</td>`;
+      }
+      rows += `<td class="rowdel" data-idx="${i}">✕</td></tr>`;
+    });
+    tableBody.innerHTML = rows;
+    tableBody.querySelectorAll('.rowdel').forEach(td=>{
+      td.addEventListener('click', ()=> deleteRow(parseInt(td.dataset.idx,10)));
+    });
+  }
+  inverseSelect.addEventListener('change', renderTable);
+
+  const userNameInput = document.getElementById('userNameInput');
+  function csvField(v){
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }
+
+  function toCsv(){
+    const invKey = inverseSelect.value;
+    const lines = [];
+    const name = userNameInput.value.trim();
+    if(name){
+      lines.push(csvField(name));
+      lines.push('');
+    }
+    let header = ['#','Gas','V (mL)','T (K)','P (kPa)','n (mmol)'];
+    if(invKey!=='none') header.push(`1/${invKey} (1/${VARINFO[invKey].unit})`);
+    lines.push(header.join(','));
+    records.forEach((r,i)=>{
+      const gasLabel = GASES[r.gas] ? GASES[r.gas].label : r.gas;
+      let row = [i+1, gasLabel, round2(r.V), round2(r.T), round2(r.P), round3(r.n)];
+      if(invKey!=='none'){
+        const inv = r[invKey]!==0 ? 1/r[invKey] : '';
+        row.push(inv);
+      }
+      lines.push(row.join(','));
+    });
+    return lines.join('\n');
+  }
+  function downloadBlob(content, filename, mime){
+    const blob = new Blob([content], {type:mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }
+  exportCsvBtn.addEventListener('click', ()=>{
+    const name = userNameInput.value.trim();
+    const fname = name ? `gas-law-data-${sanitizeFilenamePart(name)}.csv` : 'gas-law-data.csv';
+    downloadBlob(toCsv(), fname, 'text/csv');
+  });
+
+  // ============================================================
+  // graph
+  // ============================================================
+  const xAxisSelect = document.getElementById('xAxisSelect');
+  const yAxisSelect = document.getElementById('yAxisSelect');
+  const swapAxesBtn = document.getElementById('swapAxesBtn');
+  const fitLineBtn = document.getElementById('fitLineBtn');
+  const fitReadout = document.getElementById('fitReadout');
+  const chartSvg = document.getElementById('chartSvg');
+  const exportPngBtn = document.getElementById('exportPngBtn');
+
+  let showFit = false;
+  fitLineBtn.addEventListener('click', ()=>{
+    showFit = !showFit;
+    fitLineBtn.textContent = showFit ? 'Hide linear fit' : 'Show linear fit';
+    fitLineBtn.classList.toggle('active', showFit);
+    renderChart();
+  });
+
+  function linearFit(pts){
+    const n = pts.length;
+    if(n<2) return null;
+    let sx=0, sy=0, sxx=0, sxy=0, syy=0;
+    pts.forEach(p=>{ sx+=p.x; sy+=p.y; sxx+=p.x*p.x; sxy+=p.x*p.y; syy+=p.y*p.y; });
+    const denom = n*sxx - sx*sx;
+    if(denom===0) return null;
+    const m = (n*sxy - sx*sy)/denom;
+    const b = (sy - m*sx)/n;
+    const meanY = sy/n;
+    let ssTot=0, ssRes=0;
+    pts.forEach(p=>{
+      const pred = m*p.x + b;
+      ssRes += (p.y-pred)*(p.y-pred);
+      ssTot += (p.y-meanY)*(p.y-meanY);
+    });
+    const r2 = ssTot===0 ? 1 : 1 - ssRes/ssTot;
+    return {m,b,r2};
+  }
+
+  const AXIS_OPTIONS = ['V','T','P','n','1/V','1/T','1/P','1/n'];
+  function axisOptionLabel(key){
+    if(key.startsWith('1/')){
+      const base = key.slice(2);
+      return `1/${VARINFO[base].label} (1/${VARINFO[base].unit})`;
+    }
+    return `${VARINFO[key].label} (${VARINFO[key].unit})`;
+  }
+  AXIS_OPTIONS.forEach(k=>{
+    const o1 = document.createElement('option'); o1.value=k; o1.textContent=axisOptionLabel(k);
+    xAxisSelect.appendChild(o1);
+    const o2 = document.createElement('option'); o2.value=k; o2.textContent=axisOptionLabel(k);
+    yAxisSelect.appendChild(o2);
+  });
+  xAxisSelect.value='V'; yAxisSelect.value='P';
+
+  function syncAxisDefaults(){
+    const {active} = MODES[state.mode];
+    // put the "input-like" active var on X and the "output" on Y, best-effort mapping
+    const order = { V:0, n:1, P:2, T:3 };
+    let a0=active[0], a1=active[1];
+    if(order[a0] > order[a1]){ const tmp=a0; a0=a1; a1=tmp; }
+    xAxisSelect.value = a0;
+    yAxisSelect.value = a1;
+    renderChart();
+  }
+  xAxisSelect.addEventListener('change', renderChart);
+  yAxisSelect.addEventListener('change', renderChart);
+  swapAxesBtn.addEventListener('click', ()=>{
+    const x=xAxisSelect.value, y=yAxisSelect.value;
+    xAxisSelect.value=y; yAxisSelect.value=x;
+    renderChart();
+  });
+
+  function getVal(rec,key){
+    if(key.startsWith('1/')){
+      const base=key.slice(2);
+      return rec[base]!==0 ? 1/rec[base] : NaN;
+    }
+    return rec[key];
+  }
+
+  function naturalCubicSpline(xs, ys){
+    const n = xs.length;
+    if(n<2) return null;
+    const h = new Array(n-1);
+    for(let i=0;i<n-1;i++) h[i]=xs[i+1]-xs[i];
+    const alpha = new Array(n).fill(0);
+    for(let i=1;i<n-1;i++) alpha[i] = (3/h[i])*(ys[i+1]-ys[i]) - (3/h[i-1])*(ys[i]-ys[i-1]);
+    const l=new Array(n).fill(1), mu=new Array(n).fill(0), z=new Array(n).fill(0);
+    for(let i=1;i<n-1;i++){
+      l[i] = 2*(xs[i+1]-xs[i-1]) - h[i-1]*mu[i-1];
+      mu[i] = h[i]/l[i];
+      z[i] = (alpha[i]-h[i-1]*z[i-1])/l[i];
+    }
+    const c=new Array(n).fill(0), b=new Array(n).fill(0), d=new Array(n).fill(0);
+    for(let j=n-2;j>=0;j--){
+      c[j] = z[j]-mu[j]*c[j+1];
+      b[j] = (ys[j+1]-ys[j])/h[j] - h[j]*(c[j+1]+2*c[j])/3;
+      d[j] = (c[j+1]-c[j])/(3*h[j]);
+    }
+    return {xs,ys,b,c,d,n};
+  }
+  function evalSpline(spline,x){
+    const {xs,ys,b,c,d,n}=spline;
+    let i=0;
+    if(x<=xs[0]) i=0;
+    else if(x>=xs[n-1]) i=n-2;
+    else { for(i=0;i<n-1;i++){ if(x>=xs[i]&&x<=xs[i+1]) break; } }
+    const dx = x-xs[i];
+    return ys[i] + b[i]*dx + c[i]*dx*dx + d[i]*dx*dx*dx;
+  }
+
+  const CHART_W=640, CHART_H=380, MARGIN={l:64,r:20,t:20,b:50};
+
+  function escapeXml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  const THEME_DARK  = { bg:'#1d2124', grid:'#33393d', axisText:'#9aa0a6', labelText:'#e8e6df', curve:'#5eead4', fit:'#e8a33d', point:'#e8a33d', pointStroke:'#15181a', empty:'#9aa0a6' };
+  const THEME_LIGHT = { bg:'#ffffff', grid:'#dcdcdc', axisText:'#555555', labelText:'#1a1a1a', curve:'#0e9488', fit:'#c97a1f', point:'#d98a2b', pointStroke:'#ffffff', empty:'#777777' };
+
+  function buildChartSvgInner(colors){
+    const xKey = xAxisSelect.value, yKey = yAxisSelect.value;
+    const pts = records.map(r=>({x:getVal(r,xKey), y:getVal(r,yKey)})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+
+    const plotW = CHART_W - MARGIN.l - MARGIN.r;
+    const plotH = CHART_H - MARGIN.t - MARGIN.b;
+
+    if(pts.length===0){
+      return `<rect x="0" y="0" width="${CHART_W}" height="${CHART_H}" fill="${colors.bg}"/>`+
+        `<text x="${CHART_W/2}" y="${CHART_H/2}" fill="${colors.empty}" font-size="14" text-anchor="middle" font-family="monospace">Record at least 1 data point to see it plotted here.</text>`;
+    }
+
+    let xmin=Math.min(...pts.map(p=>p.x)), xmax=Math.max(...pts.map(p=>p.x));
+    let ymin=Math.min(...pts.map(p=>p.y)), ymax=Math.max(...pts.map(p=>p.y));
+    if(xmin===xmax){ xmin-=1; xmax+=1; }
+    if(ymin===ymax){ ymin-=1; ymax+=1; }
+    const xpad=(xmax-xmin)*0.1, ypad=(ymax-ymin)*0.1;
+    xmin-=xpad; xmax+=xpad; ymin-=ypad; ymax+=ypad;
+
+    const sx = x => MARGIN.l + (x-xmin)/(xmax-xmin)*plotW;
+    const sy = y => MARGIN.t + plotH - (y-ymin)/(ymax-ymin)*plotH;
+
+    let svg = '';
+    svg += `<rect x="0" y="0" width="${CHART_W}" height="${CHART_H}" fill="${colors.bg}"/>`;
+
+    const NTICKS=5;
+    for(let i=0;i<=NTICKS;i++){
+      const gx = MARGIN.l + i/NTICKS*plotW;
+      const gy = MARGIN.t + i/NTICKS*plotH;
+      svg += `<line x1="${gx}" y1="${MARGIN.t}" x2="${gx}" y2="${MARGIN.t+plotH}" stroke="${colors.grid}" stroke-width="1"/>`;
+      svg += `<line x1="${MARGIN.l}" y1="${gy}" x2="${MARGIN.l+plotW}" y2="${gy}" stroke="${colors.grid}" stroke-width="1"/>`;
+      const xv = xmin + i/NTICKS*(xmax-xmin);
+      const yv = ymax - i/NTICKS*(ymax-ymin);
+      svg += `<text x="${gx}" y="${MARGIN.t+plotH+16}" fill="${colors.axisText}" font-size="10" text-anchor="middle" font-family="monospace">${xv.toPrecision(3)}</text>`;
+      svg += `<text x="${MARGIN.l-8}" y="${gy+3}" fill="${colors.axisText}" font-size="10" text-anchor="end" font-family="monospace">${yv.toPrecision(3)}</text>`;
+    }
+    svg += `<text x="${MARGIN.l+plotW/2}" y="${CHART_H-6}" fill="${colors.labelText}" font-size="12" text-anchor="middle" font-family="monospace">${axisOptionLabel(xKey)}</text>`;
+    svg += `<text x="14" y="${MARGIN.t+plotH/2}" fill="${colors.labelText}" font-size="12" text-anchor="middle" font-family="monospace" transform="rotate(-90 14 ${MARGIN.t+plotH/2})">${axisOptionLabel(yKey)}</text>`;
+
+    const byX = new Map();
+    pts.forEach(p=>{
+      if(!byX.has(p.x)) byX.set(p.x, []);
+      byX.get(p.x).push(p.y);
+    });
+    const uniquePts = Array.from(byX.entries()).map(([x,ys])=>({x, y: ys.reduce((a,b)=>a+b,0)/ys.length}))
+      .sort((a,b)=>a.x-b.x);
+
+    if(uniquePts.length>=2){
+      const spline = naturalCubicSpline(uniquePts.map(p=>p.x), uniquePts.map(p=>p.y));
+      const N=120;
+      let d='';
+      for(let i=0;i<=N;i++){
+        const xv = uniquePts[0].x + i/N*(uniquePts[uniquePts.length-1].x - uniquePts[0].x);
+        const yv = evalSpline(spline, xv);
+        const px = sx(xv), py = sy(yv);
+        d += (i===0? 'M':'L') + px.toFixed(2)+','+py.toFixed(2)+' ';
+      }
+      svg += `<path d="${d}" fill="none" stroke="${colors.curve}" stroke-width="2"/>`;
+    }
+
+    if(showFit && pts.length>=2){
+      const fit = linearFit(pts);
+      if(fit){
+        const x1=xmin, x2=xmax;
+        const y1=fit.m*x1+fit.b, y2=fit.m*x2+fit.b;
+        svg += `<line x1="${sx(x1).toFixed(2)}" y1="${sy(y1).toFixed(2)}" x2="${sx(x2).toFixed(2)}" y2="${sy(y2).toFixed(2)}" stroke="${colors.fit}" stroke-width="2" stroke-dasharray="6,5"/>`;
+      }
+    }
+
+    pts.forEach(p=>{
+      svg += `<circle cx="${sx(p.x).toFixed(2)}" cy="${sy(p.y).toFixed(2)}" r="4.5" fill="${colors.point}" stroke="${colors.pointStroke}" stroke-width="1"/>`;
+    });
+
+    return svg;
+  }
+
+  function updateFitReadout(){
+    const xKey = xAxisSelect.value, yKey = yAxisSelect.value;
+    const pts = records.map(r=>({x:getVal(r,xKey), y:getVal(r,yKey)})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+    if(showFit && pts.length>=2){
+      const fit = linearFit(pts);
+      if(fit){
+        const signB = fit.b>=0 ? '+' : '−';
+        fitReadout.textContent = `Linear fit: y = ${fit.m.toPrecision(4)}x ${signB} ${Math.abs(fit.b).toPrecision(4)}     R² = ${fit.r2.toFixed(5)}`;
+      } else {
+        fitReadout.textContent = 'Linear fit unavailable (need points spread across x-values).';
+      }
+    } else if(showFit){
+      fitReadout.textContent = 'Record at least 2 points to compute a linear fit.';
+    } else {
+      fitReadout.textContent = '';
+    }
+  }
+
+  function renderChart(){
+    chartSvg.innerHTML = buildChartSvgInner(THEME_DARK);
+    updateFitReadout();
+  }
+
+  function sanitizeFilenamePart(s){
+    return s.replace(/[^a-z0-9\-_ ]/gi,'').trim().replace(/\s+/g,'-');
+  }
+
+  function simulationTypeLabel(){
+    const modeInfo = MODES[state.mode];
+    const constants = modeInfo.constants.map(k=>VARINFO[k].label).join(' & ');
+    return modeInfo.label ? `${modeInfo.label} (holding ${constants} constant)` : `Holding ${constants} constant`;
+  }
+
+  exportPngBtn.addEventListener('click', ()=>{
+    const inner = buildChartSvgInner(THEME_LIGHT);
+    const name = userNameInput.value.trim();
+    const simLabel = simulationTypeLabel();
+
+    const NAME_LINE_H = 26, SIM_LINE_H = 20, TITLE_PAD = 10;
+    const TITLE_H = TITLE_PAD*2 + (name ? NAME_LINE_H : 0) + SIM_LINE_H;
+    const totalH = CHART_H + TITLE_H;
+
+    let titleSvg = `<rect x="0" y="0" width="${CHART_W}" height="${TITLE_H}" fill="${THEME_LIGHT.bg}"/>`;
+    let cursorY = TITLE_PAD;
+    if(name){
+      cursorY += NAME_LINE_H*0.72;
+      titleSvg += `<text x="${CHART_W/2}" y="${cursorY}" fill="${THEME_LIGHT.labelText}" font-size="17" font-weight="bold" text-anchor="middle" font-family="monospace">${escapeXml(name)}</text>`;
+      cursorY += NAME_LINE_H*0.28;
+    }
+    cursorY += SIM_LINE_H*0.72;
+    titleSvg += `<text x="${CHART_W/2}" y="${cursorY}" fill="${THEME_LIGHT.axisText}" font-size="13" text-anchor="middle" font-family="monospace">${escapeXml(simLabel)}</text>`;
+
+    const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CHART_W} ${totalH}" width="${CHART_W}" height="${totalH}">`+
+      titleSvg +
+      `<g transform="translate(0,${TITLE_H})">${inner}</g>`+
+      `</svg>`;
+    const svgBlob = new Blob([svgMarkup], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      canvas.width = CHART_W*2; canvas.height = totalH*2;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(2,2);
+      ctx.fillStyle = THEME_LIGHT.bg;
+      ctx.fillRect(0,0,CHART_W,totalH);
+      ctx.drawImage(img,0,0,CHART_W,totalH);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob=>{
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const fname = name ? `gas-law-graph-${sanitizeFilenamePart(name)}.png` : 'gas-law-graph.png';
+        a.download = fname;
+        document.body.appendChild(a); a.click(); a.remove();
+      }, 'image/png');
+    };
+    img.src = url;
+  });
+
+  // ============================================================
+  // init
+  // ============================================================
+  updateDisplay();
+  renderTable();
+  syncAxisDefaults();
+  updateGasConstantsDisplay();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hydrogen Atomic Orbital Viewer</title>
+<style>
+  :root{
+    --bg: #0d1117;
+    --panel: #141b23;
+    --panel-2: #182028;
+    --border: #263142;
+    --text: #e7ecef;
+    --text-dim: #8b9bab;
+    --accent: #7dd3c8;
+    --accent-2: #f2b84b;
+    --pos-color: #ff9f43;
+    --neg-color: #5b8def;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); font-size:14px; }
+  header{
+    display:flex; align-items:baseline; gap:14px; padding:16px 22px;
+    border-bottom:1px solid var(--border);
+    background: linear-gradient(180deg, #121821, #0d1117);
+  }
+  header h1{ font-family:var(--serif); font-size:20px; font-weight:600; margin:0; }
+  header .tag{ color:var(--text-dim); font-size:12.5px; font-family:var(--mono); }
+
+  .layout{ display:grid; grid-template-columns: 340px 1fr; gap:16px; padding:16px; }
+  @media (max-width:900px){ .layout{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:16px; display:flex; flex-direction:column; gap:12px;
+  }
+  .panel h2{
+    font-size:12.5px; text-transform:uppercase; letter-spacing:1.2px;
+    color:var(--text-dim); margin:0; font-weight:600;
+  }
+  label.field{ display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:var(--text-dim); }
+  select, input[type=number], input[type=range]{
+    background:#0d1117; border:1px solid var(--border); color:var(--text);
+    border-radius:6px; padding:7px 9px; font-family:var(--mono); font-size:13px;
+  }
+  input[type=range]{ padding:0; }
+  button{
+    background:var(--panel-2); color:var(--text); border:1px solid var(--border);
+    border-radius:6px; padding:8px 12px; font-size:12.5px; cursor:pointer; font-family:var(--sans);
+  }
+  button:hover{ border-color:var(--accent); }
+  label.chk{ display:flex; gap:7px; align-items:center; font-size:12.5px; color:var(--text-dim); }
+
+  .orbital-name{
+    font-family:var(--serif); font-size:26px; font-weight:700; color:var(--accent);
+  }
+  .info-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-family:var(--mono); font-size:12.5px; }
+  .info-grid div.k{ color:var(--text-dim); }
+  .info-grid div.v{ text-align:right; color:var(--text); }
+
+  .legend{ display:flex; gap:16px; align-items:center; font-size:12px; color:var(--text-dim); }
+  .swatch{ width:14px; height:14px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:middle; }
+
+  #viewer-wrap{ position:relative; }
+  #canvas3d{
+    width:100%; height:640px; background:var(--bg); border:1px solid var(--border);
+    border-radius:10px; display:block; cursor:grab;
+  }
+  #status{
+    position:absolute; bottom:10px; left:12px; font-size:11px; color:var(--text-dim);
+    font-family:var(--mono); pointer-events:none;
+  }
+  .hint{ color:var(--text-dim); font-size:11.5px; line-height:1.5; }
+  .divider{ height:1px; background:var(--border); margin:2px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Hydrogen Atomic Orbital Viewer</h1>
+  <span class="tag">n, l, mₗ quantum numbers · radial &amp; angular nodes · electron-cloud dot density</span>
+</header>
+
+<div class="layout">
+  <div class="panel">
+    <h2>Quantum numbers</h2>
+    <label class="field">Principal quantum number n
+      <select id="selN"></select>
+    </label>
+    <label class="field">Angular momentum quantum number l
+      <select id="selL"></select>
+    </label>
+    <label class="field">Magnetic quantum number mₗ
+      <select id="selML"></select>
+    </label>
+
+    <div class="divider"></div>
+    <div class="orbital-name" id="orbitalName">1s</div>
+    <div class="info-grid" id="infoGrid"></div>
+
+    <div class="divider"></div>
+    <h2>Display</h2>
+    <label class="field">Point density
+      <input type="range" id="density" min="4000" max="60000" step="2000" value="26000">
+    </label>
+    <label class="chk"><input type="checkbox" id="toggleRadialNodes"> Show radial nodes (spherical shells)</label>
+    <label class="chk"><input type="checkbox" id="toggleAngularNodes"> Show angular nodes (planes / cones)</label>
+    <label class="chk"><input type="checkbox" id="toggleNucleus" checked> Show nucleus</label>
+    <button id="btnRender">Render orbital</button>
+
+    <div class="divider"></div>
+    <div class="legend">
+      <div><span class="swatch" style="background:var(--pos-color)"></span>ψ &gt; 0</div>
+      <div><span class="swatch" style="background:var(--neg-color)"></span>ψ &lt; 0</div>
+    </div>
+    <div class="hint">Dot density is proportional to the actual quantum-mechanical probability |ψ|² (random-sampled "electron cloud" — the same style used in most textbooks), not a smoothed isosurface. Color shows the sign (phase) of the real wavefunction. mₗ selects the standard real orbital (e.g. l=1: mₗ=0 → pz, ±1 → px/py) rather than the complex e^{imφ} form, matching how these are drawn in general chemistry.</div>
+
+    <div class="divider"></div>
+    <button id="btnExportPNG">Export PNG</button>
+  </div>
+
+  <div class="panel">
+    <h2>3D view — drag to rotate, scroll to zoom</h2>
+    <div id="viewer-wrap">
+      <canvas id="canvas3d"></canvas>
+      <div id="status">Loading 3D engine…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Hydrogen-atom wavefunction math (Bohr radius units, a0 = 1)
+// ============================================================
+
+function factorial(n){
+  if(n<0) return NaN;
+  let r=1;
+  for(let i=2;i<=n;i++) r*=i;
+  return r;
+}
+function binomial(n,k){
+  if(k<0 || k>n) return 0;
+  // use factorial ratio; fine for the modest n we support (n<=10 -> factorials up to ~20!)
+  return factorial(n)/(factorial(k)*factorial(n-k));
+}
+
+// Associated Laguerre polynomial L_q^p(x), explicit combinatorial sum:
+//   L_q^p(x) = sum_{i=0}^{q} (-1)^i * C(q+p, q-i) * x^i / i!
+// (This is the convention used in the standard hydrogen radial-function formula, e.g. Griffiths.)
+function associatedLaguerre(q, p, x){
+  let sum = 0;
+  for(let i=0;i<=q;i++){
+    sum += Math.pow(-1,i) * binomial(q+p, q-i) * Math.pow(x,i) / factorial(i);
+  }
+  return sum;
+}
+
+// Radial wavefunction R_nl(r), Bohr radius a=1.
+function radialWaveFunction(n, l, r){
+  const q = n-l-1, p = 2*l+1;
+  const rho = 2*r/n;
+  const norm = Math.sqrt(Math.pow(2/n,3) * factorial(q) / (2*n*factorial(n+l)));
+  return norm * Math.exp(-rho/2) * Math.pow(rho,l) * associatedLaguerre(q,p,rho);
+}
+
+// Associated Legendre function P_l^m(x) (Condon-Shortley phase), stable upward recurrence.
+// Valid for 0 <= m <= l, -1 <= x <= 1.
+function associatedLegendre(l, m, x){
+  m = Math.abs(m);
+  let pmm = 1;
+  if(m>0){
+    const somx2 = Math.sqrt(Math.max(0,(1-x)*(1+x)));
+    let fact = 1;
+    for(let i=1;i<=m;i++){ pmm *= -fact*somx2; fact += 2; }
+  }
+  if(l===m) return pmm;
+  let pmmp1 = x*(2*m+1)*pmm;
+  if(l===m+1) return pmmp1;
+  let pll = 0;
+  for(let ll=m+2; ll<=l; ll++){
+    pll = (x*(2*ll-1)*pmmp1 - (ll+m-1)*pmm) / (ll-m);
+    pmm = pmmp1;
+    pmmp1 = pll;
+  }
+  return pll;
+}
+
+// Real (chemists') angular function Theta_lm(theta,phi), normalized so that
+// integral over the sphere of Theta^2 dOmega = 1.
+//   ml = 0:  sqrt((2l+1)/(4*pi)) * P_l^0(cos theta)
+//   ml > 0:  sqrt(2) * sqrt((2l+1)/(4*pi) * (l-m)!/(l+m)!) * P_l^m(cos theta) * cos(m*phi)
+//   ml < 0:  sqrt(2) * sqrt((2l+1)/(4*pi) * (l-m)!/(l+m)!) * P_l^m(cos theta) * sin(m*phi)
+// (No extra Condon-Shortley (-1)^m re-inserted here — sign is a convention choice and doesn't
+// affect any physically observable quantity such as |psi|^2 or the node locations.)
+function realAngular(l, ml, theta, phi){
+  const m = Math.abs(ml);
+  const x = Math.cos(theta);
+  const Plm = associatedLegendre(l, m, x);
+  const norm = Math.sqrt((2*l+1)/(4*Math.PI) * factorial(l-m)/factorial(l+m));
+  if(ml===0) return norm*Plm;
+  const trig = ml>0 ? Math.cos(m*phi) : Math.sin(m*phi);
+  return Math.SQRT2*norm*Plm*trig;
+}
+
+function fullWaveFunction(n,l,ml,r,theta,phi){
+  return radialWaveFunction(n,l,r) * realAngular(l,ml,theta,phi);
+}
+
+// ---- Node finding ----
+
+// Radial nodes: n-l-1 of them, at the zero crossings of R_nl(r) for r>0 (excluding r->infinity).
+function findRadialNodes(n, l){
+  const count = n-l-1;
+  if(count<=0) return [];
+  const nodes = [];
+  const rMax = 4*n*n + 10; // generous upper bound (radial extent grows ~ n^2)
+  const steps = 20000;
+  let prevR = 1e-6, prevV = radialWaveFunction(n,l,prevR);
+  for(let i=1;i<=steps && nodes.length<count;i++){
+    const r = (i/steps)*rMax;
+    const v = radialWaveFunction(n,l,r);
+    if(prevV!==0 && v!==0 && (prevV<0)!==(v<0)){
+      // bisect between prevR and r
+      let lo=prevR, hi=r;
+      for(let k=0;k<60;k++){
+        const mid=(lo+hi)/2;
+        const vm = radialWaveFunction(n,l,mid);
+        if((vm<0)===(prevV<0)) lo=mid; else hi=mid;
+      }
+      nodes.push((lo+hi)/2);
+    }
+    prevR=r; prevV=v;
+  }
+  return nodes;
+}
+
+// Angular nodal planes through the z-axis (from the azimuthal cos(m*phi)/sin(m*phi) factor):
+// returns an array of phi angles (radians, within [0,pi)) — each represents a full plane
+// (the surface also includes phi+pi).
+function findAngularNodalPlanes(l, ml){
+  const m = Math.abs(ml);
+  if(m===0) return [];
+  const planes = [];
+  if(ml>0){ // cos(m*phi) = 0
+    for(let k=0;k<m;k++) planes.push((Math.PI/2 + k*Math.PI)/m);
+  } else { // sin(m*phi) = 0
+    for(let k=0;k<m;k++) planes.push((k*Math.PI)/m);
+  }
+  return planes;
+}
+
+// Angular nodal cones (from the polar P_l^m(cos theta) factor): (l-m) of them, theta in (0,pi).
+function findAngularNodalCones(l, ml){
+  const m = Math.abs(ml);
+  const count = l-m;
+  if(count<=0) return [];
+  const cones = [];
+  const steps = 4000;
+  let prevT=1e-5, prevV=associatedLegendre(l,m,Math.cos(prevT));
+  for(let i=1;i<=steps && cones.length<count;i++){
+    const t = (i/steps)*(Math.PI-2e-5)+1e-5;
+    const v = associatedLegendre(l,m,Math.cos(t));
+    if((prevV<0)!==(v<0)){
+      let lo=prevT, hi=t;
+      for(let k=0;k<60;k++){
+        const mid=(lo+hi)/2;
+        const vm = associatedLegendre(l,m,Math.cos(mid));
+        if((vm<0)===(prevV<0)) lo=mid; else hi=mid;
+      }
+      cones.push((lo+hi)/2);
+    }
+    prevT=t; prevV=v;
+  }
+  return cones;
+}
+
+const ORBITAL_NAMES = {
+  '0_0':'s',
+  '1_0':'pz', '1_1':'px', '1_-1':'py',
+  '2_0':'dz2', '2_1':'dxz', '2_-1':'dyz', '2_2':'dx2-y2', '2_-2':'dxy',
+  '3_0':'fz3', '3_1':'fxz2', '3_-1':'fyz2', '3_2':'fz(x2-y2)', '3_-2':'fxyz',
+  '3_3':'fx(x2-3y2)', '3_-3':'fy(3x2-y2)'
+};
+function orbitalLabel(n,l,ml){
+  const key = l+'_'+ml;
+  if(ORBITAL_NAMES[key]) return n+ORBITAL_NAMES[key];
+  const subshell = ['s','p','d','f','g','h'][l] || ('l='+l);
+  return n+subshell+' (ml='+(ml>=0?'+':'')+ml+')';
+}
+
+// ---- Probability-density sampling (dot-density / "electron cloud" rendering) ----
+
+// Finds an upper bound for r^2 * R_nl(r)^2 by scanning, used for rejection sampling.
+function radialDistMax(n,l){
+  const rMax = 4*n*n+10;
+  let best=0, bestR=0;
+  const steps=4000;
+  for(let i=0;i<=steps;i++){
+    const r=(i/steps)*rMax;
+    const v = r*r*Math.pow(radialWaveFunction(n,l,r),2);
+    if(v>best){ best=v; bestR=r; }
+  }
+  return { max:best*1.15, rMax };
+}
+
+// The radius containing `frac` of the radial probability (e.g. 0.90 = 90th percentile).
+// Used for camera framing / node-surface sizing, since the generous rejection-sampling
+// scan bound above is typically 2-5x larger than where the density actually concentrates.
+function effectiveRadius(n,l,frac){
+  frac = frac===undefined ? 0.9 : frac;
+  const rMax = 4*n*n+10;
+  const steps = 4000;
+  const vals = new Array(steps+1);
+  let total = 0;
+  for(let i=0;i<=steps;i++){
+    const r = (i/steps)*rMax;
+    const p = r*r*Math.pow(radialWaveFunction(n,l,r),2);
+    vals[i] = p;
+    total += p;
+  }
+  let cum = 0;
+  for(let i=0;i<=steps;i++){
+    cum += vals[i];
+    if(total>0 && cum/total >= frac) return (i/steps)*rMax;
+  }
+  return rMax;
+}
+function angularDistMax(l,ml){
+  let best=0;
+  const nTheta=200, nPhi=200;
+  for(let i=0;i<=nTheta;i++){
+    const theta = Math.PI*i/nTheta;
+    for(let j=0;j<=nPhi;j++){
+      const phi = 2*Math.PI*j/nPhi;
+      const v = Math.pow(realAngular(l,ml,theta,phi),2);
+      if(v>best) best=v;
+    }
+  }
+  return best*1.15;
+}
+
+/**
+ * Rejection-samples `count` points distributed as |psi_nlm|^2 (electron-cloud dot density).
+ * Returns { points: Float32Array(count*3), signs: Int8Array(count) } in Cartesian (Bohr-radius) units.
+ */
+function sampleOrbitalPoints(n,l,ml,count){
+  const { max:radMax, rMax } = radialDistMax(n,l);
+  const angMax = angularDistMax(l,ml);
+  const points = new Float32Array(count*3);
+  const signs = new Int8Array(count);
+  let i=0, attempts=0;
+  const maxAttempts = count*400;
+  while(i<count && attempts<maxAttempts){
+    attempts++;
+    const r = Math.random()*rMax;
+    const radialP = r*r*Math.pow(radialWaveFunction(n,l,r),2);
+    if(Math.random()*radMax > radialP) continue;
+
+    const cosT = Math.random()*2-1;
+    const theta = Math.acos(cosT);
+    const phi = Math.random()*2*Math.PI;
+    const angVal = realAngular(l,ml,theta,phi);
+    const angP = angVal*angVal;
+    if(Math.random()*angMax > angP) continue;
+
+    const sinT = Math.sin(theta);
+    const x = r*sinT*Math.cos(phi);
+    const y = r*sinT*Math.sin(phi);
+    const z = r*cosT;
+    points[i*3]=x; points[i*3+1]=y; points[i*3+2]=z;
+    signs[i] = angVal>=0 ? 1 : -1;
+    i++;
+  }
+  return { points: points.subarray(0,i*3), signs: signs.subarray(0,i), count:i };
+}
+
+// (browser build: no CommonJS export needed)
+
+</script>
+<script>
+// ============================================================
+// Quantum number selectors
+// ============================================================
+const selN = document.getElementById('selN');
+const selL = document.getElementById('selL');
+const selML = document.getElementById('selML');
+const SUBSHELL_LETTERS = ['s','p','d','f','g','h','i'];
+
+function populateN(){
+  selN.innerHTML='';
+  for(let n=1;n<=6;n++){
+    const opt = document.createElement('option');
+    opt.value=n; opt.textContent=n;
+    selN.appendChild(opt);
+  }
+}
+function populateL(){
+  const n = Number(selN.value);
+  const prevL = Number(selL.value)||0;
+  selL.innerHTML='';
+  for(let l=0;l<n;l++){
+    const opt = document.createElement('option');
+    opt.value=l; opt.textContent = l+' ('+(SUBSHELL_LETTERS[l]||'l'+l)+')';
+    selL.appendChild(opt);
+  }
+  selL.value = Math.min(prevL, n-1);
+}
+function populateML(){
+  const l = Number(selL.value);
+  const prevML = Number(selML.value)||0;
+  selML.innerHTML='';
+  for(let ml=-l; ml<=l; ml++){
+    const opt = document.createElement('option');
+    opt.value=ml;
+    const key = l+'_'+ml;
+    const shortName = ORBITAL_NAMES[key]; // e.g. 'dxy', undefined for l>=4 (no common short name)
+    opt.textContent = (ml>=0?'+':'')+ml+ (shortName? '  ('+shortName+')' : '');
+    selML.appendChild(opt);
+  }
+  const clamped = Math.max(-l, Math.min(l, prevML));
+  selML.value = clamped;
+}
+populateN();
+populateL();
+populateML();
+selN.addEventListener('change', ()=>{ populateL(); populateML(); });
+selL.addEventListener('change', ()=>{ populateML(); });
+
+// ============================================================
+// Three.js viewer (custom orbit controls, matching the pattern used elsewhere)
+// ============================================================
+let renderer3d, scene3d, camera3d, group3d;
+let cam = { theta:0.6, phi:1.1, dist:24, target:[0,0,0] };
+let threeReady = false;
+
+function init3D(){
+  const canvas = document.getElementById('canvas3d');
+  if(typeof THREE==='undefined'){
+    document.getElementById('status').textContent = 'Could not load three.js from the CDN — 3D view unavailable offline.';
+    return;
+  }
+  threeReady = true;
+  renderer3d = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+  renderer3d.setPixelRatio(window.devicePixelRatio||1);
+  renderer3d.setClearColor(0x0d1117, 1);
+  resize3D();
+  scene3d = new THREE.Scene();
+  camera3d = new THREE.PerspectiveCamera(45, canvas.clientWidth/canvas.clientHeight, 0.05, 2000);
+  group3d = new THREE.Group();
+  scene3d.add(group3d);
+
+  scene3d.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.4);
+  dir.position.set(5,8,6);
+  scene3d.add(dir);
+
+  updateCamera();
+  animate3D();
+
+  let dragging=false, lastX=0, lastY=0;
+  canvas.addEventListener('mousedown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+  window.addEventListener('mouseup', ()=> dragging=false);
+  window.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const dx=e.clientX-lastX, dy=e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    cam.theta -= dx*0.01;
+    cam.phi = Math.max(0.1, Math.min(Math.PI-0.1, cam.phi - dy*0.01));
+    updateCamera();
+  });
+  canvas.addEventListener('wheel', e=>{
+    e.preventDefault();
+    cam.dist = Math.max(2, Math.min(300, cam.dist + e.deltaY*0.03));
+    updateCamera();
+  }, { passive:false });
+  window.addEventListener('resize', resize3D);
+
+  document.getElementById('status').textContent = 'Ready.';
+  renderOrbital();
+}
+function resize3D(){
+  const canvas = document.getElementById('canvas3d');
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if(renderer3d) renderer3d.setSize(w,h,false);
+  if(camera3d){ camera3d.aspect = w/h; camera3d.updateProjectionMatrix(); }
+}
+function updateCamera(){
+  if(!camera3d) return;
+  const x = cam.target[0] + cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta);
+  const y = cam.target[1] + cam.dist*Math.cos(cam.phi);
+  const z = cam.target[2] + cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta);
+  camera3d.position.set(x,y,z);
+  camera3d.lookAt(cam.target[0],cam.target[1],cam.target[2]);
+}
+function animate3D(){
+  requestAnimationFrame(animate3D);
+  if(renderer3d) renderer3d.render(scene3d, camera3d);
+}
+function clearGroup(g){ while(g.children.length) g.remove(g.children[0]); }
+
+// ============================================================
+// Node overlay geometry helpers (built from first principles — no reliance on
+// three.js primitive orientation conventions, to avoid any rotation-order ambiguity)
+// ============================================================
+function makeNodalPlaneMesh(phi0, maxR, material){
+  const dx=Math.cos(phi0), dy=Math.sin(phi0);
+  const positions = new Float32Array([
+    -maxR*dx, -maxR*dy, -maxR,
+     maxR*dx,  maxR*dy, -maxR,
+     maxR*dx,  maxR*dy,  maxR,
+    -maxR*dx, -maxR*dy,  maxR,
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  geo.setIndex([0,1,2, 0,2,3]);
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, material);
+}
+function makeNodalConeMesh(theta0, maxR, material){
+  const segs = 56;
+  const positions = [0,0,0];
+  for(let j=0;j<=segs;j++){
+    const phi = 2*Math.PI*j/segs;
+    positions.push(
+      maxR*Math.sin(theta0)*Math.cos(phi),
+      maxR*Math.sin(theta0)*Math.sin(phi),
+      maxR*Math.cos(theta0)
+    );
+  }
+  const idx = [];
+  for(let j=1;j<=segs;j++) idx.push(0, j, j+1);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, material);
+}
+
+// ============================================================
+// Orbital rendering
+// ============================================================
+function renderOrbital(){
+  if(!threeReady) return;
+  const n = Number(selN.value), l = Number(selL.value), ml = Number(selML.value);
+  const count = Number(document.getElementById('density').value);
+  document.getElementById('status').textContent = 'Sampling '+count.toLocaleString()+' points…';
+
+  clearGroup(group3d);
+
+  // --- point cloud ---
+  const { points, signs, count:actualCount } = sampleOrbitalPoints(n,l,ml,count);
+  const colors = new Float32Array(actualCount*3);
+  const posCol = new THREE.Color(getComputedColor('--pos-color'));
+  const negCol = new THREE.Color(getComputedColor('--neg-color'));
+  for(let i=0;i<actualCount;i++){
+    const c = signs[i]>=0 ? posCol : negCol;
+    colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(points,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+  const rExtent = effectiveRadius(n,l,0.95);
+  const mat = new THREE.PointsMaterial({
+    size: Math.max(0.08, rExtent*0.006),
+    vertexColors:true, transparent:true, opacity:0.85, depthWrite:false, sizeAttenuation:true
+  });
+  const cloud = new THREE.Points(geo, mat);
+  group3d.add(cloud);
+
+  // --- nucleus ---
+  if(document.getElementById('toggleNucleus').checked){
+    const nucGeo = new THREE.SphereGeometry(Math.max(0.15, rExtent*0.01), 16, 12);
+    const nucMat = new THREE.MeshBasicMaterial({ color:0xffffff });
+    group3d.add(new THREE.Mesh(nucGeo, nucMat));
+  }
+
+  // --- radial nodes (spherical shells) ---
+  if(document.getElementById('toggleRadialNodes').checked){
+    const radialNodes = findRadialNodes(n,l);
+    const shellMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.10, wireframe:true });
+    radialNodes.forEach(r=>{
+      const geo = new THREE.SphereGeometry(r, 32, 24);
+      group3d.add(new THREE.Mesh(geo, shellMat));
+    });
+  }
+
+  // --- angular nodes (planes / cones) ---
+  if(document.getElementById('toggleAngularNodes').checked){
+    const nodeMat = new THREE.MeshBasicMaterial({ color:0xc77dd6, transparent:true, opacity:0.22, side:THREE.DoubleSide });
+    const planes = findAngularNodalPlanes(l, ml);
+    planes.forEach(phi0=> group3d.add(makeNodalPlaneMesh(phi0, rExtent*1.6, nodeMat)));
+    const cones = findAngularNodalCones(l, ml);
+    cones.forEach(theta0=> group3d.add(makeNodalConeMesh(theta0, rExtent*1.6, nodeMat)));
+  }
+
+  cam.dist = Math.max(4, rExtent*1.8);
+  updateCamera();
+
+  updateInfoPanel(n,l,ml);
+  document.getElementById('status').textContent = actualCount.toLocaleString()+' points rendered.';
+}
+function getComputedColor(varName){
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function updateInfoPanel(n,l,ml){
+  const label = orbitalLabel(n,l,ml);
+  document.getElementById('orbitalName').textContent = label;
+  const radialNodeCount = n-l-1;
+  const angularNodeCount = l;
+  const energyEV = -13.6/(n*n);
+  const grid = document.getElementById('infoGrid');
+  grid.innerHTML = '';
+  const rows = [
+    ['n', n], ['l', l], ['mₗ', (ml>=0?'+':'')+ml],
+    ['Radial nodes', radialNodeCount],
+    ['Angular nodes', angularNodeCount],
+    ['Total nodes', radialNodeCount+angularNodeCount],
+    ['Energy Eₙ', energyEV.toFixed(3)+' eV'],
+  ];
+  rows.forEach(([k,v])=>{
+    const dk = document.createElement('div'); dk.className='k'; dk.textContent=k;
+    const dv = document.createElement('div'); dv.className='v'; dv.textContent=v;
+    grid.appendChild(dk); grid.appendChild(dv);
+  });
+}
+
+document.getElementById('btnRender').addEventListener('click', renderOrbital);
+document.getElementById('toggleRadialNodes').addEventListener('change', renderOrbital);
+document.getElementById('toggleAngularNodes').addEventListener('change', renderOrbital);
+document.getElementById('toggleNucleus').addEventListener('change', renderOrbital);
+selML.addEventListener('change', renderOrbital);
+selL.addEventListener('change', ()=> setTimeout(renderOrbital, 0));
+selN.addEventListener('change', ()=> setTimeout(renderOrbital, 0));
+
+// ============================================================
+// PNG export (crops to the rendered content, matching the approach used elsewhere)
+// ============================================================
+function download(filename, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+document.getElementById('btnExportPNG').addEventListener('click', ()=>{
+  if(!renderer3d){ alert('3D view is not available.'); return; }
+  renderer3d.render(scene3d, camera3d);
+  renderer3d.domElement.toBlob(blob=>{
+    const n=selN.value, l=selL.value, ml=selML.value;
+    download('orbital-'+orbitalLabel(Number(n),Number(l),Number(ml))+'.png', blob);
+  }, 'image/png');
+});
+
+// ============================================================
+// Boot
+// ============================================================
+function loadScript(src, onload, onerror){
+  const s = document.createElement('script');
+  s.src = src; s.onload = onload; s.onerror = onerror;
+  document.head.appendChild(s);
+}
+loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', init3D,
+  ()=>{ document.getElementById('status').textContent = 'Could not load three.js from the CDN — 3D view unavailable offline.'; });
+
+</script>
+</body>
+</html>

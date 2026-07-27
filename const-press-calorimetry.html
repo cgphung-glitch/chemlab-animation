@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calorimetry Bench — Constant-Pressure Calorimetry Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg: #11141a;
+  --bg-grid-major: #1c212b;
+  --bg-grid-minor: #171b22;
+  --panel: #171b22;
+  --panel-raised: #1d222b;
+  --line: #2a3140;
+  --line-soft: #232935;
+  --ink: #e8e6df;
+  --ink-dim: #9aa2b1;
+  --ink-faint: #5c6675;
+  --amber: #e8a33d;
+  --amber-dim: #a8792f;
+  --cyan: #5fd0c8;
+  --cyan-dim: #3d8f89;
+  --rose: #e2685f;
+  --green: #7fbf7f;
+  --shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background:
+    repeating-linear-gradient(0deg, var(--bg-grid-minor) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, var(--bg-grid-minor) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg, var(--bg-grid-major) 0 1px, transparent 1px 120px),
+    repeating-linear-gradient(90deg, var(--bg-grid-major) 0 1px, transparent 1px 120px),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height:100vh;
+}
+.wrap{ max-width: 1440px; margin: 0 auto; padding: 20px 24px 60px; }
+
+header.app-header{
+  display:flex; align-items:baseline; justify-content:space-between;
+  padding-bottom:16px; margin-bottom:18px;
+  border-bottom: 1px solid var(--line);
+}
+header.app-header h1{
+  font-family:'Fraunces', serif; font-weight:600; font-size:1.7rem; margin:0;
+  letter-spacing:0.2px;
+}
+header.app-header h1 span{ color: var(--amber); }
+header.app-header .tag{
+  font-family:'JetBrains Mono', monospace; font-size:0.72rem; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing:1.5px;
+}
+
+/* ---------- Setup bar ---------- */
+.setup{
+  background: var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:16px 18px;
+  margin-bottom:20px;
+  display:grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  gap:14px;
+  box-shadow: var(--shadow);
+}
+.field{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+.field label{
+  font-size:0.68rem; text-transform:uppercase; letter-spacing:0.9px;
+  color: var(--ink-faint); font-weight:600;
+}
+select, input[type=number]{
+  background: var(--panel-raised);
+  border:1px solid var(--line);
+  color: var(--ink);
+  border-radius:6px;
+  padding:8px 10px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:0.85rem;
+  outline:none;
+  width:100%;
+}
+select:focus, input[type=number]:focus{ border-color: var(--amber); }
+select:disabled, input[type=number]:disabled{
+  opacity:0.5; cursor:not-allowed; background: rgba(255,255,255,0.02);
+  font-style: italic; color: var(--ink-faint);
+}
+.field .hint{ font-size:0.68rem; color: var(--ink-faint); font-family:'JetBrains Mono',monospace; }
+
+.setup-actions{
+  grid-column: 1 / -1;
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  padding-top:4px; border-top:1px dashed var(--line-soft); margin-top:2px;
+}
+button{
+  font-family:'Inter', sans-serif; font-weight:600; font-size:0.82rem;
+  border-radius:7px; border:1px solid var(--line); cursor:pointer;
+  padding:9px 16px; background: var(--panel-raised); color: var(--ink);
+  transition: all 0.15s ease;
+}
+button:hover:not(:disabled){ border-color: var(--amber); color: var(--amber); }
+button:disabled{ opacity:0.35; cursor:not-allowed; }
+button.primary{ background: var(--amber); color:#1a1206; border-color: var(--amber); }
+button.primary:hover:not(:disabled){ background:#f3b158; color:#1a1206; }
+button.ghost{ background:transparent; }
+button.small{ padding:6px 10px; font-size:0.75rem; }
+
+.status-msg{
+  font-family:'JetBrains Mono', monospace; font-size:0.75rem;
+  color: var(--ink-faint); margin-left:auto;
+}
+.status-msg.warn{ color: var(--rose); }
+
+/* ---------- Main layout ---------- */
+.main-grid{
+  display:grid;
+  grid-template-columns: 460px 1fr;
+  gap:20px;
+  align-items:start;
+}
+@media (max-width: 980px){
+  .main-grid{ grid-template-columns: 1fr; }
+  .setup{ grid-template-columns: repeat(2,1fr); }
+}
+
+.panel{
+  background: var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:18px;
+  box-shadow: var(--shadow);
+}
+.panel h2{
+  font-family:'Fraunces', serif; font-weight:600; font-size:1.05rem;
+  margin:0 0 12px; color: var(--ink);
+  display:flex; align-items:center; gap:8px;
+}
+.panel h2 .dot{ width:7px; height:7px; border-radius:50%; background: var(--amber); display:inline-block; }
+
+/* ---------- Left: thermometer + apparatus ---------- */
+.thermo-readout{
+  display:flex; align-items:baseline; justify-content:center; gap:10px;
+  background: var(--panel-raised); border:1px solid var(--line-soft);
+  border-radius:10px; padding:14px 10px; margin-bottom:10px;
+}
+.thermo-readout .big{
+  font-family:'JetBrains Mono', monospace; font-weight:700; font-size:2.4rem;
+  color: var(--rose); line-height:1;
+}
+.thermo-readout .unit{ font-family:'JetBrains Mono', monospace; color: var(--ink-faint); font-size:1.1rem; }
+.thermo-readout .phase{ font-family:'JetBrains Mono', monospace; color: var(--ink-faint); font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; margin-left:auto; align-self:center; }
+
+.apparatus-stage{
+  position:relative;
+  display:flex; justify-content:center;
+  padding:6px 0 4px;
+}
+.readouts{
+  display:grid; grid-template-columns: repeat(2,1fr); gap:10px; margin:14px 0;
+}
+.readout{
+  background: var(--panel-raised); border:1px solid var(--line-soft);
+  border-radius:8px; padding:8px 10px; text-align:center;
+}
+.readout .val{ font-family:'JetBrains Mono', monospace; font-size:1.1rem; font-weight:600; color: var(--cyan); }
+.readout .lbl{ font-size:0.6rem; text-transform:uppercase; letter-spacing:0.8px; color: var(--ink-faint); margin-top:2px; }
+
+.const-box{
+  margin-top:12px; font-family:'JetBrains Mono', monospace; font-size:0.72rem;
+  color: var(--ink-faint); padding:10px 12px; border:1px dashed var(--line-soft); border-radius:7px;
+  line-height:1.7;
+}
+.const-box b{ color: var(--ink-dim); }
+
+/* ---------- Right: chart ---------- */
+.chart-wrap{
+  background: var(--panel-raised);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  padding:8px;
+}
+.temp-banner{
+  margin-top:10px; padding:9px 12px; border-radius:7px;
+  background: rgba(232,163,61,0.08); border:1px solid var(--amber-dim);
+  font-family:'JetBrains Mono', monospace; font-size:0.78rem; color: var(--amber);
+}
+.export-row{
+  display:flex; gap:8px; margin-top:10px;
+}
+.export-row button{ flex:1; }
+.name-row{
+  margin-top:12px; display:flex; flex-direction:column; gap:6px;
+}
+.name-row label{
+  font-size:0.68rem; text-transform:uppercase; letter-spacing:0.9px;
+  color: var(--ink-faint); font-weight:600;
+}
+.name-row input[type=text]{
+  background: var(--panel-raised); border:1px solid var(--line);
+  color: var(--ink); border-radius:6px; padding:8px 10px;
+  font-family:'Inter', sans-serif; font-size:0.85rem; outline:none; width:100%;
+}
+.name-row input[type=text]:focus{ border-color: var(--amber); }
+
+.reveal-box{
+  margin-top:12px; font-family:'JetBrains Mono', monospace; font-size:0.78rem;
+  color: var(--ink-faint); padding:10px 12px; border:1px dashed var(--line-soft); border-radius:7px;
+}
+.reveal-box b{ color: var(--green); }
+
+.liquid-fill{ transition: y 0.9s ease, height 0.9s ease, fill 0.6s ease; }
+.pour-stream{ animation: streamFlow 0.35s linear infinite; }
+@keyframes streamFlow{
+  0%{ opacity:0.55; } 50%{ opacity:1; } 100%{ opacity:0.55; }
+}
+.solid-particle{ animation: solidFall 0.7s ease-in forwards; }
+@keyframes solidFall{
+  0%{ opacity:1; transform: translateY(0); }
+  100%{ opacity:0; transform: translateY(var(--fall-dist,50px)); }
+}
+.dish-tilt{ transition: transform 0.4s ease; transform-origin: 0px 8px; }
+.dish-tilt.tilted{ transform: rotate(50deg); }
+.beaker-tilt{ transition: transform 0.5s ease; transform-origin: 0px 40px; }
+.beaker-tilt.tilted{ transform: rotate(55deg); }
+.beaker-tilt2{ transition: transform 0.5s ease; transform-origin: 0px 40px; }
+.beaker-tilt2.tilted{ transform: rotate(-55deg); }
+.stir-rod{ transform-origin: 0px 0px; animation: stirWiggle 1.1s ease-in-out infinite; }
+@keyframes stirWiggle{
+  0%,100%{ transform: rotate(-1.5deg); } 50%{ transform: rotate(1.5deg); }
+}
+.ripple-ring{ animation: rippleGrow 0.6s ease-out forwards; }
+@keyframes rippleGrow{ 0%{ opacity:0.7; r:2; } 100%{ opacity:0; r:30; } }
+
+.footnote{
+  margin-top:22px; font-size:0.72rem; color: var(--ink-faint); font-family:'JetBrains Mono',monospace;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <h1>Calorimetry <span>Bench</span></h1>
+    <div class="tag">General Chemistry · Constant-Pressure Calorimetry</div>
+  </header>
+
+  <!-- ===================== SETUP BAR ===================== -->
+  <section class="setup" id="setupBar">
+    <div class="field">
+      <label for="subASelect">Substance 1</label>
+      <select id="subASelect"></select>
+    </div>
+    <div class="field">
+      <label for="amountAInput" id="amountALabel">Amount</label>
+      <input type="number" id="amountAInput" min="0.1" step="0.1" value="2.0">
+      <span class="hint" id="amountAHint">grams</span>
+    </div>
+    <div class="field">
+      <label for="subBSelect">Substance 2</label>
+      <select id="subBSelect"></select>
+    </div>
+    <div class="field">
+      <label for="amountBInput" id="amountBLabel">Amount</label>
+      <input type="number" id="amountBInput" min="0.1" step="0.1" value="50.0">
+      <span class="hint" id="amountBHint">mL</span>
+    </div>
+    <div class="field">
+      <label for="tInitInput">Initial temperature (°C)</label>
+      <input type="number" id="tInitInput" min="20" max="25" step="0.1" value="22.0">
+      <span class="hint">set 20–25 °C, same for both</span>
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <div class="hint" id="reactionHint" style="padding-top:8px;">—</div>
+    </div>
+
+    <div class="setup-actions">
+      <button class="primary" id="startBtn">Start experiment</button>
+      <button class="ghost" id="resetBtn">Reset</button>
+      <span class="status-msg" id="statusMsg"></span>
+    </div>
+  </section>
+
+  <!-- ===================== MAIN GRID ===================== -->
+  <div class="main-grid">
+
+    <!-- LEFT: apparatus -->
+    <div class="panel">
+      <h2><span class="dot"></span>Calorimeter</h2>
+
+      <div class="thermo-readout">
+        <span class="big" id="tempBig">22.0</span><span class="unit">°C</span>
+        <span class="phase" id="phaseLabel">Ready</span>
+      </div>
+
+      <div class="apparatus-stage" id="apparatusStage"></div>
+
+      <div class="readouts">
+        <div class="readout"><div class="val" id="rCalMass">5.0 g</div><div class="lbl">Mass of calorimeter</div></div>
+        <div class="readout"><div class="val" id="rSolnMass">—</div><div class="lbl">Mass of solution</div></div>
+      </div>
+
+      <div class="const-box">
+        <b>Heat capacity of calorimeter</b> = 6.5 J/°C<br>
+        <b>Density of water</b> = 1.00 g/mL<br>
+        <b>Density of solution</b> (1-M acid/base/salt) = 1.04 g/mL<br>
+        <b>Specific heat of solution</b> ≈ specific heat of water = 4.184 J/(g·°C)
+      </div>
+    </div>
+
+    <!-- RIGHT: chart -->
+    <div class="panel">
+      <h2><span class="dot"></span>Temperature vs. time</h2>
+      <div class="chart-wrap">
+        <svg id="chartSvg" viewBox="0 0 640 340" width="100%" style="display:block;"></svg>
+      </div>
+      <div class="temp-banner" id="tempBanner">Set up the experiment and press Start.</div>
+
+      <div class="name-row">
+        <label for="userNameInput">Name (printed on the exported graph)</label>
+        <input type="text" id="userNameInput" placeholder="e.g. Jordan Lee" maxlength="60">
+      </div>
+      <div class="export-row">
+        <button class="ghost small" id="exportGraphBtn">Export graph (light mode)</button>
+        <button class="ghost small" id="exportCsvBtn">Export data (CSV)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">Simplified instructional model · assumes no heat loss to surroundings · specific heat of dilute solutions approximated as that of water · calorimeter mass shown is a representative value for two nested 8-oz foam cups (the energy balance uses the given heat capacity directly, not this mass)</div>
+</div>
+
+<script>
+/* =========================================================================
+   CALORIMETRY BENCH — chemistry model, apparatus animation, live chart
+   ========================================================================= */
+
+// ---- Constants (shown to the user) ----------------------------------------
+const C_CAL = 6.5;          // J/°C, heat capacity of the calorimeter (given directly)
+const DENSITY_WATER = 1.00; // g/mL
+const DENSITY_SOLUTION = 1.04; // g/mL, for the 1-M aqueous reagents
+const C_SPECIFIC = 4.184;   // J/(g·°C), specific heat of dilute aqueous solution ≈ water
+const CALORIMETER_MASS_G = 5.0; // representative display value only — not used in the energy balance
+
+// ---- Substance library ------------------------------------------------
+const SUBSTANCES = {
+  naoh_s:  { key:'naoh_s',  name:'NaOH(s)',           state:'solid',  molarMass:40.00 },
+  nano3_s: { key:'nano3_s', name:'NaNO\u2083(s)',      state:'solid',  molarMass:85.00 },
+  h2o:     { key:'h2o',     name:'DI H\u2082O(l)',     state:'liquid', density:DENSITY_WATER, conc:null },
+  hcl:     { key:'hcl',     name:'1-M HCl(aq)',        state:'liquid', density:DENSITY_SOLUTION, conc:1.0 },
+  naoh_aq: { key:'naoh_aq', name:'1-M NaOH(aq)',       state:'liquid', density:DENSITY_SOLUTION, conc:1.0 },
+  nh3:     { key:'nh3',     name:'1-M NH\u2083(aq)',   state:'liquid', density:DENSITY_SOLUTION, conc:1.0 },
+  nh4cl:   { key:'nh4cl',   name:'1-M NH\u2084Cl(aq)', state:'liquid', density:DENSITY_SOLUTION, conc:1.0 },
+};
+
+// ---- Reaction table (hidden thermodynamic data) ---------------------------
+// deltaH in kJ/mol. Dissolution: per mole of the solid. Neutralization: per
+// mole of limiting reactant (all listed pairs react 1:1).
+const REACTIONS = [
+  { a:'naoh_s',  b:'h2o',     type:'dissolution',    deltaH:-44.5 },
+  { a:'nano3_s', b:'h2o',     type:'dissolution',    deltaH: 20.5 },
+  { a:'naoh_s',  b:'hcl',     type:'neutralization', deltaH:-102.4 },
+  { a:'hcl',     b:'naoh_aq', type:'neutralization', deltaH:-57.9 },
+  { a:'hcl',     b:'nh3',     type:'neutralization', deltaH:-55.0 },
+  { a:'naoh_aq', b:'nh4cl',   type:'neutralization', deltaH:-7.0  },
+];
+
+function findReaction(x, y) {
+  return REACTIONS.find(r => (r.a === x && r.b === y) || (r.a === y && r.b === x)) || null;
+}
+
+function partnersFor(key) {
+  const out = [];
+  REACTIONS.forEach(r => {
+    if (r.a === key) out.push(r.b);
+    if (r.b === key) out.push(r.a);
+  });
+  return out;
+}
+
+function randRange(a, b) { return a + Math.random() * (b - a); }
+
+// ---- Core calorimetry calculation -----------------------------------------
+// amountA/amountB are grams (if that substance is solid) or mL (if liquid).
+// Returns null if the pair has no reaction data.
+function computeExperiment(keyA, amountA, keyB, amountB, Tinit) {
+  const subA = SUBSTANCES[keyA], subB = SUBSTANCES[keyB];
+  const rxn = findReaction(keyA, keyB);
+  if (!rxn) return null;
+
+  const massOf = (sub, amount) => sub.state === 'solid' ? amount : amount * sub.density;
+  const massA = massOf(subA, amountA);
+  const massB = massOf(subB, amountB);
+  const massSoln = massA + massB;
+
+  let n, q;
+  const hasSolid = subA.state === 'solid' || subB.state === 'solid';
+
+  if (hasSolid) {
+    const solidSub = subA.state === 'solid' ? subA : subB;
+    const solidAmount = subA.state === 'solid' ? amountA : amountB;
+    const liquidSub = subA.state === 'solid' ? subB : subA;
+    const liquidAmount = subA.state === 'solid' ? amountB : amountA;
+    const nSolid = solidAmount / solidSub.molarMass;
+    if (liquidSub.conc == null) {
+      // dissolving into a plain solvent (e.g. DI water) — the solvent isn't a limiting reagent
+      n = nSolid;
+    } else {
+      // solid reacting with a reactive solution (e.g. NaOH(s) + HCl(aq)) — limiting reagent applies
+      const nLiquid = liquidSub.conc * liquidAmount / 1000;
+      n = Math.min(nSolid, nLiquid);
+    }
+    q = -n * rxn.deltaH * 1000; // J
+  } else {
+    const nA = subA.conc * amountA / 1000; // mol (amount in mL)
+    const nB = subB.conc * amountB / 1000;
+    n = Math.min(nA, nB);
+    q = -n * rxn.deltaH * 1000; // J
+  }
+
+  const Ctotal = massSoln * C_SPECIFIC + C_CAL;
+  const dT = q / Ctotal;
+  const Tfinal = Tinit + dT;
+
+  return { rxn, massA, massB, massSoln, n, q, Ctotal, dT, Tinit, Tfinal };
+}
+
+// ---- Application state ----------------------------------------------------
+const state = {
+  keyA: 'naoh_s',
+  keyB: 'h2o',
+  amountA: 2.0,
+  amountB: 50.0,
+  Tinit: 22.0,
+  result: null,
+  phase: 'idle', // idle | pouring | adding | pouring2 | reacting | done
+  visualVolumeML: 0,   // drives the liquid-level animation (visual only)
+  displayTemp: 22.0,   // drives the live thermometer readout + liquid tint
+};
+
+// ---- DOM refs ---------------------------------------------------------
+const subASelect = document.getElementById('subASelect');
+const subBSelect = document.getElementById('subBSelect');
+const amountAInput = document.getElementById('amountAInput');
+const amountBInput = document.getElementById('amountBInput');
+const amountALabel = document.getElementById('amountALabel');
+const amountBLabel = document.getElementById('amountBLabel');
+const amountAHint = document.getElementById('amountAHint');
+const amountBHint = document.getElementById('amountBHint');
+const tInitInput = document.getElementById('tInitInput');
+const reactionHint = document.getElementById('reactionHint');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
+const statusMsg = document.getElementById('statusMsg');
+const tempBig = document.getElementById('tempBig');
+const phaseLabel = document.getElementById('phaseLabel');
+const apparatusStage = document.getElementById('apparatusStage');
+const rCalMass = document.getElementById('rCalMass');
+const rSolnMass = document.getElementById('rSolnMass');
+const chartSvg = document.getElementById('chartSvg');
+const tempBanner = document.getElementById('tempBanner');
+const exportGraphBtn = document.getElementById('exportGraphBtn');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+const userNameInput = document.getElementById('userNameInput');
+
+rCalMass.textContent = CALORIMETER_MASS_G.toFixed(1) + ' g';
+
+// ---- Setup UI: dropdowns, dynamic labels ----------------------------------
+function populateSubA() {
+  subASelect.innerHTML = Object.values(SUBSTANCES).map(s => `<option value="${s.key}">${s.name}</option>`).join('');
+  subASelect.value = state.keyA;
+}
+
+function populateSubB() {
+  const partners = partnersFor(subASelect.value);
+  subBSelect.innerHTML = partners.map(k => `<option value="${k}">${SUBSTANCES[k].name}</option>`).join('');
+  if (partners.includes(state.keyB)) subBSelect.value = state.keyB;
+  else subBSelect.value = partners[0];
+}
+
+function updateAmountFields() {
+  const subA = SUBSTANCES[subASelect.value];
+  const subB = SUBSTANCES[subBSelect.value];
+  if (subA.state === 'solid') {
+    amountALabel.textContent = `Mass of ${subA.name}`;
+    amountAInput.step = '0.1'; amountAInput.min = '0.1';
+    if (!amountAInput.dataset.userSet) amountAInput.value = '2.0';
+    amountAHint.textContent = 'grams';
+  } else {
+    amountALabel.textContent = `Volume of ${subA.name}`;
+    amountAInput.step = '1'; amountAInput.min = '1';
+    if (!amountAInput.dataset.userSet) amountAInput.value = '50.0';
+    amountAHint.textContent = 'mL';
+  }
+  if (subB.state === 'solid') {
+    amountBLabel.textContent = `Mass of ${subB.name}`;
+    amountBInput.step = '0.1'; amountBInput.min = '0.1';
+    if (!amountBInput.dataset.userSet) amountBInput.value = '2.0';
+    amountBHint.textContent = 'grams';
+  } else {
+    amountBLabel.textContent = `Volume of ${subB.name}`;
+    amountBInput.step = '1'; amountBInput.min = '1';
+    if (!amountBInput.dataset.userSet) amountBInput.value = '50.0';
+    amountBHint.textContent = 'mL';
+  }
+
+  const rxn = findReaction(subASelect.value, subBSelect.value);
+  if (rxn) {
+    const hasSolid = subA.state === 'solid' || subB.state === 'solid';
+    reactionHint.textContent = hasSolid
+      ? 'Liquid poured first, then solid added'
+      : 'Neutralization \u2014 two liquids combined';
+  } else {
+    reactionHint.textContent = 'No reaction data for this pair';
+  }
+}
+
+subASelect.addEventListener('change', () => {
+  populateSubB();
+  updateAmountFields();
+});
+subBSelect.addEventListener('change', updateAmountFields);
+amountAInput.addEventListener('input', () => { amountAInput.dataset.userSet = '1'; });
+amountBInput.addEventListener('input', () => { amountBInput.dataset.userSet = '1'; });
+
+// ---- Apparatus geometry (nested Styrofoam-cup calorimeter) ---------------
+const CX = 140;
+const OUTER_TOP_Y = 70, OUTER_BOTTOM_Y = 270;
+const OUTER_TOP_HW = 92, OUTER_BOTTOM_HW = 72;
+const INSET = 10; // inner cup wall inset from outer
+const LID_Y = OUTER_TOP_Y - 4;
+const MAX_VISUAL_ML = 170; // scale for the liquid-level fraction, visual only
+
+function halfWidthAtOuter(y) {
+  const t = (y - OUTER_TOP_Y) / (OUTER_BOTTOM_Y - OUTER_TOP_Y);
+  return OUTER_TOP_HW + (OUTER_BOTTOM_HW - OUTER_TOP_HW) * t;
+}
+function innerBounds() {
+  return {
+    topY: OUTER_TOP_Y + INSET, bottomY: OUTER_BOTTOM_Y - INSET,
+    topHW: OUTER_TOP_HW - INSET, bottomHW: OUTER_BOTTOM_HW - INSET,
+  };
+}
+function halfWidthAtInner(y) {
+  const ib = innerBounds();
+  const t = (y - ib.topY) / (ib.bottomY - ib.topY);
+  return ib.topHW + (ib.bottomHW - ib.topHW) * t;
+}
+
+function cupPath(topY, bottomY, topHW, bottomHW) {
+  return `M ${CX - topHW},${topY}
+    L ${CX - bottomHW},${bottomY - 6}
+    Q ${CX - bottomHW},${bottomY} ${CX - bottomHW + 8},${bottomY}
+    L ${CX + bottomHW - 8},${bottomY}
+    Q ${CX + bottomHW},${bottomY} ${CX + bottomHW},${bottomY - 6}
+    L ${CX + topHW},${topY}`;
+}
+
+// pH-independent liquid color: pale aqueous blue, tinted slightly warmer/cooler with temperature
+function liquidColorFor(temp, hasContent) {
+  if (!hasContent) return 'rgba(95,208,200,0.10)';
+  const t = Math.max(15, Math.min(45, temp == null ? 22 : temp));
+  const frac = (t - 15) / 30; // 0 (cool) -> 1 (warm)
+  const cool = [96, 165, 220];
+  const warm = [224, 120, 90];
+  const c = cool.map((v, i) => Math.round(v + frac * (warm[i] - v)));
+  return `rgba(${c[0]},${c[1]},${c[2]},0.55)`;
+}
+
+let apparatusBuilt = false;
+
+function buildApparatusOnce() {
+  const ib = innerBounds();
+  const outerPath = cupPath(OUTER_TOP_Y, OUTER_BOTTOM_Y, OUTER_TOP_HW, OUTER_BOTTOM_HW);
+  const innerPath = cupPath(ib.topY, ib.bottomY, ib.topHW, ib.bottomHW);
+
+  apparatusStage.innerHTML = `
+  <svg viewBox="0 0 280 320" width="280" height="320" style="overflow:visible;">
+    <!-- bench line -->
+    <line x1="20" y1="${OUTER_BOTTOM_Y + 4}" x2="260" y2="${OUTER_BOTTOM_Y + 4}" stroke="#2a3140" stroke-width="1.5"/>
+
+    <!-- pour beaker 1 (left) -->
+    <g transform="translate(46,${OUTER_TOP_Y - 46})">
+      <g class="beaker-tilt" id="beaker1Tilt">
+        <path d="M -16,0 L -13,34 Q -13,40 -6,40 L 6,40 Q 13,40 13,34 L 16,0 Z" fill="rgba(255,255,255,0.05)" stroke="#4a5568" stroke-width="1.3"/>
+        <rect x="-11" y="20" width="22" height="18" fill="#5fd0c8" opacity="0.7"/>
+      </g>
+    </g>
+    <g id="stream1Layer"></g>
+
+    <!-- pour beaker 2 (right, used for the second liquid in a liquid+liquid mix) -->
+    <g transform="translate(234,${OUTER_TOP_Y - 46})">
+      <g class="beaker-tilt2" id="beaker2Tilt">
+        <path d="M -16,0 L -13,34 Q -13,40 -6,40 L 6,40 Q 13,40 13,34 L 16,0 Z" fill="rgba(255,255,255,0.05)" stroke="#4a5568" stroke-width="1.3"/>
+        <rect x="-11" y="20" width="22" height="18" fill="#e2685f" opacity="0.7"/>
+      </g>
+    </g>
+    <g id="stream2Layer"></g>
+
+    <!-- solid dish (top center, for dissolution) -->
+    <g transform="translate(${CX},${OUTER_TOP_Y - 44})">
+      <g class="dish-tilt" id="solidDishTilt">
+        <path d="M -14,0 L 14,0 L 10,8 L -10,8 Z" fill="rgba(255,255,255,0.06)" stroke="#4a5568" stroke-width="1.2"/>
+      </g>
+    </g>
+    <g id="solidLayer"></g>
+
+    <!-- outer cup -->
+    <path d="${outerPath}" fill="rgba(255,255,255,0.02)" stroke="#6b7385" stroke-width="1.6"/>
+    <!-- inner cup + liquid -->
+    <path d="${innerPath}" fill="rgba(255,255,255,0.015)" stroke="#4a5568" stroke-width="1.3"/>
+    <path class="liquid-fill" id="liquidFillPath" d="" fill="rgba(95,208,200,0.10)"/>
+    <g id="cupRippleLayer"></g>
+    <path d="${innerPath}" fill="none" stroke="#4a5568" stroke-width="1.3" opacity="0.6"/>
+
+    <!-- lid -->
+    <ellipse cx="${CX}" cy="${LID_Y}" rx="${OUTER_TOP_HW + 6}" ry="9" fill="#232935" stroke="#6b7385" stroke-width="1.4"/>
+    <ellipse cx="${CX}" cy="${LID_Y}" rx="${OUTER_TOP_HW - 4}" ry="5.5" fill="#171b22"/>
+
+    <!-- thermometer through lid (tip reaches near the bottom of the inner cup) -->
+    <g transform="translate(${CX - 22},0)">
+      <line x1="0" y1="${LID_Y - 30}" x2="0" y2="${ib.bottomY - 24}" stroke="#8a92a2" stroke-width="4" stroke-linecap="round"/>
+      <circle id="thermoBulb" cx="0" cy="${ib.bottomY - 18}" r="6" fill="#8a92a2" style="transition: fill 0.6s ease;"/>
+    </g>
+    <!-- stir rod through lid (tip reaches near the bottom of the inner cup) -->
+    <g transform="translate(${CX + 20},${LID_Y - 30})">
+      <line id="stirRodGroup" x1="0" y1="0" x2="4" y2="${(ib.bottomY - 18) - (LID_Y - 30)}" stroke="#8a92a2" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <text x="${CX}" y="${OUTER_BOTTOM_Y + 22}" text-anchor="middle" font-size="9" fill="#7a8494" font-family="JetBrains Mono, monospace">nested Styrofoam-cup calorimeter</text>
+  </svg>`;
+  apparatusBuilt = true;
+}
+
+// Targeted update of just the liquid fill (path + color) so the CSS
+// transition on .liquid-fill actually animates between states, since the
+// element persists across calls (unlike a full innerHTML rebuild).
+function updateLiquidVisual() {
+  if (!apparatusBuilt) buildApparatusOnce();
+  const ib = innerBounds();
+  const liquidFrac = Math.max(0, Math.min(1, state.visualVolumeML / MAX_VISUAL_ML));
+  const liquidY = ib.bottomY - liquidFrac * (ib.bottomY - ib.topY);
+  const hw = halfWidthAtInner(Math.max(ib.topY, Math.min(ib.bottomY, liquidY)));
+  const hwBottom = ib.bottomHW;
+  const showLiquid = state.visualVolumeML > 0.5;
+  const liquidColor = liquidColorFor(state.displayTemp, showLiquid);
+  const liquidPath = showLiquid ? `M ${CX - hwBottom},${ib.bottomY}
+    L ${CX + hwBottom},${ib.bottomY}
+    L ${CX + hw},${liquidY}
+    L ${CX - hw},${liquidY} Z` : '';
+  const pathEl = document.getElementById('liquidFillPath');
+  if (pathEl) {
+    pathEl.setAttribute('d', liquidPath);
+    pathEl.setAttribute('fill', liquidColor);
+  }
+  const bulb = document.getElementById('thermoBulb');
+  if (bulb) bulb.setAttribute('fill', state.phase === 'idle' ? '#8a92a2' : '#e2685f');
+  const stirGroup = document.getElementById('stirRodGroup');
+  if (stirGroup) stirGroup.classList.toggle('stir-rod', state.phase === 'reacting');
+}
+
+function renderApparatus() {
+  if (!apparatusBuilt) buildApparatusOnce();
+  updateLiquidVisual();
+}
+
+function triggerCupRipple() {
+  const layer = document.getElementById('cupRippleLayer');
+  if (!layer) return;
+  const ib = innerBounds();
+  const liquidFrac = Math.max(0, Math.min(1, state.visualVolumeML / MAX_VISUAL_ML));
+  const y = ib.bottomY - liquidFrac * (ib.bottomY - ib.topY);
+  const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  ring.setAttribute('cx', CX); ring.setAttribute('cy', y); ring.setAttribute('r', 2);
+  ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', '#dfe6ee'); ring.setAttribute('stroke-width', '1.1');
+  ring.classList.add('ripple-ring');
+  layer.appendChild(ring);
+  setTimeout(() => ring.remove(), 650);
+}
+
+// Exact position of a beaker's pouring corner once fully tilted, computed from
+// its actual pivot point and rotation angle (so the stream lines up with
+// where the rim really ends up, not an approximation).
+function tiltedSpoutPosition(baseX, angleDeg, rimCornerLocalX) {
+  const pivotX = baseX, pivotY = OUTER_TOP_Y - 6; // pivot = base + local (0,40)
+  const dx = rimCornerLocalX - 0;
+  const dy = 0 - 40;
+  const rad = angleDeg * Math.PI / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  return {
+    x: pivotX + (cos * dx - sin * dy),
+    y: pivotY + (sin * dx + cos * dy),
+  };
+}
+
+function spawnStream(beakerNum) {
+  const layer = document.getElementById(`stream${beakerNum}Layer`);
+  if (!layer) return null;
+  // beaker1 tilts clockwise (+55°) and pours from its right rim corner (local x=+16);
+  // beaker2 tilts counter-clockwise (-55°) and pours from its left rim corner (local x=-16)
+  const spout = beakerNum === 1
+    ? tiltedSpoutPosition(46, 55, 16)
+    : tiltedSpoutPosition(234, -55, -16);
+  const targetX = CX; // pour directly into the center of the cup
+  const targetY = OUTER_TOP_Y + 6;
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', spout.x.toFixed(1)); line.setAttribute('y1', spout.y.toFixed(1));
+  line.setAttribute('x2', targetX); line.setAttribute('y2', targetY);
+  line.setAttribute('stroke', beakerNum === 1 ? '#5fd0c8' : '#e2685f');
+  line.setAttribute('stroke-width', '2.5');
+  line.setAttribute('stroke-linecap', 'round');
+  line.classList.add('pour-stream');
+  layer.appendChild(line);
+  return line;
+}
+
+function clearStream(beakerNum) {
+  const layer = document.getElementById(`stream${beakerNum}Layer`);
+  if (layer) layer.innerHTML = '';
+}
+
+function spawnSolidParticles(n) {
+  const layer = document.getElementById('solidLayer');
+  if (!layer) return;
+  const ib = innerBounds();
+  const liquidFrac = Math.max(0, Math.min(1, state.visualVolumeML / MAX_VISUAL_ML));
+  const liquidY = ib.bottomY - liquidFrac * (ib.bottomY - ib.topY);
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const x = CX - 3 + Math.random() * 6; // tight spread so the fall reads as straight down
+      const y0 = OUTER_TOP_Y - 30;
+      sq.setAttribute('x', x); sq.setAttribute('y', y0);
+      sq.setAttribute('width', 4); sq.setAttribute('height', 4);
+      sq.setAttribute('fill', '#dfe6ee');
+      sq.style.setProperty('--fall-dist', Math.max(20, liquidY - y0 - 3) + 'px');
+      sq.classList.add('solid-particle');
+      layer.appendChild(sq);
+      setTimeout(() => sq.remove(), 750);
+    }, i * 110);
+  }
+}
+
+// ---- Temperature-vs-time chart --------------------------------------------
+const chartState = { points: [], Tinit: 22, Tfinal: 22 };
+
+function initChart(Tinit, Tfinal) {
+  chartState.Tinit = Tinit;
+  chartState.Tfinal = Tfinal;
+  chartState.points = [{ t: -5, temp: Tinit }, { t: 0, temp: Tinit }]; // flat pre-mix lead-in
+  drawChartSVG();
+}
+
+function pushChartPoint(t, temp) {
+  chartState.points.push({ t, temp });
+  drawChartSVG();
+}
+
+const CHART_THEMES = {
+  dark:  { bg: null,     grid:'#232935', axis:'#4a5568', tick:'#7a8494', axisLabel:'#9aa2b1', line:'#5fd0c8', dot:'#e2685f', initColor:'#5fd0c8', finalColor:'#e8a33d', mixColor:'#5c6675', font:'JetBrains Mono, monospace', labelFont:'Inter, sans-serif' },
+  light: { bg:'#ffffff', grid:'#dcdcd2', axis:'#333333', tick:'#444444', axisLabel:'#1a1a1a', line:'#0f766e', dot:'#b3332b', initColor:'#0f766e', finalColor:'#b45309', mixColor:'#888888', font:'JetBrains Mono, monospace', labelFont:'Inter, sans-serif' },
+};
+
+function wrapChartSVG(inner, W, H, T) {
+  const bgRect = T.bg ? `<rect x="0" y="0" width="${W}" height="${H}" fill="${T.bg}"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${bgRect}${inner}</svg>`;
+}
+
+function escapeXml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' }[c]));
+}
+
+function buildChartMarkup(theme, standalone) {
+  const T = CHART_THEMES[theme];
+  const W = 640, H = 340;
+  const margin = { l: 56, r: 20, t: 42, b: 38 };
+  const plotW = W - margin.l - margin.r, plotH = H - margin.t - margin.b;
+  const xMin = -5, xMax = 30;
+
+  if (chartState.points.length === 0) {
+    return standalone ? wrapChartSVG('', W, H, T) : '';
+  }
+
+  const subA = SUBSTANCES[state.keyA];
+  const subB = SUBSTANCES[state.keyB];
+  const amountLabel = (sub, amount) => sub
+    ? (sub.state === 'solid' ? `${amount.toFixed(2)} g ${sub.name}` : `${amount.toFixed(2)} mL ${sub.name}`)
+    : '';
+  const subALabel = amountLabel(subA, state.amountA);
+  const subBLabel = amountLabel(subB, state.amountB);
+  let titleMarkup = `<text x="${W / 2}" y="18" text-anchor="middle" font-size="14" font-weight="600" fill="${T.axisLabel}" font-family="Fraunces, Georgia, serif">${escapeXml(subALabel)} + ${escapeXml(subBLabel)}</text>`;
+  if (standalone) {
+    const userName = userNameInput && userNameInput.value.trim();
+    if (userName) {
+      titleMarkup += `<text x="${W / 2}" y="33" text-anchor="middle" font-size="10" fill="${T.tick}" font-family="Inter, sans-serif">Prepared by ${escapeXml(userName)}</text>`;
+    }
+  }
+
+  const lo = Math.min(chartState.Tinit, chartState.Tfinal);
+  const hi = Math.max(chartState.Tinit, chartState.Tfinal);
+  const pad = Math.max(1.5, (hi - lo) * 0.25);
+  const yMin = lo - pad, yMax = hi + pad;
+
+  const xScale = v => margin.l + (v - xMin) / (xMax - xMin) * plotW;
+  const yScale = v => margin.t + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+
+  let grid = '';
+  for (let i = 0; i <= 7; i++) {
+    const v = xMin + i / 7 * (xMax - xMin);
+    const x = xScale(v);
+    grid += `<line x1="${x}" y1="${margin.t}" x2="${x}" y2="${H - margin.b}" stroke="${T.grid}" stroke-width="1"/>`;
+    grid += `<text x="${x}" y="${H - margin.b + 15}" text-anchor="middle" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(0)}</text>`;
+  }
+  for (let i = 0; i <= 6; i++) {
+    const v = yMin + i / 6 * (yMax - yMin);
+    const y = yScale(v);
+    grid += `<line x1="${margin.l}" y1="${y}" x2="${W - margin.r}" y2="${y}" stroke="${T.grid}" stroke-width="1"/>`;
+    grid += `<text x="${margin.l - 8}" y="${y + 3}" text-anchor="end" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(1)}</text>`;
+  }
+
+  const pathD = chartState.points.map((p, i) => (i === 0 ? 'M' : 'L') + xScale(p.t).toFixed(2) + ',' + yScale(p.temp).toFixed(2)).join(' ');
+  const lastPt = chartState.points[chartState.points.length - 1];
+  const dot = `<circle cx="${xScale(lastPt.t).toFixed(2)}" cy="${yScale(lastPt.temp).toFixed(2)}" r="3.2" fill="${T.dot}"/>`;
+
+  const mixX = xScale(0);
+  const mixLine = `<line x1="${mixX}" y1="${margin.t}" x2="${mixX}" y2="${H - margin.b}" stroke="${T.mixColor}" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="${mixX}" y="${margin.t + 10}" text-anchor="middle" font-size="8.5" fill="${T.mixColor}" font-family="${T.font}">mixed</text>`;
+
+  const initY = yScale(chartState.Tinit);
+  const finalY = yScale(chartState.Tfinal);
+  const reachedEnd = lastPt && lastPt.t >= 29.999;
+  const refLines = `
+    <line x1="${margin.l}" y1="${initY}" x2="${W - margin.r}" y2="${initY}" stroke="${T.initColor}" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>
+    <text x="${W - margin.r - 4}" y="${initY - 5}" text-anchor="end" font-size="9" fill="${T.initColor}" font-family="${T.font}">Initial ${chartState.Tinit.toFixed(1)}\u00b0C</text>
+    ${reachedEnd ? `
+    <line x1="${margin.l}" y1="${finalY}" x2="${W - margin.r}" y2="${finalY}" stroke="${T.finalColor}" stroke-width="1" stroke-dasharray="4,3" opacity="0.85"/>
+    <text x="${W - margin.r - 4}" y="${finalY + (finalY > initY ? 12 : -5)}" text-anchor="end" font-size="9" fill="${T.finalColor}" font-family="${T.font}">Final ${chartState.Tfinal.toFixed(1)}\u00b0C</text>` : ''}
+  `;
+
+  const inner = `
+    ${titleMarkup}
+    ${grid}
+    <line x1="${margin.l}" y1="${margin.t}" x2="${margin.l}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
+    <line x1="${margin.l}" y1="${H - margin.b}" x2="${W - margin.r}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
+    ${mixLine}
+    ${refLines}
+    <path d="${pathD}" fill="none" stroke="${T.line}" stroke-width="2.2"/>
+    ${dot}
+    <text x="${(margin.l + W - margin.r) / 2}" y="${H - 4}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}">Time (s)</text>
+    <text x="14" y="${(margin.t + H - margin.b) / 2}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}" transform="rotate(-90 14 ${(margin.t + H - margin.b) / 2})">Temperature (\u00b0C)</text>
+  `;
+  return standalone ? wrapChartSVG(inner, W, H, T) : inner;
+}
+
+function drawChartSVG() {
+  chartSvg.innerHTML = buildChartMarkup('dark', false);
+}
+
+// ---- Experiment sequencing -------------------------------------------------
+function clampTinit(v) {
+  if (isNaN(v)) return 22.0;
+  return Math.max(20, Math.min(25, v));
+}
+
+function pourPhase(beakerNum, amount) {
+  return new Promise(resolve => {
+    const tiltEl = document.getElementById(`beaker${beakerNum}Tilt`);
+    if (tiltEl) tiltEl.classList.add('tilted');
+    setTimeout(() => {
+      spawnStream(beakerNum);
+    }, 500); // wait for the 0.5s tilt transition to finish first
+    setTimeout(() => {
+      state.visualVolumeML += amount;
+      updateLiquidVisual();
+      triggerCupRipple();
+    }, 900);
+    setTimeout(() => {
+      if (tiltEl) tiltEl.classList.remove('tilted');
+      clearStream(beakerNum);
+      resolve();
+    }, 1700);
+  });
+}
+
+function addSolidPhase(amountGrams) {
+  return new Promise(resolve => {
+    const dishEl = document.getElementById('solidDishTilt');
+    if (dishEl) dishEl.classList.add('tilted');
+    setTimeout(() => {
+      spawnSolidParticles(6);
+    }, 350);
+    setTimeout(() => {
+      state.visualVolumeML += amountGrams * 0.6; // small visual bump for added solid mass
+      updateLiquidVisual();
+      triggerCupRipple();
+    }, 900);
+    setTimeout(() => {
+      if (dishEl) dishEl.classList.remove('tilted');
+      resolve();
+    }, 1700);
+  });
+}
+
+// Eased approach to the final temperature: fast initial change, leveling off,
+// reaching exactly Tfinal at t = 25 s, then holding flat through t = 30 s.
+function reactionEase(fracTime) {
+  const k = 4.0;
+  return (1 - Math.exp(-k * fracTime)) / (1 - Math.exp(-k));
+}
+
+const TEMP_CHANGE_DURATION_S = 25; // temperature finishes changing by this time
+const TOTAL_DURATION_S = 30;       // full animation length (last 5 s held flat)
+
+function reactPhase(result) {
+  return new Promise(resolve => {
+    const duration = TOTAL_DURATION_S * 1000; // ms
+    const t0 = performance.now();
+    let lastChartPush = -1;
+    const CHART_PUSH_INTERVAL = 0.08; // seconds; ~12 points/sec is plenty smooth
+    function frame(now) {
+      const elapsedMs = now - t0;
+      const elapsedS = Math.min(TOTAL_DURATION_S, elapsedMs / 1000);
+      const frac = reactionEase(Math.min(elapsedS, TEMP_CHANGE_DURATION_S) / TEMP_CHANGE_DURATION_S);
+      const temp = result.Tinit + result.dT * frac;
+      state.displayTemp = temp;
+      tempBig.textContent = temp.toFixed(1);
+      updateLiquidVisual();
+      if (elapsedS - lastChartPush >= CHART_PUSH_INTERVAL || elapsedMs >= duration) {
+        pushChartPoint(elapsedS, temp);
+        lastChartPush = elapsedS;
+      }
+      if (elapsedMs < duration) {
+        requestAnimationFrame(frame);
+      } else {
+        state.displayTemp = result.Tfinal;
+        tempBig.textContent = result.Tfinal.toFixed(1);
+        updateLiquidVisual();
+        pushChartPoint(TOTAL_DURATION_S, result.Tfinal);
+        resolve();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+function lockSetup(locked) {
+  [subASelect, subBSelect, amountAInput, amountBInput, tInitInput].forEach(el => el.disabled = locked);
+  startBtn.disabled = locked;
+}
+
+async function runExperiment() {
+  const keyA = subASelect.value, keyB = subBSelect.value;
+  const amtA = parseFloat(amountAInput.value);
+  const amtB = parseFloat(amountBInput.value);
+  const Tinit = clampTinit(parseFloat(tInitInput.value));
+  tInitInput.value = Tinit.toFixed(1);
+
+  if (isNaN(amtA) || amtA <= 0 || isNaN(amtB) || amtB <= 0) {
+    statusMsg.textContent = 'Enter a positive amount for both substances.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  const result = computeExperiment(keyA, amtA, keyB, amtB, Tinit);
+  if (!result) {
+    statusMsg.textContent = 'No thermodynamic data for this pair \u2014 choose a different combination.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  statusMsg.textContent = '';
+  statusMsg.classList.remove('warn');
+
+  state.keyA = keyA; state.keyB = keyB; state.amountA = amtA; state.amountB = amtB; state.Tinit = Tinit;
+  state.result = result;
+  state.visualVolumeML = 0;
+  state.displayTemp = Tinit;
+  state.phase = 'pouring';
+
+  lockSetup(true);
+  resetBtn.disabled = false;
+  tempBig.textContent = Tinit.toFixed(1);
+  rSolnMass.textContent = result.massSoln.toFixed(2) + ' g';
+  phaseLabel.textContent = 'Pouring';
+  tempBanner.textContent = 'Pouring the liquid into the calorimeter\u2026';
+  initChart(Tinit, result.Tfinal);
+  renderApparatus();
+
+  const subA = SUBSTANCES[keyA];
+  const subB = SUBSTANCES[keyB];
+  const solidIsA = subA.state === 'solid';
+  const hasSolid = subA.state === 'solid' || subB.state === 'solid';
+
+  if (hasSolid) {
+    const liquidAmount = solidIsA ? amtB : amtA;
+    await pourPhase(1, liquidAmount);
+    state.phase = 'adding';
+    phaseLabel.textContent = 'Adding solid';
+    tempBanner.textContent = 'Adding the solid to the liquid\u2026';
+    const solidAmount = solidIsA ? amtA : amtB;
+    await addSolidPhase(solidAmount);
+  } else {
+    await pourPhase(1, amtA);
+    state.phase = 'pouring2';
+    phaseLabel.textContent = 'Pouring';
+    tempBanner.textContent = 'Pouring the second liquid into the calorimeter\u2026';
+    await pourPhase(2, amtB);
+  }
+
+  state.phase = 'reacting';
+  phaseLabel.textContent = 'Reacting';
+  tempBanner.textContent = 'Mixed \u2014 temperature is changing\u2026';
+  updateLiquidVisual();
+  await reactPhase(result);
+
+  state.phase = 'done';
+  phaseLabel.textContent = 'Complete';
+  const sign = result.dT >= 0 ? 'rose' : 'fell';
+  tempBanner.innerHTML = `Reaction complete \u2014 temperature ${sign} from <b>${result.Tinit.toFixed(1)}\u00b0C</b> to <b style="color:var(--amber)">${result.Tfinal.toFixed(1)}\u00b0C</b> (\u0394T = ${result.dT >= 0 ? '+' : ''}${result.dT.toFixed(2)}\u00b0C).`;
+  resetBtn.disabled = false;
+}
+
+function resetAll() {
+  state.phase = 'idle';
+  state.visualVolumeML = 0;
+  state.displayTemp = clampTinit(parseFloat(tInitInput.value)) || 22.0;
+  state.result = null;
+  lockSetup(false);
+  statusMsg.textContent = '';
+  statusMsg.classList.remove('warn');
+  tempBig.textContent = state.displayTemp.toFixed(1);
+  phaseLabel.textContent = 'Ready';
+  rSolnMass.textContent = '\u2014';
+  tempBanner.textContent = 'Set up the experiment and press Start.';
+  chartSvg.innerHTML = '';
+  chartState.points = [];
+  renderApparatus();
+}
+
+startBtn.addEventListener('click', runExperiment);
+resetBtn.addEventListener('click', resetAll);
+tInitInput.addEventListener('change', () => {
+  tInitInput.value = clampTinit(parseFloat(tInitInput.value)).toFixed(1);
+});
+
+// ---- Export: graph (light mode) & data (CSV) -------------------------------
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function csvEscape(val) {
+  const s = String(val);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportGraphLightMode() {
+  if (!state.result || chartState.points.length === 0) {
+    statusMsg.textContent = 'Start an experiment before exporting the graph.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  const svgString = buildChartMarkup('light', true);
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const W = 640, H = 340;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, W, H);
+    URL.revokeObjectURL(svgUrl);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        statusMsg.textContent = 'Could not generate the image \u2014 try again.';
+        statusMsg.classList.add('warn');
+        return;
+      }
+      const pngUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = 'calorimetry_curve_light.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(pngUrl), 2000);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    downloadBlob(svgString, 'calorimetry_curve_light.svg', 'image/svg+xml');
+  };
+  img.src = svgUrl;
+}
+
+function exportCSV() {
+  if (!state.result) {
+    statusMsg.textContent = 'Start an experiment before exporting data.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  const r = state.result;
+  const subA = SUBSTANCES[state.keyA];
+  const subB = SUBSTANCES[state.keyB];
+  const rows = [];
+
+  rows.push(['Reactant', 'Role', 'Mass (g)', 'Volume (mL)', 'Concentration (M)']);
+  rows.push([
+    subA.name, 'Substance 1',
+    r.massA.toFixed(2),
+    subA.state === 'liquid' ? state.amountA.toFixed(2) : '',
+    subA.conc != null ? subA.conc.toFixed(2) : '',
+  ]);
+  rows.push([
+    subB.name, 'Substance 2',
+    r.massB.toFixed(2),
+    subB.state === 'liquid' ? state.amountB.toFixed(2) : '',
+    subB.conc != null ? subB.conc.toFixed(2) : '',
+  ]);
+  rows.push([]);
+
+  rows.push(['Initial temperature (\u00b0C)', r.Tinit.toFixed(2)]);
+  rows.push(['Final temperature (\u00b0C)', r.Tfinal.toFixed(2)]);
+  rows.push(['Temperature change, \u0394T (\u00b0C)', r.dT.toFixed(3)]);
+  rows.push([]);
+
+  rows.push(['Mass of solution (g)', r.massSoln.toFixed(2)]);
+  rows.push(['Moles reacted (mol)', r.n.toFixed(4)]);
+  rows.push(['Heat released/absorbed, q (J)', r.q.toFixed(1)]);
+  rows.push(['Total heat capacity of system (J/\u00b0C)', r.Ctotal.toFixed(2)]);
+  rows.push([]);
+
+  rows.push(['Heat capacity of calorimeter (J/\u00b0C)', C_CAL.toFixed(2)]);
+  rows.push(['Density of water (g/mL)', DENSITY_WATER.toFixed(2)]);
+  rows.push(['Density of solution, 1-M acid/base/salt (g/mL)', DENSITY_SOLUTION.toFixed(2)]);
+  rows.push(['Specific heat of solution (J/(g\u00b7\u00b0C))', C_SPECIFIC.toFixed(3)]);
+
+  const csv = rows.map(row => row.map(csvEscape).join(',')).join('\r\n');
+  downloadBlob(csv, 'calorimetry_data.csv', 'text/csv;charset=utf-8');
+}
+
+exportGraphBtn.addEventListener('click', exportGraphLightMode);
+exportCsvBtn.addEventListener('click', exportCSV);
+
+// ---- Bootstrap ------------------------------------------------------------
+tInitInput.value = randRange(20, 25).toFixed(1);
+populateSubA();
+populateSubB();
+updateAmountFields();
+buildApparatusOnce();
+renderApparatus();
+
+
+
+</script>
+</body>
+</html>

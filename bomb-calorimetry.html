@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bomb Calorimetry — Constant-Volume Combustion Simulator</title>
+<style>
+  :root{
+    --bg:#12140f;
+    --bg-grid:#1a1d15;
+    --panel:#1b1e17;
+    --panel-2:#20241b;
+    --line:#33392b;
+    --ink:#e8e6da;
+    --ink-dim:#9aa08c;
+    --amber:#e8a13c;
+    --amber-dim:#8a6a2f;
+    --cyan:#5fd3d0;
+    --cyan-dim:#2f6b69;
+    --red:#d9634f;
+    --steel:#9aa2a8;
+    --steel-dark:#565d61;
+    --font-head:'Frank Ruhl Libre','Iowan Old Style','Palatino Linotype',Georgia,'Times New Roman',serif;
+    --font-mono:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
+    --font-body:'Iowan Old Style',Georgia,'Times New Roman',serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    min-height:100vh;
+    padding: 18px;
+  }
+  .wrap{max-width:1320px;margin:0 auto;}
+  header{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom:12px; margin-bottom:16px; flex-wrap:wrap; gap:8px;
+  }
+  h1{
+    font-family: var(--font-head);
+    font-size: 1.7rem; font-weight:600; margin:0; color:var(--ink);
+    letter-spacing:0.3px;
+  }
+  h1 .accent{color:var(--amber);}
+  .subtitle{color:var(--ink-dim); font-size:0.82rem; font-family:var(--font-mono); letter-spacing:0.5px;}
+  .badge{
+    font-family:var(--font-mono); font-size:0.72rem; color:var(--cyan);
+    border:1px solid var(--cyan-dim); padding:3px 8px; border-radius:2px;
+    text-transform:uppercase; letter-spacing:1px; white-space:nowrap;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 300px 1fr 380px;
+    gap:16px;
+    align-items:start;
+  }
+  @media (max-width: 1080px){
+    .grid{grid-template-columns: 1fr;}
+  }
+
+  .panel{
+    background: var(--panel);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:14px;
+  }
+  .panel + .panel{margin-top:16px;}
+  .panel-title{
+    font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:1.5px; color:var(--cyan); margin:0 0 10px 0;
+    border-bottom:1px dashed var(--line); padding-bottom:6px;
+  }
+
+  label{display:block; font-size:0.75rem; color:var(--ink-dim); margin-bottom:4px; font-family:var(--font-mono);}
+  select, input[type=range], input[type=text]{width:100%;}
+  select, input[type=text]{
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+    padding:7px; border-radius:2px; font-family:var(--font-body); font-size:0.87rem;
+  }
+  input[type=text]::placeholder{color:var(--ink-dim); opacity:0.7;}
+  input[type=text]:focus, select:focus{outline:1px solid var(--cyan-dim);}
+  .field{margin-bottom:14px;}
+  .row2{display:flex; gap:10px;}
+  .row2 > div{flex:1;}
+
+  .readout{
+    font-family:var(--font-mono); color:var(--amber); font-size:0.95rem;
+  }
+  .readout small{color:var(--ink-dim); font-size:0.7rem;}
+
+  .const-list{font-family:var(--font-mono); font-size:0.76rem; color:var(--ink-dim); line-height:1.75;}
+  .const-list b{color:var(--ink);}
+
+  button.ignite{
+    width:100%; padding:14px; margin-top:6px;
+    background: linear-gradient(180deg,#3a1712,#241009);
+    color:var(--red); border:1px solid #7a3126; border-radius:4px;
+    font-family:var(--font-mono); font-size:0.95rem; letter-spacing:2px;
+    text-transform:uppercase; cursor:pointer;
+    box-shadow: inset 0 0 12px rgba(217,99,79,0.15);
+    transition: all 0.15s ease;
+  }
+  button.ignite:hover:not(:disabled){box-shadow: inset 0 0 20px rgba(217,99,79,0.35); border-color:#d9634f;}
+  button.ignite:disabled{opacity:0.35; cursor:not-allowed;}
+  button.ignite.armed{animation:pulseArm 1.4s infinite;}
+  @keyframes pulseArm{
+    0%,100%{box-shadow: inset 0 0 12px rgba(217,99,79,0.15);}
+    50%{box-shadow: inset 0 0 26px rgba(217,99,79,0.5);}
+  }
+
+  button.ghost{
+    background:transparent; color:var(--ink-dim); border:1px solid var(--line);
+    font-family:var(--font-mono); font-size:0.72rem; padding:7px 10px; border-radius:2px;
+    cursor:pointer; letter-spacing:0.5px;
+  }
+  button.ghost:hover{color:var(--cyan); border-color:var(--cyan-dim);}
+  .btn-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+
+  /* --- diagram --- */
+  .diagram-wrap{ position:relative; }
+  svg{display:block; width:100%; height:auto;}
+  .lbl{font-family:var(--font-mono); font-size:11px; fill:var(--ink-dim); letter-spacing:0.5px;}
+  .lbl-amber{fill:var(--amber);}
+  .lbl-cyan{fill:var(--cyan);}
+
+  /* --- chart --- */
+  .chart-box{ position:relative; }
+  .grid-line{stroke:var(--line); stroke-width:1;}
+  .axis-lbl{font-family:var(--font-mono); font-size:10px; fill:var(--ink-dim);}
+  .trace{fill:none; stroke:var(--amber); stroke-width:2;}
+  .trace-glow{fill:none; stroke:var(--amber); stroke-width:5; opacity:0.15;}
+
+  table.data-table{
+    width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:0.72rem;
+    max-height:220px; display:block; overflow-y:auto;
+  }
+  table.data-table thead{position:sticky; top:0; background:var(--panel);}
+  table.data-table th, table.data-table td{
+    text-align:right; padding:3px 8px; border-bottom:1px solid var(--line); color:var(--ink-dim);
+  }
+  table.data-table th{color:var(--cyan); text-transform:uppercase; font-size:0.62rem; letter-spacing:1px;}
+  table.data-table td.now{color:var(--amber); font-weight:600;}
+
+  .calc-block{font-family:var(--font-mono); font-size:0.78rem; line-height:2; color:var(--ink-dim);}
+  .calc-block .eq{color:var(--ink);}
+  .calc-block .val{color:var(--amber);}
+  .calc-block hr{border:none; border-top:1px dashed var(--line); margin:8px 0;}
+  .final-temp{
+    font-family:var(--font-mono); font-size:1.7rem; color:var(--amber); text-align:center;
+    padding:10px 0 4px 0;
+  }
+  .final-temp small{display:block; font-size:0.62rem; color:var(--ink-dim); letter-spacing:1.5px; text-transform:uppercase;}
+  .warn{
+    font-family:var(--font-mono); font-size:0.7rem; color:var(--red); border:1px solid #5a2b23;
+    background:rgba(217,99,79,0.08); padding:6px 8px; border-radius:2px; margin-top:8px;
+  }
+
+  footer{margin-top:20px; color:var(--ink-dim); font-family:var(--font-mono); font-size:0.68rem; text-align:center; border-top:1px solid var(--line); padding-top:10px;}
+
+  .stir-motor{fill:var(--steel-dark); stroke:var(--steel); stroke-width:1;}
+  .shaft{stroke:var(--steel); stroke-width:2;}
+  .paddle{stroke:var(--steel); stroke-width:2; transform-origin:center;}
+  .spinning{animation: spin 0.4s linear infinite;}
+  @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
+  .flash{opacity:0; transition:opacity 0.08s;}
+  .flash.on{opacity:1;}
+
+  .heatwave{opacity:0;}
+  .heatwave.playing{animation: waveOut 1.6s ease-out infinite;}
+  @keyframes waveOut{
+    0%{opacity:0.9; r:14;}
+    100%{opacity:0; r:110;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1><span class="accent">⌬</span> Bomb Calorimetry <span style="color:var(--ink-dim); font-weight:400;">— Constant-Volume Combustion</span></h1>
+      <div class="subtitle">q<sub>v</sub> = ΔU &nbsp;·&nbsp; sealed steel bomb &nbsp;·&nbsp; excess O₂ &nbsp;·&nbsp; insulated water bath</div>
+    </div>
+    <div class="badge">General Chemistry Lab · Sim v1.0</div>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT: controls -->
+    <div class="left-col">
+      <div class="panel">
+        <div class="panel-title">Sample Charge</div>
+
+        <div class="field">
+          <label for="nameInput">Recorded by (name)</label>
+          <input type="text" id="nameInput" placeholder="e.g. J. Rivera" autocomplete="off">
+        </div>
+
+        <div class="field">
+          <label for="sampleSelect">Combustible sample</label>
+          <select id="sampleSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="massSlider">Sample mass — <span id="massVal" class="readout"></span> g</label>
+          <input type="range" id="massSlider" min="1" max="20" step="0.1" value="10">
+        </div>
+
+        <div class="row2 field">
+          <div>
+            <label>O₂ charge</label>
+            <div class="readout">10.0 atm <small>(excess)</small></div>
+          </div>
+          <div>
+            <label>Initial temp T₀</label>
+            <div class="readout" id="t0Readout">— °C</div>
+          </div>
+        </div>
+
+        <button class="ignite armed" id="igniteBtn">⚡ Press Ignition</button>
+        <div class="btn-row">
+          <button class="ghost" id="resetBtn">↺ Reset / New T₀</button>
+          <button class="ghost" id="csvBtn">⇩ Export CSV</button>
+          <button class="ghost" id="pngBtn">⇩ Export PNG</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Apparatus Constants</div>
+        <div class="const-list">
+          Bomb (steel) mass &nbsp;&nbsp;<b>1000 g</b><br>
+          Bomb internal volume &nbsp;<b>500 mL</b><br>
+          Water bath mass &nbsp;&nbsp;&nbsp;&nbsp;<b>1000 g</b><br>
+          c(steel) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>0.452 J/g·°C</b><br>
+          c(water) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>4.184 J/g·°C</b><br>
+          C<sub>total</sub> = Σ(m·c) &nbsp;<b id="cTotalReadout">— J/°C</b><br>
+          Vessel &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>rigid, sealed</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: apparatus diagram -->
+    <div class="center-col">
+      <div class="panel diagram-wrap">
+        <div class="panel-title">Apparatus</div>
+        <svg id="diagram" viewBox="0 0 520 460" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- ignition button + wire -->
+          <g>
+            <rect x="230" y="8" width="60" height="26" rx="3" fill="#241612" stroke="#7a3126" id="igniteVisualBtn"/>
+            <text x="260" y="25" text-anchor="middle" class="lbl" style="fill:#d9634f; font-size:9px;">IGNITE</text>
+            <line x1="260" y1="34" x2="260" y2="60" stroke="#8a8f86" stroke-width="1.5"/>
+          </g>
+
+          <!-- insulated outer container -->
+          <rect x="40" y="60" width="440" height="360" rx="8" fill="#171a12" stroke="#3c4230" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="60" y="80" class="lbl">INSULATED CONTAINER</text>
+
+          <!-- motor -->
+          <rect x="228" y="66" width="64" height="30" rx="4" class="stir-motor"/>
+          <text x="260" y="87" text-anchor="middle" class="lbl" style="fill:#12140f; font-size:9px;">MOTOR</text>
+          <line x1="260" y1="96" x2="260" y2="130" class="shaft"/>
+
+          <!-- water bath -->
+          <rect id="waterRect" x="70" y="130" width="380" height="270" rx="6" fill="#204048" stroke="#2f6b69" stroke-width="1.5"/>
+          <text x="90" y="148" class="lbl lbl-cyan">WATER BATH · 1 L</text>
+
+          <!-- stirrer paddle (rotates) -->
+          <g id="paddleGroup" transform="translate(260,150)">
+            <line x1="-16" y1="0" x2="16" y2="0" class="paddle"/>
+            <line x1="0" y1="-16" x2="0" y2="16" class="paddle"/>
+          </g>
+
+          <!-- steel bomb -->
+          <g id="bombGroup">
+            <rect x="190" y="190" width="140" height="170" rx="14" fill="#3a4045" stroke="#9aa2a8" stroke-width="2"/>
+            <rect x="190" y="190" width="140" height="170" rx="14" fill="none" stroke="#12140f" stroke-width="1" opacity="0.4"/>
+            <text x="260" y="212" text-anchor="middle" class="lbl" style="fill:#c7ccd0; font-size:9px;">STEEL BOMB · 500 mL</text>
+            <text x="260" y="224" text-anchor="middle" class="lbl" style="fill:#8a9096; font-size:8px;">1 kg · sealed · O₂ 10 atm</text>
+
+            <!-- sample holder / crucible -->
+            <g transform="translate(260,300)">
+              <path d="M -18 0 L -12 26 L 12 26 L 18 0 Z" fill="#5a5f5a" stroke="#9aa2a8" stroke-width="1.5"/>
+              <rect x="-4" y="-6" width="8" height="8" fill="#8a6a2f"/>
+              <text x="0" y="46" text-anchor="middle" class="lbl" style="font-size:8px;">SAMPLE HOLDER</text>
+            </g>
+            <line x1="260" y1="130" x2="260" y2="190" class="shaft" stroke="#8a8f86"/>
+            <line x1="260" y1="294" x2="260" y2="270" stroke="#8a8f86" stroke-width="1.5"/>
+
+            <!-- spark flash -->
+            <circle id="sparkFlash" class="flash" cx="260" cy="300" r="10" fill="#ffdca0"/>
+            <!-- heat waves -->
+            <circle id="wave1" class="heatwave" cx="260" cy="300" r="14" fill="none" stroke="#e8a13c" stroke-width="2"/>
+            <circle id="wave2" class="heatwave" cx="260" cy="300" r="14" fill="none" stroke="#e8a13c" stroke-width="2" style="animation-delay:0.5s;"/>
+          </g>
+
+          <!-- thermometer -->
+          <g transform="translate(420,190)">
+            <rect x="-8" y="0" width="16" height="150" rx="8" fill="#12140f" stroke="#565d61" stroke-width="1.5"/>
+            <circle cx="0" cy="160" r="14" fill="#12140f" stroke="#565d61" stroke-width="1.5"/>
+            <rect id="mercuryCol" x="-4" y="140" width="8" height="10" fill="#5fd3d0"/>
+            <circle id="mercuryBulb" cx="0" cy="160" r="10" fill="#5fd3d0"/>
+            <text x="0" y="-8" text-anchor="middle" class="lbl">THERMOMETER</text>
+          </g>
+
+          <text x="260" y="440" text-anchor="middle" class="lbl" style="font-size:10px;">
+            <tspan id="diagramTemp" class="lbl-amber" style="font-size:15px;">— °C</tspan>
+            <tspan dx="8" id="diagramTime">t = 0.0 s</tspan>
+          </text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- RIGHT: chart + data + calc -->
+    <div class="right-col">
+      <div class="panel chart-box">
+        <div class="panel-title">Temperature vs. Elapsed Time (0–30 s)</div>
+        <svg id="chart" viewBox="0 0 380 220" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+
+      <div class="panel" style="display:none;">
+        <div class="panel-title">Reaction Summary</div>
+        <div class="calc-block" id="calcBlock">
+          <div>Select a sample and press ignition.</div>
+        </div>
+        <div class="final-temp" id="finalTempBox"><small>Final Temperature</small>— °C</div>
+        <div id="warnBox"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Recorded Data</div>
+        <table class="data-table">
+          <thead><tr><th>t (s)</th><th>T (°C)</th></tr></thead>
+          <tbody id="dataTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Idealized adiabatic model — assumes no heat loss to surroundings, negligible heat capacity of O₂ gas and fuse wire, water density 1.00 g/mL. Values above 100 °C are physically plausible only because the bomb itself is a rigid sealed vessel; the surrounding open water bath would in reality begin to boil.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const REAGENTS = [
+    {key:"Mg",      label:"Mg(s) — Magnesium",              M:24.305, dHc:-601.6},
+    {key:"S",       label:"S(s) — Sulfur",                  M:32.06,  dHc:-296.8},
+    {key:"EtOH",    label:"C₂H₅OH(l) — Ethanol",            M:46.07,  dHc:-1366.8},
+    {key:"MeOH",    label:"CH₃OH(l) — Methanol",            M:32.04,  dHc:-726.1},
+    {key:"Octane",  label:"C₈H₁₈(l) — Octane",               M:114.23, dHc:-5461},
+    {key:"Benzene", label:"C₆H₆(l) — Benzene",               M:78.11,  dHc:-3267},
+    {key:"iPrOH",   label:"C₃H₈O(l) — Isopropanol",          M:60.10,  dHc:-2004},
+    {key:"Glucose", label:"C₆H₁₂O₆(s) — Glucose",            M:180.16, dHc:-2803},
+    {key:"Sucrose", label:"C₁₂H₂₂O₁₁(s) — Sucrose",          M:342.30, dHc:-5645},
+    {key:"nPrOH",   label:"CH₃CH₂CH₂OH(l) — 1-Propanol",     M:60.10,  dHc:-2021},
+    {key:"AcOH",    label:"CH₃COOH(l) — Acetic acid",         M:60.05,  dHc:-876},
+    {key:"Heptane", label:"C₇H₁₆(l) — Heptane",               M:100.20, dHc:-4817},
+  ];
+
+  const M_WATER = 1000, C_WATER = 4.184;
+  const M_STEEL = 1000, C_STEEL = 0.452;
+  const C_TOTAL = M_WATER*C_WATER + M_STEEL*C_STEEL; // J/°C
+  const DURATION_SIM_S = 30;      // simulated seconds shown on axis
+  const DURATION_REAL_MS = 9000;  // real animation time
+
+  let T0 = 20 + Math.random()*5;
+  let currentReagent = REAGENTS[3]; // methanol default, modest & safe demo
+  let mass = 10;
+  let animHandle = null;
+  let dataPoints = []; // {t, T}
+  let deltaT_final = 0;
+  let T_final = 0;
+
+  const el = id => document.getElementById(id);
+  const nameInput = el("nameInput");
+  const sampleSelect = el("sampleSelect");
+  const massSlider = el("massSlider");
+  const massVal = el("massVal");
+  const t0Readout = el("t0Readout");
+  const cTotalReadout = el("cTotalReadout");
+  const igniteBtn = el("igniteBtn");
+  const resetBtn = el("resetBtn");
+  const csvBtn = el("csvBtn");
+  const pngBtn = el("pngBtn");
+  const calcBlock = el("calcBlock");
+  const finalTempBox = el("finalTempBox");
+  const warnBox = el("warnBox");
+  const dataTableBody = el("dataTableBody");
+  const diagramTemp = el("diagramTemp");
+  const diagramTime = el("diagramTime");
+  const mercuryCol = el("mercuryCol");
+  const mercuryBulb = el("mercuryBulb");
+  const paddleGroup = el("paddleGroup");
+  const sparkFlash = el("sparkFlash");
+  const wave1 = el("wave1");
+  const wave2 = el("wave2");
+  const waterRect = el("waterRect");
+  const chartSvg = el("chart");
+
+  function populateSelect(){
+    sampleSelect.innerHTML = REAGENTS.map((r,i)=>`<option value="${i}">${r.label}</option>`).join("");
+    sampleSelect.value = "3";
+  }
+  populateSelect();
+
+  function fmt(n, d){ return Number(n).toFixed(d===undefined?2:d); }
+
+  function computeChemistry(){
+    const n = mass / currentReagent.M;
+    const q_kJ = n * Math.abs(currentReagent.dHc);
+    const q_J = q_kJ * 1000;
+    const dT = q_J / C_TOTAL;
+    return {n, q_kJ, dT};
+  }
+
+  // temperature-vs-simtime curve: pre-period flat, rapid rise, post-period flat
+  function tempAt(simT, dT){
+    const k = 0.6, tmid = 8;
+    const raw = t => 1/(1+Math.exp(-k*(t-tmid)));
+    const r0 = raw(0), r1 = raw(DURATION_SIM_S);
+    const norm = (raw(simT)-r0)/(r1-r0);
+    return T0 + dT*norm;
+  }
+
+  function renderConstants(){
+    t0Readout.textContent = fmt(T0,2) + " °C";
+    cTotalReadout.textContent = fmt(C_TOTAL,0) + " J/°C";
+  }
+
+  function updateCalcPreview(){
+    const {n, q_kJ, dT} = computeChemistry();
+    calcBlock.innerHTML = `
+      <div class="eq">n = m / M = ${fmt(mass,1)} g ÷ ${fmt(currentReagent.M,2)} g/mol</div>
+      <div>&nbsp;&nbsp;= <span class="val">${fmt(n,4)} mol</span></div>
+      <hr>
+      <div class="eq">q_rxn = n × |ΔH_comb|</div>
+      <div>&nbsp;&nbsp;= ${fmt(n,4)} mol × ${fmt(Math.abs(currentReagent.dHc),1)} kJ/mol</div>
+      <div>&nbsp;&nbsp;= <span class="val">${fmt(q_kJ,1)} kJ</span> released</div>
+      <hr>
+      <div class="eq">C_total = m<sub>w</sub>c<sub>w</sub> + m<sub>steel</sub>c<sub>steel</sub> = <span class="val">${fmt(C_TOTAL,0)} J/°C</span></div>
+      <div class="eq">ΔT = q_rxn / C_total = <span class="val">${fmt(dT,2)} °C</span></div>
+    `;
+    finalTempBox.innerHTML = `<small>Projected Final Temperature</small>${fmt(T0+dT,2)} °C`;
+    warnBox.innerHTML = "";
+    if (T0+dT > 100){
+      warnBox.innerHTML = `<div class="warn">⚠ Exceeds 100 °C — the sealed bomb tolerates this, but an open water bath at this scale would boil. Reduce sample mass to keep the bath sub-boiling.</div>`;
+    }
+  }
+
+  function drawChartAxes(){
+    // static grid + axes, drawn fresh each render
+    const w=380,h=220, padL=42, padR=12, padT=14, padB=28;
+    let svg = `<g>`;
+    // grid
+    for(let i=0;i<=6;i++){
+      const x = padL + (w-padL-padR)*i/6;
+      svg += `<line class="grid-line" x1="${x}" y1="${padT}" x2="${x}" y2="${h-padB}"/>`;
+      svg += `<text class="axis-lbl" x="${x}" y="${h-padB+14}" text-anchor="middle">${fmt(i*5,0)}</text>`;
+    }
+    for(let i=0;i<=4;i++){
+      const y = padT + (h-padT-padB)*i/4;
+      svg += `<line class="grid-line" x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}"/>`;
+    }
+    svg += `<text class="axis-lbl" x="${(w)/2}" y="${h-4}" text-anchor="middle">elapsed time (s)</text>`;
+    svg += `<text class="axis-lbl" x="10" y="${padT+6}" transform="rotate(-90 10 ${padT+6})" text-anchor="middle">T (°C)</text>`;
+    svg += `</g>`;
+    return {svg, w,h,padL,padR,padT,padB};
+  }
+
+  let chartMeta = null;
+  function renderChart(liveT){
+    const {svg, w,h,padL,padR,padT,padB} = drawChartAxes();
+    const dT = deltaT_final || computeChemistry().dT;
+    const yMin = T0 - 2;
+    const yMax = T0 + dT + 4;
+    chartMeta = {w,h,padL,padR,padT,padB,yMin,yMax};
+    const xScale = t => padL + (w-padL-padR)*(t/DURATION_SIM_S);
+    const yScale = T => (h-padB) - (h-padB-padT)*((T-yMin)/(yMax-yMin));
+
+    let pathPts = dataPoints.map(p=>`${xScale(p.t)},${yScale(p.T)}`).join(" L ");
+    let pathD = dataPoints.length ? `M ${pathPts}` : "";
+
+    let liveDot = "";
+    if (liveT !== undefined){
+      const lt = liveT.t, lT = liveT.T;
+      liveDot = `<circle cx="${xScale(lt)}" cy="${yScale(lT)}" r="4" fill="var(--amber, #e8a13c)"/>`;
+    }
+
+    // annotate initial temperature at start of run
+    let startMarker = "";
+    if (dataPoints.length > 0){
+      const p0 = dataPoints[0];
+      const x0 = xScale(p0.t), y0 = yScale(p0.T);
+      startMarker = `<circle cx="${x0}" cy="${y0}" r="3.5" fill="var(--cyan,#5fd3d0)" stroke="#12140f" stroke-width="1"/>` +
+        `<text x="${x0+6}" y="${y0-8}" class="axis-lbl" style="fill:var(--cyan,#5fd3d0); font-size:10px;">T&#8320; = ${fmt(p0.T,2)}\u00B0C</text>`;
+    }
+
+    // annotate final temperature once the run has completed
+    let endMarker = "";
+    const finished = dataPoints.length > 0 && dataPoints[dataPoints.length-1].t >= DURATION_SIM_S - 0.001;
+    if (finished){
+      const pF = dataPoints[dataPoints.length-1];
+      const xF = xScale(pF.t), yF = yScale(pF.T);
+      endMarker = `<circle cx="${xF}" cy="${yF}" r="3.5" fill="var(--amber,#e8a13c)" stroke="#12140f" stroke-width="1"/>` +
+        `<text x="${xF-6}" y="${yF+16}" text-anchor="end" class="axis-lbl" style="fill:var(--amber,#e8a13c); font-size:10px;">T final = ${fmt(pF.T,2)}\u00B0C</text>`;
+    }
+
+    chartSvg.innerHTML = svg +
+      (pathD ? `<path class="trace-glow" d="${pathD}"/><path class="trace" d="${pathD}"/>` : "") +
+      liveDot + startMarker + endMarker;
+  }
+
+  function renderTable(){
+    dataTableBody.innerHTML = dataPoints.map((p,i)=>{
+      const isLast = i===dataPoints.length-1;
+      return `<tr><td>${fmt(p.t,0)}</td><td class="${isLast?'now':''}">${fmt(p.T,2)}</td></tr>`;
+    }).join("");
+  }
+
+  function updateDiagram(T, simT, playingHeat){
+    diagramTemp.textContent = fmt(T,2)+" °C";
+    diagramTime.textContent = "t = "+fmt(simT,1)+" s";
+    // mercury column height scaled 15..25 range mapped 0..1 across plausible 15-130C
+    const frac = Math.max(0, Math.min(1, (T-15)/(120-15)));
+    const maxColH = 150;
+    const colH = 10 + frac*(maxColH-10);
+    mercuryCol.setAttribute("y", 150 - colH + 10);
+    mercuryCol.setAttribute("height", colH);
+    const hue = 190 - frac*190; // cyan(190) -> red(0)
+    const col = `hsl(${hue}, 70%, 60%)`;
+    mercuryCol.setAttribute("fill", col);
+    mercuryBulb.setAttribute("fill", col);
+    // water tint warms slightly
+    const waterHue = 195 - frac*40;
+    waterRect.setAttribute("fill", `hsl(${waterHue}, 35%, ${18+frac*8}%)`);
+
+    if (playingHeat){
+      wave1.classList.add("playing"); wave2.classList.add("playing");
+    } else {
+      wave1.classList.remove("playing"); wave2.classList.remove("playing");
+    }
+  }
+
+  function resetSim(newT0){
+    if (animHandle) cancelAnimationFrame(animHandle);
+    animHandle = null;
+    if (newT0) T0 = 20 + Math.random()*5;
+    dataPoints = [];
+    deltaT_final = 0;
+    T_final = 0;
+    igniteBtn.disabled = false;
+    igniteBtn.classList.add("armed");
+    sparkFlash.classList.remove("on");
+    wave1.classList.remove("playing"); wave2.classList.remove("playing");
+    renderConstants();
+    updateCalcPreview();
+    updateDiagram(T0, 0, false);
+    renderChart();
+    renderTable();
+  }
+
+  function runIgnition(){
+    const {dT} = computeChemistry();
+    deltaT_final = dT;
+    T_final = T0 + dT;
+    igniteBtn.disabled = true;
+    igniteBtn.classList.remove("armed");
+    sparkFlash.classList.add("on");
+    setTimeout(()=>sparkFlash.classList.remove("on"), 350);
+    wave1.classList.add("playing"); wave2.classList.add("playing");
+
+    dataPoints = [];
+    const startTime = performance.now();
+
+    function frame(now){
+      const elapsedReal = now - startTime;
+      let simT = (elapsedReal/DURATION_REAL_MS) * DURATION_SIM_S;
+      if (simT > DURATION_SIM_S) simT = DURATION_SIM_S;
+      const jitter = (Math.sin(simT*7)+Math.sin(simT*3.3))*0.015*Math.max(1,Math.abs(dT)*0.05);
+      const T = tempAt(simT, dT) + (simT>0.2 && simT<DURATION_SIM_S-0.2 ? jitter : 0);
+
+      // record integer-second samples
+      const lastRecorded = dataPoints.length ? dataPoints[dataPoints.length-1].t : -1;
+      const flooredSec = Math.floor(simT);
+      if (flooredSec > lastRecorded){
+        for (let s=lastRecorded+1; s<=flooredSec; s++){
+          dataPoints.push({t:s, T: tempAt(s, dT)});
+        }
+        renderTable();
+      }
+
+      updateDiagram(T, simT, simT < DURATION_SIM_S-0.3);
+      renderChart({t:simT, T:T});
+
+      if (elapsedReal < DURATION_REAL_MS){
+        animHandle = requestAnimationFrame(frame);
+      } else {
+        if (dataPoints.length===0 || dataPoints[dataPoints.length-1].t < DURATION_SIM_S){
+          dataPoints.push({t:DURATION_SIM_S, T:T_final});
+        }
+        updateDiagram(T_final, DURATION_SIM_S, false);
+        renderChart({t:DURATION_SIM_S, T:T_final});
+        renderTable();
+        wave1.classList.remove("playing"); wave2.classList.remove("playing");
+      }
+    }
+    animHandle = requestAnimationFrame(frame);
+  }
+
+  sampleSelect.addEventListener("change", ()=>{
+    currentReagent = REAGENTS[Number(sampleSelect.value)];
+    if (!igniteBtn.disabled) updateCalcPreview();
+    if (dataPoints.length===0) { updateCalcPreview(); renderChart(); }
+  });
+  massSlider.addEventListener("input", ()=>{
+    mass = Number(massSlider.value);
+    massVal.textContent = fmt(mass,1);
+    updateCalcPreview();
+    if (dataPoints.length===0) renderChart();
+  });
+  igniteBtn.addEventListener("click", runIgnition);
+  resetBtn.addEventListener("click", ()=>resetSim(true));
+
+  csvBtn.addEventListener("click", ()=>{
+    const name = nameInput.value.trim() || "(not entered)";
+    const dateStr = new Date().toLocaleDateString();
+    const header = [
+      `Name,${name}`,
+      `Date,${dateStr}`,
+      `Sample,${currentReagent.label}`,
+      `Sample mass (g),${fmt(mass,1)}`,
+      `Initial temperature T0 (C),${fmt(T0,2)}`,
+      `Final temperature (C),${dataPoints.length ? fmt(dataPoints[dataPoints.length-1].T,2) : "(no run recorded yet)"}`,
+      "",
+      "time_s,temperature_C"
+    ].join("\n");
+    let rows = dataPoints.map(p=>`${p.t},${p.T.toFixed(3)}`).join("\n");
+    if (dataPoints.length===0) rows = "(no run recorded yet)";
+    const csv = header + "\n" + rows;
+    const blob = new Blob([csv], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `bomb_calorimetry_${currentReagent.key}.csv`;
+    a.click();
+  });
+
+  // Light-mode export render: paper-white background, dark ink, for printing/sharing.
+  function buildLightModeSVG(){
+    const W=820, H=580;
+    const chartX=64, chartY=176, chartW=706, chartH=330;
+    const dT = deltaT_final || computeChemistry().dT;
+    const yMin = T0 - 2, yMax = T0 + dT + 4;
+    const xScale = t => chartX + chartW*(t/DURATION_SIM_S);
+    const yScale = T => (chartY+chartH) - chartH*((T-yMin)/(yMax-yMin));
+
+    const name = nameInput.value.trim() || "(not entered)";
+    const dateStr = new Date().toLocaleDateString();
+    const finalT = dataPoints.length ? dataPoints[dataPoints.length-1].T : null;
+
+    const INK = "#26291f", DIM = "#5b6152", GRID = "#d7dccd", TRACE = "#b5651d", ACCENT = "#2f6b69";
+    const FONT_HEAD = "Georgia, 'Times New Roman', serif";
+    const FONT_MONO = "'JetBrains Mono', Consolas, 'Courier New', monospace";
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<rect x="0" y="0" width="${W}" height="${H}" fill="#fdfcf6"/>`;
+
+    // header
+    svg += `<text x="32" y="42" font-family="${FONT_HEAD}" font-size="22" font-weight="600" fill="${INK}">Bomb Calorimetry — Constant-Volume Combustion</text>`;
+    svg += `<line x1="32" y1="56" x2="${W-32}" y2="56" stroke="${GRID}" stroke-width="1.5"/>`;
+
+    const metaRow = (x,y,label,value)=>{
+      return `<text x="${x}" y="${y}" font-family="${FONT_MONO}" font-size="12.5" fill="${DIM}">${label}</text>` +
+             `<text x="${x}" y="${y+18}" font-family="${FONT_MONO}" font-size="14.5" fill="${INK}">${value}</text>`;
+    };
+    svg += metaRow(32, 82, "NAME", name);
+    svg += metaRow(230, 82, "DATE", dateStr);
+    svg += metaRow(400, 82, "SAMPLE", currentReagent.label);
+    svg += metaRow(32, 128, "MASS", fmt(mass,1)+" g");
+    svg += metaRow(160, 128, "T0", fmt(T0,2)+" \u00B0C");
+    svg += metaRow(290, 128, "\u0394T", fmt(dT,2)+" \u00B0C");
+    svg += metaRow(420, 128, "T FINAL", finalT!==null ? fmt(finalT,2)+" \u00B0C" : "\u2014");
+
+    // chart grid
+    for(let i=0;i<=6;i++){
+      const x = chartX + chartW*i/6;
+      svg += `<line x1="${x}" y1="${chartY}" x2="${x}" y2="${chartY+chartH}" stroke="${GRID}" stroke-width="1"/>`;
+      svg += `<text x="${x}" y="${chartY+chartH+18}" font-family="${FONT_MONO}" font-size="11" fill="${DIM}" text-anchor="middle">${i*5}</text>`;
+    }
+    for(let i=0;i<=5;i++){
+      const y = chartY + chartH*i/5;
+      svg += `<line x1="${chartX}" y1="${y}" x2="${chartX+chartW}" y2="${y}" stroke="${GRID}" stroke-width="1"/>`;
+      const tempLbl = yMax - (yMax-yMin)*i/5;
+      svg += `<text x="${chartX-8}" y="${y+4}" font-family="${FONT_MONO}" font-size="11" fill="${DIM}" text-anchor="end">${fmt(tempLbl,0)}</text>`;
+    }
+    svg += `<rect x="${chartX}" y="${chartY}" width="${chartW}" height="${chartH}" fill="none" stroke="${DIM}" stroke-width="1.5"/>`;
+    svg += `<text x="${chartX+chartW/2}" y="${chartY+chartH+38}" font-family="${FONT_MONO}" font-size="12" fill="${INK}" text-anchor="middle">elapsed time (s)</text>`;
+    svg += `<text x="20" y="${chartY+chartH/2}" font-family="${FONT_MONO}" font-size="12" fill="${INK}" text-anchor="middle" transform="rotate(-90 20 ${chartY+chartH/2})">temperature (\u00B0C)</text>`;
+
+    // trace
+    if (dataPoints.length){
+      const pts = dataPoints.map(p=>`${xScale(p.t)},${yScale(p.T)}`).join(" L ");
+      svg += `<path d="M ${pts}" fill="none" stroke="${TRACE}" stroke-width="2.5"/>`;
+      dataPoints.forEach(p=>{
+        svg += `<circle cx="${xScale(p.t)}" cy="${yScale(p.T)}" r="2.5" fill="${TRACE}"/>`;
+      });
+
+      // annotate initial temperature at start of run
+      const p0 = dataPoints[0];
+      const x0 = xScale(p0.t), y0 = yScale(p0.T);
+      svg += `<circle cx="${x0}" cy="${y0}" r="4.5" fill="#fdfcf6" stroke="${ACCENT}" stroke-width="2"/>`;
+      svg += `<text x="${x0+8}" y="${y0-10}" font-family="${FONT_MONO}" font-size="13" fill="${ACCENT}">T0 = ${fmt(p0.T,2)} \u00B0C</text>`;
+
+      // annotate final temperature once the run has completed
+      const finished = dataPoints[dataPoints.length-1].t >= DURATION_SIM_S - 0.001;
+      if (finished){
+        const pF = dataPoints[dataPoints.length-1];
+        const xF = xScale(pF.t), yF = yScale(pF.T);
+        svg += `<circle cx="${xF}" cy="${yF}" r="4.5" fill="#fdfcf6" stroke="${TRACE}" stroke-width="2"/>`;
+        svg += `<text x="${xF-8}" y="${yF+22}" font-family="${FONT_MONO}" font-size="13" fill="${TRACE}" text-anchor="end">T final = ${fmt(pF.T,2)} \u00B0C</text>`;
+      }
+    } else {
+      svg += `<text x="${chartX+chartW/2}" y="${chartY+chartH/2}" font-family="${FONT_MONO}" font-size="13" fill="${DIM}" text-anchor="middle">no run recorded yet</text>`;
+    }
+
+    svg += `<text x="32" y="${H-16}" font-family="${FONT_MONO}" font-size="10" fill="${DIM}">Idealized adiabatic model \u00B7 C_total = ${fmt(C_TOTAL,0)} J/\u00B0C \u00B7 General Chemistry Lab</text>`;
+    svg += `</svg>`;
+    return svg;
+  }
+
+  pngBtn.addEventListener("click", ()=>{
+    const svgData = buildLightModeSVG();
+    const svgBlob = new Blob([svgData], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onerror = function(e){ console.error("PNG export image load failed", e); };
+    img.onload = function(){
+      const scale = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = 820*scale; canvas.height = 580*scale;
+      const ctx = canvas.getContext("2d");
+      ctx.scale(scale, scale);
+      ctx.fillStyle = "#fdfcf6"; ctx.fillRect(0,0,820,580);
+      ctx.drawImage(img,0,0,820,580);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob=>{
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `bomb_calorimetry_chart_${currentReagent.key}.png`;
+        a.click();
+      });
+    };
+    img.src = url;
+  });
+
+  massVal.textContent = fmt(mass,1);
+  resetSim(false);
+})();
+</script>
+</body>
+</html>
