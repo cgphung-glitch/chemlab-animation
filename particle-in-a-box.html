@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Particle in a Box (n=1 to 10)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
+
+    <header class="text-center my-6 max-w-2xl">
+        <h1 class="text-3xl font-bold text-teal-400 mb-2">Particle in a Box</h1>
+        <p class="text-sm text-gray-400">
+            Visualize wavefunctions (Ψ), probability densities (|Ψ|²), and complex superpositions up to n = 10.
+        </p>
+    </header>
+
+    <main class="w-full max-w-4xl bg-gray-800 rounded-2xl p-6 shadow-xl flex flex-col gap-6">
+        
+        <div class="relative w-full h-[300px] md:h-[420px] bg-gray-950 rounded-xl p-2 border border-gray-700">
+            <canvas id="quantumChart"></canvas>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="flex flex-col gap-5">
+                <h3 class="text-lg font-semibold text-teal-300 border-b border-gray-700 pb-1">Display Controls</h3>
+                
+                <div class="flex gap-2">
+                    <button id="btnWave" class="flex-1 py-2 px-3 rounded-lg text-sm font-semibold border transition-colors bg-teal-600 border-teal-500 text-white" onclick="toggleTrace('wave')">
+                        Wavefunction (Re[Ψ])
+                    </button>
+                    <button id="btnProb" class="flex-1 py-2 px-3 rounded-lg text-sm font-semibold border transition-colors bg-purple-600 border-purple-500 text-white" onclick="toggleTrace('prob')">
+                        Probability (|Ψ|²)
+                    </button>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-300">Time Evolution Speed</label>
+                    <div class="flex items-center gap-4">
+                        <input id="speedSlider" type="range" min="0" max="5" step="0.1" value="0.5" class="w-full accent-teal-400 bg-gray-700 h-2 rounded-lg appearance-none cursor-pointer">
+                        <span id="speedVal" class="text-sm font-mono bg-gray-950 px-2 py-1 rounded w-12 text-center">0.5x</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Tip: Slow down time when using higher n states, as they oscillate rapidly.</p>
+                </div>
+
+                <button onclick="resetApp()" class="w-full py-2.5 bg-gray-700 hover:bg-gray-600 transition text-white font-semibold rounded-lg text-sm">
+                    Reset to Ground State (n=1)
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-gray-700 pb-1">
+                    <h3 class="text-lg font-semibold text-teal-300">Superposition States</h3>
+                    <span class="text-xs text-gray-400">Normalized automatically</span>
+                </div>
+                
+                <div class="space-y-3 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div id="slidersContainer"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="mt-8 text-center text-xs text-gray-500">
+        Physically scaled with $\hbar = 1, m = 1, L = 1$. Energies scale as $E_n \propto n^2$.
+    </footer>
+
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+    </style>
+
+    <script>
+        // Physics variables (Normalized units)
+        const L = 1.0;
+        const hbar = 1.0;
+        const m = 1.0;
+        const resolution = 150; // High resolution to capture frequency ripples
+        const totalStates = 10;
+        
+        let t = 0.0;
+        let lastTime = performance.now();
+        
+        // State Amplitudes setup (inputs and normalized results)
+        let inputs = Array(totalStates).fill(0.0);
+        inputs[0] = 1.0; // Default to Ground State
+        let normalizedC = Array(totalStates).fill(0.0);
+        normalizedC[0] = 1.0;
+
+        // Visualization Toggles
+        let showWave = true;
+        let showProb = true;
+
+        // Dynamic Slider Generation
+        const slidersContainer = document.getElementById('slidersContainer');
+        const stateLabels = [
+            "Ground State", "1st Excited", "2nd Excited", "3rd Excited", 
+            "4th Excited", "5th Excited", "6th Excited", "7th Excited", 
+            "8th Excited", "9th Excited"
+        ];
+
+        for (let i = 0; i < totalStates; i++) {
+            const n = i + 1;
+            const stateDiv = document.createElement('div');
+            stateDiv.className = "flex flex-col mb-2.5";
+            stateDiv.innerHTML = `
+                <div class="flex justify-between text-xs font-mono mb-0.5">
+                    <span class="text-gray-300">n = ${n} <span class="text-gray-500">(${stateLabels[i] || 'Excited'})</span></span>
+                    <span id="c${n}Val" class="text-teal-400 font-bold">c${getSubscript(n)} = ${i === 0 ? '1.00' : '0.00'}</span>
+                </div>
+                <input id="c${n}Slider" type="range" min="0" max="1" step="0.01" value="${i === 0 ? '1' : '0'}" 
+                    oninput="updateCoefficients()" 
+                    class="accent-teal-400 bg-gray-700 h-2 rounded-lg appearance-none cursor-pointer">
+            `;
+            slidersContainer.appendChild(stateDiv);
+        }
+
+        // Chart.js initialization
+        const ctx = document.getElementById('quantumChart').getContext('2d');
+        
+        // Generate X points (0 to L)
+        const xValues = [];
+        for (let i = 0; i <= resolution; i++) {
+            xValues.push((i * L / resolution).toFixed(3));
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: xValues,
+                datasets: [
+                    {
+                        label: 'Wavefunction Re(Ψ)',
+                        borderColor: '#2dd4bf', // Teal
+                        backgroundColor: 'rgba(45, 212, 191, 0.1)',
+                        data: [],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: 'Probability Density (|Ψ|²)',
+                        borderColor: '#a855f7', // Purple
+                        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                        data: [],
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false, // Smooth render frames without UI lag
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Box Width (x)', color: '#9ca3af' },
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af', maxTicksLimit: 11 }
+                    },
+                    y: {
+                        min: -3.0,
+                        max: 3.0,
+                        title: { display: true, text: 'Amplitude / Probability', color: '#9ca3af' },
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#f3f4f6' }
+                    }
+                }
+            }
+        });
+
+        // Toggle state tracing visibility
+        function toggleTrace(type) {
+            if (type === 'wave') {
+                showWave = !showWave;
+                const btn = document.getElementById('btnWave');
+                if (showWave) {
+                    btn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-semibold border transition-colors bg-teal-600 border-teal-500 text-white";
+                } else {
+                    btn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-semibold border transition-colors bg-transparent border-gray-600 text-gray-400";
+                }
+            } else if (type === 'prob') {
+                showProb = !showProb;
+                const btn = document.getElementById('btnProb');
+                if (showProb) {
+                    btn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-semibold border transition-colors bg-purple-600 border-purple-500 text-white";
+                } else {
+                    btn.className = "flex-1 py-2 px-3 rounded-lg text-sm font-semibold border transition-colors bg-transparent border-gray-600 text-gray-400";
+                }
+            }
+        }
+
+        // Calculate normalized weights so total probability = 1.0
+        function updateCoefficients() {
+            for (let i = 0; i < totalStates; i++) {
+                inputs[i] = parseFloat(document.getElementById(`c${i+1}Slider`).value);
+            }
+
+            let sumSq = inputs.reduce((sum, val) => sum + val * val, 0);
+            
+            if (sumSq === 0) {
+                // Prevent crash by defaulting to absolute zero-state
+                normalizedC = Array(totalStates).fill(0.0);
+            } else {
+                let normFactor = Math.sqrt(sumSq);
+                normalizedC = inputs.map(val => val / normFactor);
+            }
+
+            // Update labels dynamically
+            for (let i = 0; i < totalStates; i++) {
+                const n = i + 1;
+                document.getElementById(`c${n}Val`).innerText = `c${getSubscript(n)} = ${normalizedC[i].toFixed(2)}`;
+            }
+        }
+
+        function getSubscript(n) {
+            const subs = ["₀", "₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈", "₉", "₁₀"];
+            return subs[n] || n;
+        }
+
+        // Quantum Physics Math
+        // psi_n(x) = sqrt(2/L) * sin(n * pi * x / L)
+        function getPsiN(n, x) {
+            return Math.sqrt(2 / L) * Math.sin(n * Math.PI * x / L);
+        }
+
+        // Energy E_n = (n^2 * pi^2 * hbar) / (2 * m * L^2)
+        function getEnergy(n) {
+            return (n * n * Math.PI * Math.PI * hbar) / (2 * m * L * L);
+        }
+
+        // Main animation engine loop
+        function animate(now) {
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            const speed = parseFloat(document.getElementById('speedSlider').value);
+            document.getElementById('speedVal').innerText = speed.toFixed(1) + 'x';
+            
+            // Advance physical phase
+            t += dt * speed * 3.0; 
+
+            const psiData = [];
+            const probData = [];
+
+            for (let i = 0; i <= resolution; i++) {
+                const x = i * L / resolution;
+                
+                let realPsi = 0;
+                let imagPsi = 0;
+
+                for (let idx = 0; idx < totalStates; idx++) {
+                    const n = idx + 1;
+                    const cn = normalizedC[idx];
+                    if (cn === 0) continue;
+
+                    const energy = getEnergy(n);
+                    const phase = energy * t;
+
+                    const spatial = getPsiN(n, x);
+                    
+                    // Time-dependent wavefunction: Psi(x,t) = cn * psi_n(x) * exp(-i * E_n * t / hbar)
+                    // Euler's formula: exp(-i theta) = cos(theta) - i sin(theta)
+                    realPsi += cn * spatial * Math.cos(phase);
+                    imagPsi -= cn * spatial * Math.sin(phase);
+                }
+
+                const probDensity = (realPsi * realPsi) + (imagPsi * imagPsi);
+
+                psiData.push(showWave ? realPsi : null);
+                probData.push(showProb ? probDensity : null);
+            }
+
+            // Sync visual data and render
+            chart.data.datasets[0].data = psiData;
+            chart.data.datasets[1].data = probData;
+            chart.update();
+
+            requestAnimationFrame(animate);
+        }
+
+        function resetApp() {
+            document.getElementById('c1Slider').value = 1;
+            for (let i = 2; i <= totalStates; i++) {
+                document.getElementById(`c${i}Slider`).value = 0;
+            }
+            t = 0;
+            updateCoefficients();
+        }
+
+        // Start App
+        updateCoefficients();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
