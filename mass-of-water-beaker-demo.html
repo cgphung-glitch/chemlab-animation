@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mass of Water Measured with a Beaker — Lab Demonstration</title>
+<style>
+  :root{
+    --bg:#14171a;
+    --grid-line: rgba(255,255,255,0.045);
+    --bench:#1c2320;
+    --bench-fleck: rgba(255,255,255,0.07);
+    --panel:#20262a;
+    --panel-edge: rgba(255,255,255,0.08);
+    --ink:#e9edec;
+    --muted:#8a938f;
+    --teal:#6bcbb8;
+    --water:#4fb3c9;
+    --water-dark:#2f8aa0;
+    --amber:#e2a83e;
+    --red:#d9694f;
+    --display-bg:#0b1210;
+    --display-green:#57e08a;
+    --display-amber:#e2a83e;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+    --mono: 'JetBrains Mono','SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg);
+    color:var(--ink);
+    font-family: var(--serif);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 18px 12px 28px;
+  }
+  .wrap{
+    width:100%;
+    max-width:760px;
+  }
+  header{
+    text-align:center;
+    margin-bottom:10px;
+  }
+  header .eyebrow{
+    font-family:var(--mono);
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--teal);
+    margin:0 0 6px;
+  }
+  header h1{
+    font-size: clamp(20px, 5vw, 30px);
+    margin:0 0 4px;
+    font-weight:600;
+    letter-spacing:.2px;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size: clamp(12px, 3vw, 14px);
+    font-family: var(--mono);
+  }
+
+  .stage-card{
+    position:relative;
+    margin-top:16px;
+    border-radius:14px;
+    background: var(--panel);
+    border:1px solid var(--panel-edge);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    overflow:hidden;
+  }
+  .stage-inner{
+    position:relative;
+    width:100%;
+    aspect-ratio: 900/560;
+  }
+  svg#scene{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+
+  /* ---- labels (scene 0) ---- */
+  .equip-label{
+    font-family: var(--mono);
+    font-size:13px;
+    fill: var(--teal);
+    opacity:0;
+    transition: opacity .5s ease;
+  }
+  [data-scene="0"] .equip-label{ opacity:1; }
+  .equip-leader{
+    stroke: var(--teal);
+    stroke-width:1;
+    stroke-dasharray:3 3;
+    opacity:0;
+    transition: opacity .5s ease;
+  }
+  [data-scene="0"] .equip-leader{ opacity:.7; }
+
+  /* ---- thermometer ---- */
+  #thermo-reading{
+    font-family:var(--mono);
+    font-size:20px;
+    fill:var(--amber);
+    filter: blur(0px);
+    transition: filter .6s ease;
+  }
+  #thermo-reading.blurred{ filter: blur(6px); }
+  #thermo-mercury{ transition: height .5s ease; }
+
+  /* ---- scale display ---- */
+  #scale-display-text{
+    font-family:var(--mono);
+    font-size:22px;
+  }
+  #scale-display-text.blurred{ filter: blur(6px); }
+  #scale-display-text{ transition: filter .5s ease; }
+  #scale-power-led{
+    fill:#333;
+    transition: fill .4s ease;
+  }
+  [data-scene="0"] #scale-power-led{ fill:#333; }
+  body:not([data-scene="0"]) #scale-power-led{ fill:#57e08a; }
+
+  /* ---- beaker movement ---- */
+  #beaker-group{
+    transition: transform 1.1s cubic-bezier(.4,0,.2,1);
+    transform: translate(-150px,0px);
+  }
+  [data-scene="4"] #beaker-group,
+  [data-scene="5"] #beaker-group,
+  [data-scene="6"] #beaker-group,
+  [data-scene="7"] #beaker-group,
+  [data-scene="8"] #beaker-group{
+    transform: translate(38px,-68px);
+  }
+  #beaker-water{ transition: y 1s ease, height 1s ease; }
+
+  /* flask water level — stays rigidly part of the flask body (same clip
+     path, same rotation) so it is always contained within the glass,
+     whatever angle the flask is tipped to while pouring */
+  #flask-water{ transition: y 1s ease, height 1s ease; }
+  #flask-group{ transition: transform .9s ease; transform-origin: 160px 260px; }
+  [data-scene="5"] #flask-group,
+  [data-scene="6"] #flask-group,
+  [data-scene="7"] #flask-group,
+  [data-scene="8"] #flask-group{
+    transform: translate(308px,-122px) rotate(-75deg);
+  }
+
+  /* thermometer is pulled out of the flask before any pouring happens */
+  #thermo{ transition: opacity .3s ease; }
+  [data-scene="5"] #thermo, [data-scene="6"] #thermo,
+  [data-scene="7"] #thermo, [data-scene="8"] #thermo{ opacity:0; }
+
+  /* stream of poured water — shown briefly then disappears, controlled via JS */
+  #pour-stream{ opacity:0; transition: opacity .3s ease; }
+  #pour-stream.active{ opacity:1; }
+
+  /* ---- hand ---- */
+  #hand{
+    opacity:0;
+    transition: opacity .35s ease, transform .7s cubic-bezier(.4,0,.2,1);
+    transform: translate(760px,-40px) rotate(0deg);
+  }
+  [data-scene="3"] #hand{ opacity:1; transform: translate(418px,372px) rotate(-8deg); }
+  [data-scene="4"] #hand{ opacity:1; transform: translate(420px,-30px) rotate(0deg); }
+  [data-scene="5"] #hand, [data-scene="6"] #hand,
+  [data-scene="7"] #hand, [data-scene="8"] #hand{
+    opacity:1; transform: translate(300px,-110px) rotate(-30deg);
+  }
+
+  #tare-btn{ transition: fill .15s ease; }
+  [data-scene="3"] #tare-btn{ fill: var(--teal); }
+
+  /* ---- caption ---- */
+  .caption-bar{
+    padding: 14px 18px 16px;
+    text-align:center;
+    min-height: 54px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-top:1px solid var(--panel-edge);
+    background: linear-gradient(180deg, rgba(255,255,255,0.015), transparent);
+  }
+  .caption-bar span{
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(14px,3.6vw,17px);
+    color: var(--ink);
+    opacity:0;
+    transform: translateY(6px);
+    animation: capIn .5s ease forwards;
+  }
+  @keyframes capIn{ to{ opacity:1; transform: translateY(0);} }
+
+  /* ---- credits scene ---- */
+  .credits{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; text-align:center; padding: 20px;
+    background: radial-gradient(ellipse at 50% 40%, #1a2321 0%, #12100f 80%);
+    opacity:0; pointer-events:none;
+    transition: opacity .6s ease;
+  }
+  [data-scene="9"] .credits{ opacity:1; pointer-events:auto; }
+  .credits .line{
+    opacity:0; transform: translateY(8px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  [data-scene="9"] .credits .line{ opacity:1; transform:translateY(0); }
+  .credits .data-table-wrap{ width:100%; display:flex; justify-content:center; }
+  .credits table.data-table{
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: clamp(10.5px, 2.6vw, 13px);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-edge);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .credits table.data-table th,
+  .credits table.data-table td{
+    padding: 7px 10px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .credits table.data-table thead th{
+    color: var(--teal);
+    font-weight:600;
+    border-bottom: 1px solid var(--panel-edge);
+    background: rgba(107,203,184,0.06);
+  }
+  .credits table.data-table tbody td{
+    color: var(--ink);
+    font-size: clamp(12px, 3vw, 15px);
+  }
+  .credits table.data-table tbody tr td + td{
+    border-left: 1px solid rgba(255,255,255,0.06);
+  }
+  .credits .reminder{
+    font-family: var(--mono); font-size: clamp(13px,3.4vw,15px); color: var(--amber);
+    max-width:420px;
+  }
+  .credits .madeby{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin-top:14px;}
+  .credits .name{ font-family: var(--serif); font-size: clamp(20px,5vw,26px); color:var(--teal); font-weight:600; }
+  .credits .dept{ font-family: var(--mono); font-size:12px; color:var(--muted); }
+  .credits .school{ font-family: var(--mono); font-size:12px; color:var(--muted); }
+
+  /* ---- controls ---- */
+  .controls{
+    display:flex; align-items:center; gap:10px; margin-top:16px;
+    flex-wrap:wrap; justify-content:center;
+  }
+  button.ctrl{
+    font-family: var(--mono);
+    font-size:13px;
+    background: var(--panel);
+    border:1px solid var(--panel-edge);
+    color: var(--ink);
+    padding: 10px 16px;
+    border-radius:9px;
+    cursor:pointer;
+    min-height:44px;
+    display:flex; align-items:center; gap:6px;
+  }
+  button.ctrl:active{ background:#262d2a; }
+  button.ctrl.primary{ border-color: var(--teal); color: var(--teal); }
+
+  .dots{
+    display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; justify-content:center; max-width:420px;
+  }
+  .dot{
+    width:9px; height:9px; border-radius:50%;
+    background: rgba(255,255,255,0.15);
+    cursor:pointer; border:none; padding:0;
+  }
+  .dot.active{ background: var(--teal); }
+
+  .progress-track{
+    width:100%; height:3px; background: rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; margin-top:2px;
+  }
+  .progress-fill{
+    height:100%; background: var(--teal); width:0%;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition-duration: .01ms !important; animation-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body data-scene="0">
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">General Chemistry · Lab Demonstration</p>
+    <h1>Mass of Water Measured with a Beaker</h1>
+    <p>Electronic scale · 50‑mL graduated beaker · Erlenmeyer flask · digital thermometer</p>
+  </header>
+
+  <div class="stage-card">
+    <div class="stage-inner">
+      <svg id="scene" viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="fleck" width="26" height="26" patternUnits="userSpaceOnUse">
+            <rect width="26" height="26" fill="var(--bench)"/>
+            <circle cx="4" cy="6" r="0.6" fill="var(--bench-fleck)"/>
+            <circle cx="18" cy="14" r="0.5" fill="var(--bench-fleck)"/>
+            <circle cx="10" cy="21" r="0.7" fill="var(--bench-fleck)"/>
+            <circle cx="23" cy="3" r="0.5" fill="var(--bench-fleck)"/>
+          </pattern>
+          <linearGradient id="benchEdge" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3a423e"/>
+            <stop offset="1" stop-color="#141816"/>
+          </linearGradient>
+          <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="rgba(255,255,255,0.10)"/>
+            <stop offset="0.5" stop-color="rgba(255,255,255,0.02)"/>
+            <stop offset="1" stop-color="rgba(255,255,255,0.10)"/>
+          </linearGradient>
+        </defs>
+
+        <!-- backdrop -->
+        <rect x="0" y="0" width="900" height="400" fill="#181c1a"/>
+        <!-- bench -->
+        <rect x="0" y="400" width="900" height="14" fill="url(#benchEdge)"/>
+        <rect x="0" y="414" width="900" height="80" fill="url(#fleck)"/>
+
+        <!-- ============ FLASK + THERMOMETER ============ -->
+        <g id="flask-group">
+          <!-- flask body -->
+          <path d="M138,300 L138,255 L120,255 L120,235 L182,235 L182,255 L164,255 L164,300
+                   C164,300 205,375 205,388 C205,400 190,404 151,404 C112,404 97,400 97,388
+                   C97,375 138,300 138,300 Z"
+                fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+          <clipPath id="flaskClip">
+            <path d="M138,300 L164,300 C164,300 205,375 205,388 C205,400 190,404 151,404 C112,404 97,400 97,388 C97,375 138,300 138,300 Z"/>
+          </clipPath>
+          <rect id="flask-water" x="90" y="320" width="125" height="84" fill="var(--water)" opacity="0.75" clip-path="url(#flaskClip)"/>
+          <rect x="120" y="235" width="62" height="6" fill="rgba(255,255,255,0.5)"/>
+          <path d="M138,300 L138,255 L120,255 L120,235 L182,235 L182,255 L164,255 L164,300" fill="url(#glass)"/>
+
+          <!-- thermometer inserted through neck -->
+          <g id="thermo">
+            <rect x="147" y="150" width="10" height="215" rx="5" fill="#0f1210" stroke="rgba(255,255,255,0.25)"/>
+            <rect x="150" y="160" width="4" height="190" fill="#333"/>
+            <rect id="thermo-mercury" x="150" y="330" width="4" height="30" fill="var(--red)"/>
+            <circle cx="152" cy="362" r="8" fill="var(--red)"/>
+            <rect x="146" y="149" width="12" height="8" rx="2" fill="#0f1210" stroke="rgba(255,255,255,0.25)"/>
+            <text id="thermo-reading" x="163" y="172" text-anchor="start">22.0°C</text>
+          </g>
+
+          <line class="equip-leader" x1="150" y1="120" x2="150" y2="148"/>
+          <text class="equip-label" x="150" y="112" text-anchor="middle">Digital Thermometer</text>
+          <line class="equip-leader" x1="150" y1="220" x2="150" y2="234"/>
+          <text class="equip-label" x="150" y="205" text-anchor="middle">Erlenmeyer Flask · 50 mL H₂O</text>
+        </g>
+
+        <!-- ============ BEAKER ============ -->
+        <g id="beaker-group">
+          <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z"
+                fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+          <clipPath id="beakerClip">
+            <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z"/>
+          </clipPath>
+          <rect id="beaker-water" x="362" y="400" width="76" height="0" fill="var(--water)" opacity="0.8" clip-path="url(#beakerClip)"/>
+          <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z" fill="url(#glass)"/>
+          <rect x="362" y="292" width="76" height="8" fill="rgba(255,255,255,0.5)"/>
+          <!-- graduation ticks 10/20/30/40/50 -->
+          <g font-family="var(--mono)" font-size="9" fill="var(--muted)">
+            <line x1="428" y1="380" x2="438" y2="380" stroke="var(--muted)"/><text x="424" y="383" text-anchor="end">10</text>
+            <line x1="426" y1="358" x2="438" y2="358" stroke="var(--muted)"/><text x="422" y="361" text-anchor="end">20</text>
+            <line x1="424" y1="336" x2="438" y2="336" stroke="var(--muted)"/><text x="420" y="339" text-anchor="end">30</text>
+            <line x1="422" y1="314" x2="438" y2="314" stroke="var(--muted)"/><text x="418" y="317" text-anchor="end">40</text>
+          </g>
+          <line class="equip-leader" x1="400" y1="272" x2="400" y2="291"/>
+          <text class="equip-label" x="400" y="258" text-anchor="middle">50‑mL Graduated Beaker</text>
+        </g>
+
+        <!-- pour stream: from flask spout (right side) down into the beaker (center, on scale) -->
+        <line id="pour-stream" x1="442" y1="160" x2="442" y2="326" stroke="var(--water)" stroke-width="4" stroke-linecap="round"/>
+
+        <!-- ============ SCALE ============ -->
+        <g id="scale-group" transform="translate(-280,0)">
+          <rect x="640" y="360" width="180" height="42" rx="4" fill="#262d2a" stroke="rgba(255,255,255,0.12)"/>
+          <rect x="655" y="330" width="150" height="34" rx="3" fill="#1a2320" stroke="rgba(255,255,255,0.12)"/>
+          <rect x="662" y="337" width="136" height="20" rx="2" fill="var(--display-bg)"/>
+          <text id="scale-display-text" x="730" y="352" text-anchor="middle" fill="var(--display-green)">0.000 g</text>
+          <circle id="scale-power-led" cx="800" cy="368" r="3.2"/>
+          <!-- weighing platform -->
+          <rect x="668" y="352" width="104" height="10" rx="2" fill="#3a4440" stroke="rgba(255,255,255,0.15)"/>
+          <!-- tare button -->
+          <circle id="tare-btn" cx="700" cy="386" r="7" fill="#3a4440" stroke="rgba(255,255,255,0.3)"/>
+          <text x="712" y="390" font-family="var(--mono)" font-size="8" fill="var(--muted)">TARE</text>
+
+          <line class="equip-leader" x1="730" y1="300" x2="730" y2="329"/>
+          <text class="equip-label" x="730" y="286" text-anchor="middle">Electronic Scale</text>
+        </g>
+
+        <!-- ============ HAND ============ -->
+        <g id="hand">
+          <ellipse cx="0" cy="0" rx="20" ry="14" fill="#caa07a"/>
+          <rect x="-6" y="-30" width="8" height="20" rx="4" fill="#caa07a"/>
+          <rect x="4" y="-32" width="8" height="22" rx="4" fill="#caa07a"/>
+          <rect x="14" y="-28" width="8" height="18" rx="4" fill="#caa07a"/>
+          <rect x="-16" y="-24" width="8" height="16" rx="4" fill="#caa07a"/>
+          <rect x="-22" y="-20" width="8" height="14" rx="10" fill="#caa07a" transform="rotate(-20)"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="caption-bar"><span id="caption-text">Lab bench setup — each instrument is labeled.</span></div>
+    <div class="credits">
+      <div class="line data-table-wrap" style="transition-delay:.1s;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Temp (°C)</th>
+              <th>Empty beaker (g)</th>
+              <th>1st addition (g)</th>
+              <th>2nd addition (g)</th>
+              <th>3rd addition (g)</th>
+              <th>4th addition (g)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="table-temp">—</td>
+              <td id="table-empty">—</td>
+              <td id="table-m1">—</td>
+              <td id="table-m2">—</td>
+              <td id="table-m3">—</td>
+              <td id="table-m4">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="line reminder" style="transition-delay:.9s; margin-top:18px;">Don't forget to record the data into your report file.</div>
+      <div class="line madeby" style="transition-delay:1.5s; margin-top:22px;">This video is made by</div>
+      <div class="line name" style="transition-delay:1.9s;">Dr. Cu Phung</div>
+      <div class="line dept" style="transition-delay:2.3s;">Department of Chemistry and Physical Science</div>
+      <div class="line school" style="transition-delay:2.7s;">Methodist University</div>
+    </div>
+  </div>
+
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <div class="controls">
+    <button class="ctrl" id="prev-btn" aria-label="Previous scene">◀ Prev</button>
+    <button class="ctrl primary" id="play-btn">⏸ Pause</button>
+    <button class="ctrl" id="next-btn" aria-label="Next scene">Next ▶</button>
+    <button class="ctrl" id="replay-btn" style="display:none;">↺ Replay</button>
+  </div>
+
+  <div class="dots" id="dots"></div>
+</div>
+
+<script>
+(function(){
+  const body = document.body;
+  const captionEl = document.getElementById('caption-text');
+  const dotsEl = document.getElementById('dots');
+  const progressFill = document.getElementById('progress-fill');
+  const playBtn = document.getElementById('play-btn');
+  const replayBtn = document.getElementById('replay-btn');
+  const thermoReading = document.getElementById('thermo-reading');
+  const thermoMercury = document.getElementById('thermo-mercury');
+  const scaleDisplay = document.getElementById('scale-display-text');
+  const beakerWater = document.getElementById('beaker-water');
+  const flaskWater = document.getElementById('flask-water');
+  const pourStream = document.getElementById('pour-stream');
+
+  const FLASK_TOP = 320, FLASK_BOT = 404;   // full range for flask water rect
+  const BEAKER_BOT = 400;                    // beaker bottom y
+
+  // beaker fill: mL -> pixel height (10ml ~ 22px based on tick spacing)
+  function beakerFill(ml){
+    const perML = 22 / 10; // px per mL between ticks
+    const h = ml * perML;
+    beakerWater.setAttribute('height', h);
+    beakerWater.setAttribute('y', BEAKER_BOT - h);
+  }
+  function flaskFill(remainingML){
+    // 50 mL max maps to full FLASK_TOP..FLASK_BOT range
+    const frac = remainingML / 50;
+    const maxH = FLASK_BOT - FLASK_TOP;
+    const h = maxH * frac;
+    flaskWater.setAttribute('height', h);
+    flaskWater.setAttribute('y', FLASK_BOT - h);
+  }
+
+  function randFloat(min, max, decimals){
+    const v = Math.random() * (max - min) + min;
+    return parseFloat(v.toFixed(decimals));
+  }
+  function randInt(min, max){
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  let values = {};
+  function generateValues(){
+    const tempC = randInt(20, 27);
+    const empty = randFloat(26, 28, 2);
+    const add1 = randFloat(8, 9, 2);
+    const add2 = randFloat(8.5, 9.5, 2);
+    const add3 = randFloat(8.8, 9.8, 2);
+    const add4 = randFloat(9, 10.2, 2);
+    const m1 = empty + add1;
+    const m2 = m1 + add2;
+    const m3 = m2 + add3;
+    const m4 = m3 + add4;
+    values = {
+      tempC,
+      empty: empty.toFixed(2),
+      m1: m1.toFixed(2),
+      m2: m2.toFixed(2),
+      m3: m3.toFixed(2),
+      m4: m4.toFixed(2)
+    };
+  }
+  generateValues();
+
+  let flickerTimer = null;
+  function startFlicker(){
+    stopFlicker();
+    const vals = ['+0.100 g','-0.050 g','+0.075 g','-0.025 g','+0.125 g'];
+    let i = 0;
+    scaleDisplay.classList.remove('blurred');
+    scaleDisplay.setAttribute('fill','var(--display-amber)');
+    flickerTimer = setInterval(()=>{
+      scaleDisplay.textContent = vals[i % vals.length];
+      i++;
+    }, 350);
+  }
+  function stopFlicker(){
+    if(flickerTimer){ clearInterval(flickerTimer); flickerTimer = null; }
+  }
+
+  const scenes = [
+    { // 0
+      caption: "Lab bench setup — each instrument is labeled.",
+      duration: 4200,
+      enter(){
+        stopFlicker();
+        thermoReading.classList.remove('blurred');
+        thermoReading.textContent = values.tempC + '°C';
+        thermoMercury.setAttribute('y', 330); thermoMercury.setAttribute('height', 30);
+        scaleDisplay.classList.remove('blurred');
+        scaleDisplay.setAttribute('fill','var(--display-green)');
+        scaleDisplay.textContent = '0.000 g';
+        flaskFill(50);
+        beakerFill(0);
+      }
+    },
+    { // 1 - thermometer
+      caption: "Record temperature of water.",
+      duration: 4200,
+      enter(){
+        thermoReading.classList.remove('blurred');
+        thermoReading.textContent = values.tempC + '°C';
+      }
+    },
+    { // 2 - scale on, unstable
+      caption: "Turn on the electronic scale.",
+      duration: 3600,
+      enter(){ startFlicker(); }
+    },
+    { // 3 - tare
+      caption: "Tare the scale to zero.",
+      duration: 3200,
+      enter(){
+        setTimeout(()=>{
+          stopFlicker();
+          scaleDisplay.classList.remove('blurred');
+          scaleDisplay.setAttribute('fill','var(--display-green)');
+          scaleDisplay.textContent = '0.000 g';
+        }, 900);
+      }
+    },
+    { // 4 - empty beaker
+      caption: "Record mass of the empty beaker.",
+      duration: 3200,
+      enter(){
+        setTimeout(()=>{
+          scaleDisplay.classList.remove('blurred');
+          scaleDisplay.textContent = values.empty + ' g';
+        }, 900);
+      }
+    },
+    { // 5 - 1st addition (10 mL)
+      caption: "Record mass after 1st addition.",
+      duration: 3600,
+      enter(){
+        setTimeout(()=>{ pourStream.classList.add('active'); flaskFill(40); beakerFill(10); }, 500);
+        setTimeout(()=>{ pourStream.classList.remove('active'); }, 1500);
+        setTimeout(()=>{
+          scaleDisplay.classList.remove('blurred');
+          scaleDisplay.textContent = values.m1 + ' g';
+        }, 1600);
+      }
+    },
+    { // 6 - 2nd addition (20 mL)
+      caption: "Record mass after 2nd addition.",
+      duration: 3600,
+      enter(){
+        setTimeout(()=>{ pourStream.classList.add('active'); flaskFill(30); beakerFill(20); }, 500);
+        setTimeout(()=>{ pourStream.classList.remove('active'); }, 1500);
+        setTimeout(()=>{
+          scaleDisplay.classList.remove('blurred');
+          scaleDisplay.textContent = values.m2 + ' g';
+        }, 1600);
+      }
+    },
+    { // 7 - 3rd addition (30 mL)
+      caption: "Record mass after 3rd addition.",
+      duration: 3600,
+      enter(){
+        setTimeout(()=>{ pourStream.classList.add('active'); flaskFill(20); beakerFill(30); }, 500);
+        setTimeout(()=>{ pourStream.classList.remove('active'); }, 1500);
+        setTimeout(()=>{
+          scaleDisplay.classList.remove('blurred');
+          scaleDisplay.textContent = values.m3 + ' g';
+        }, 1600);
+      }
+    },
+    { // 8 - 4th addition (40 mL)
+      caption: "Record mass after 4th addition.",
+      duration: 3600,
+      enter(){
+        setTimeout(()=>{ pourStream.classList.add('active'); flaskFill(10); beakerFill(40); }, 500);
+        setTimeout(()=>{ pourStream.classList.remove('active'); }, 1500);
+        setTimeout(()=>{
+          scaleDisplay.classList.remove('blurred');
+          scaleDisplay.textContent = values.m4 + ' g';
+        }, 1600);
+      }
+    },
+    { // 9 - credits
+      caption: "",
+      duration: 0,
+      enter(){
+        document.getElementById('table-temp').textContent = values.tempC;
+        document.getElementById('table-empty').textContent = values.empty;
+        document.getElementById('table-m1').textContent = values.m1;
+        document.getElementById('table-m2').textContent = values.m2;
+        document.getElementById('table-m3').textContent = values.m3;
+        document.getElementById('table-m4').textContent = values.m4;
+      }
+    }
+  ];
+
+  // build dots
+  scenes.forEach((s,i)=>{
+    const d = document.createElement('button');
+    d.className = 'dot'; d.setAttribute('aria-label', 'Scene '+(i+1));
+    d.addEventListener('click', ()=> goTo(i, true));
+    dotsEl.appendChild(d);
+  });
+  const dotEls = Array.from(dotsEl.children);
+
+  let current = 0;
+  let playing = true;
+  let sceneTimer = null;
+  let progressRAF = null;
+  let sceneStart = 0;
+
+  function setDots(){
+    dotEls.forEach((d,i)=> d.classList.toggle('active', i===current));
+  }
+
+  function setCaption(text){
+    captionEl.style.animation = 'none';
+    void captionEl.offsetWidth;
+    captionEl.textContent = text;
+    captionEl.style.animation = '';
+  }
+
+  function updateProgress(){
+    if(!playing || scenes[current].duration === 0){
+      progressFill.style.width = current===9 ? '100%' : progressFill.style.width;
+      return;
+    }
+    const elapsed = Date.now() - sceneStart;
+    const pct = Math.min(100, (elapsed / scenes[current].duration) * 100);
+    progressFill.style.width = pct + '%';
+    progressRAF = requestAnimationFrame(updateProgress);
+  }
+
+  function clearTimers(){
+    if(sceneTimer){ clearTimeout(sceneTimer); sceneTimer = null; }
+    if(progressRAF){ cancelAnimationFrame(progressRAF); progressRAF = null; }
+  }
+
+  function goTo(index, userInitiated){
+    clearTimers();
+    stopFlicker();
+    pourStream.classList.remove('active');
+    current = Math.max(0, Math.min(scenes.length-1, index));
+    body.setAttribute('data-scene', String(current));
+    setDots();
+    setCaption(scenes[current].caption);
+    replayBtn.style.display = current === 9 ? 'inline-flex' : 'none';
+    progressFill.style.width = '0%';
+    scenes[current].enter();
+    sceneStart = Date.now();
+    if(current !== 9){
+      if(playing){
+        sceneTimer = setTimeout(()=> goTo(current+1), scenes[current].duration);
+        progressRAF = requestAnimationFrame(updateProgress);
+      }
+    } else {
+      playing = false;
+      playBtn.textContent = '▶ Play';
+    }
+  }
+
+  playBtn.addEventListener('click', ()=>{
+    if(current === 9){ return; }
+    playing = !playing;
+    playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+    if(playing){
+      const remaining = Math.max(300, scenes[current].duration - (Date.now()-sceneStart));
+      sceneTimer = setTimeout(()=> goTo(current+1), remaining);
+      progressRAF = requestAnimationFrame(updateProgress);
+    } else {
+      clearTimers();
+    }
+  });
+
+  document.getElementById('prev-btn').addEventListener('click', ()=> goTo(Math.max(0,current-1), true));
+  document.getElementById('next-btn').addEventListener('click', ()=> goTo(Math.min(9,current+1), true));
+  replayBtn.addEventListener('click', ()=>{ playing = true; playBtn.textContent='⏸ Pause'; generateValues(); goTo(0); });
+
+  goTo(0);
+})();
+</script>
+</body>
+</html>
