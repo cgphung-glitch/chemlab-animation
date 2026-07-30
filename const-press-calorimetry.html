@@ -362,12 +362,12 @@ const SUBSTANCES = {
 // deltaH in kJ/mol. Dissolution: per mole of the solid. Neutralization: per
 // mole of limiting reactant (all listed pairs react 1:1).
 const REACTIONS = [
-  { a:'naoh_s',  b:'h2o',     type:'dissolution',    deltaH:-44.5 },
+  { a:'naoh_s',  b:'h2o',     type:'dissolution',    deltaH:-44.55 },
   { a:'nano3_s', b:'h2o',     type:'dissolution',    deltaH: 20.5 },
-  { a:'naoh_s',  b:'hcl',     type:'neutralization', deltaH:-102.4 },
-  { a:'hcl',     b:'naoh_aq', type:'neutralization', deltaH:-57.9 },
-  { a:'hcl',     b:'nh3',     type:'neutralization', deltaH:-55.0 },
-  { a:'naoh_aq', b:'nh4cl',   type:'neutralization', deltaH:-7.0  },
+  { a:'naoh_s',  b:'hcl',     type:'neutralization', deltaH:-102.1 },
+  { a:'hcl',     b:'naoh_aq', type:'neutralization', deltaH:-57.5 },
+  { a:'hcl',     b:'nh3',     type:'neutralization', deltaH:-54.0 },
+  { a:'naoh_aq', b:'nh4cl',   type:'neutralization', deltaH:-3.8  },
 ];
 
 function findReaction(x, y) {
