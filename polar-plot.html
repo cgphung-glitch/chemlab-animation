@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Polar Plot: r = f(theta)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    body {
+      margin: 0;
+      background-color: #121212;
+      color: #eee;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background-color: #1a1a1a;
+      border-bottom: 1px solid #333;
+    }
+
+    .control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background-color: #181818;
+      border-bottom: 1px solid #333;
+    }
+
+    .control-bar > * {
+      flex: 1 1 140px;
+      min-width: 0;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      flex: 1 1 140px;
+      min-width: 0;
+    }
+
+    .field label {
+      font-size: 0.75rem;
+      color: #bbb;
+    }
+
+    .field.buttons {
+      flex-direction: row;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
+
+    .field.buttons button {
+      flex: 1 1 auto;
+    }
+
+    input,
+    button {
+      background-color: #1f1f1f;
+      color: #f5f5f5;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 0.45rem 0.6rem;
+      font-size: 0.9rem;
+      box-sizing: border-box;
+    }
+
+    input[type="text"] {
+      font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    button.primary {
+      background-color: #2962ff;
+      border-color: #2962ff;
+      color: #fff;
+    }
+
+    button:active {
+      filter: brightness(1.1);
+    }
+
+    #canvas-container {
+      flex: 1 1 auto;
+      padding: 0.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #plot {
+      width: 100%;
+      max-width: 640px;
+      height: 360px;
+      border-radius: 4px;
+      background-color: #000;
+    }
+
+    @media (min-width: 768px) {
+      #plot {
+        height: 480px;
+      }
+    }
+
+    .footer {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      color: #888;
+      text-align: right;
+      background-color: #181818;
+      border-top: 1px solid #333;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    Polar Plot
+  </header>
+
+  <div class="control-bar">
+    <div class="field">
+      <label for="expr-input">r = f(theta)</label>
+      <input id="expr-input" type="text"
+             value="2*sin(3*theta)"
+             placeholder="e.g. 2*sin(3*theta)">
+    </div>
+
+    <div class="field">
+      <label for="theta-multiple">theta max (×π)</label>
+      <input id="theta-multiple" type="number" step="0.25" value="2">
+    </div>
+
+    <div class="field">
+      <label for="theta-steps">steps</label>
+      <input id="theta-steps" type="number" step="1" value="1000">
+    </div>
+
+    <div class="field buttons">
+      <button id="plot-btn" class="primary">Plot</button>
+      <button id="clear-btn">Clear</button>
+      <button id="recenter-btn">Recenter</button>
+      <button id="export-btn">Export</button>
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="plot"></canvas>
+  </div>
+
+  <div class="footer">
+    r = f(theta) where theta is in radians, JS syntax.
+  </div>
+
+  <script>
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      drawAxes(); // simple axes when nothing plotted
+    });
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function resetView() {
+      viewScale = 1;
+      viewOffsetX = 0;
+      viewOffsetY = 0;
+    }
+
+    function normalizeExpression(exprText) {
+      // Trim and handle common trig functions in JS syntax [web:124][web:132]
+      let s = exprText.trim();
+
+      // Replace sin( ... ) with Math.sin( ... )
+      s = s.replace(/\bsin\s*\(/g, 'Math.sin(');
+
+      // Replace cos( ... ) with Math.cos( ... )
+      s = s.replace(/\bcos\s*\(/g, 'Math.cos(');
+
+      // Replace tan( ... ) with Math.tan( ... )
+      s = s.replace(/\btan\s*\(/g, 'Math.tan(');
+
+      // Optional: add more, like sqrt, log, abs
+      s = s.replace(/\bsqrt\s*\(/g, 'Math.sqrt(');
+      s = s.replace(/\blog\s*\(/g, 'Math.log(');
+      s = s.replace(/\babs\s*\(/g, 'Math.abs(');
+      s = s.replace(/\bexp\s*\(/g, 'Math.exp(');
+
+      return s;
+    }
+
+    function drawAxes() {
+      // Reset transform to identity and clear entire canvas [web:90][web:101]
+      if (ctx.resetTransform) {
+        ctx.resetTransform();
+      } else {
+        ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      ctx.save();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, h);
+      ctx.moveTo(0, cy);
+      ctx.lineTo(w, cy);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    drawAxes();
+
+    // Viewport transform state
+    let viewScale = 1;
+    let viewOffsetX = 0;
+    let viewOffsetY = 0;
+
+    let isPanning = false;
+    let lastPanX = 0;
+    let lastPanY = 0;
+
+    function drawAxesLogical(w, h) {
+      ctx.save();
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1 / viewScale;
+
+      const axisLength = Math.max(w, h);
+      ctx.beginPath();
+      ctx.moveTo(-axisLength, 0);
+      ctx.lineTo(axisLength, 0);
+      ctx.moveTo(0, -axisLength);
+      ctx.lineTo(0, axisLength);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function renderPolar(points, maxR) {
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+
+      // Reset transform and clear
+      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      ctx.translate(cx, cy);
+      ctx.scale(viewScale, viewScale);
+      ctx.translate(viewOffsetX, viewOffsetY);
+
+      drawAxesLogical(w, h);
+
+      ctx.save();
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 2 / viewScale;
+      ctx.beginPath();
+
+      let firstPoint = true;
+      const margin = 20;
+      const baseScale = Math.min((w / 2 - margin), (h / 2 - margin)) / maxR;
+
+      for (const p of points) {
+        const theta = p.theta;
+        const r = p.r;
+        const x = baseScale * r * Math.cos(theta);
+        const y = -baseScale * r * Math.sin(theta);
+
+        if (firstPoint) {
+          ctx.moveTo(x, y);
+          firstPoint = false;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function exportPolarImage() {
+      if (!window.lastPolarPoints || !window.lastMaxR) {
+        alert('No graph to export. Plot r=f(theta) first.');
+        return;
+      }
+
+      const exprInput = document.getElementById('expr-input');
+      const thetaMultipleInput = document.getElementById('theta-multiple');
+
+      const titleText = exprInput ? exprInput.value.trim() : 'r = f(theta)';
+
+      // Compute theta range
+      const multiple = thetaMultipleInput ? parseFloat(thetaMultipleInput.value) : 2;
+      const thetaMin = 0;
+      const thetaMax = Number.isFinite(multiple) ? multiple * Math.PI : 2 * Math.PI;
+
+      // Format theta range text, including both multiple of pi and numeric value
+      const thetaRangeText =
+       `θ ∈ [0, ${multiple}·π] ≈ [0, ${thetaMax.toFixed(3)}]`;
+
+      // Timestamp (local time)
+      const now = new Date();
+      const timestampText = now.toLocaleString();  // e.g., "7/29/2026, 7:33:00 PM"
+
+      // Create off-screen light-mode canvas
+      const exportCanvas = document.createElement('canvas');
+      const exportCtx = exportCanvas.getContext('2d');
+
+      const width = 800;
+      const height = 600;
+      exportCanvas.width = width;
+      exportCanvas.height = height;
+
+      // White background [web:106][web:113]
+      exportCtx.fillStyle = '#ffffff';
+      exportCtx.fillRect(0, 0, width, height);
+
+      // Title at top [web:112][web:115]
+      exportCtx.fillStyle = '#000000';
+      exportCtx.font = '18px system-ui, sans-serif';
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'top';
+      exportCtx.fillText(titleText, width / 2, 10);
+
+      // Center plot area below title
+      const cx = width / 2;
+      const cy = height / 2 + 20;
+
+      // Axes
+      exportCtx.strokeStyle = '#cccccc';
+      exportCtx.lineWidth = 1;
+      exportCtx.beginPath();
+      exportCtx.moveTo(cx, 40);
+      exportCtx.lineTo(cx, height - 60);
+      exportCtx.moveTo(40, cy);
+      exportCtx.lineTo(width - 40, cy);
+      exportCtx.stroke();
+
+      // Curve
+      const margin = 60;
+      const baseScale = Math.min((width / 2 - margin), (height / 2 - margin)) / window.lastMaxR;
+
+      exportCtx.strokeStyle = '#0077cc';
+      exportCtx.lineWidth = 2;
+      exportCtx.beginPath();
+
+      let firstPoint = true;
+      for (const p of window.lastPolarPoints) {
+        const theta = p.theta;
+        const r = p.r;
+
+        const x = cx + baseScale * r * Math.cos(theta);
+        const y = cy - baseScale * r * Math.sin(theta);
+
+        if (firstPoint) {
+          exportCtx.moveTo(x, y);
+          firstPoint = false;
+        } else {
+          exportCtx.lineTo(x, y);
+        }
+      }
+
+      exportCtx.stroke();
+
+      // Footer: theta range and timestamp near bottom [web:109][web:115]
+      exportCtx.fillStyle = '#000000';
+      exportCtx.font = '14px system-ui, sans-serif';
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'bottom';
+
+      const footerY = height - 10;
+      exportCtx.fillText(thetaRangeText, width / 2, footerY - 18);
+      exportCtx.fillText(timestampText, width / 2, footerY);
+
+      // Convert to PNG and download [web:103][web:117]
+      const dataUrl = exportCanvas.toDataURL('image/png');
+
+      const safeTitle = titleText.replace(/[^a-zA-Z0-9_\-]+/g, '_').slice(0, 50);
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = (safeTitle || 'polar-graph') + '.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    // Evaluate r = f(theta) and plot
+    function plotPolar() {
+      const exprInput = document.getElementById('expr-input');
+      const thetaMultipleInput = document.getElementById('theta-multiple');
+      const thetaStepsInput = document.getElementById('theta-steps');
+
+      if (!exprInput || !thetaMultipleInput || !thetaStepsInput) {
+        alert('One or more inputs not found in the DOM.');
+        return;
+      }
+
+      const rawExprText = exprInput.value.trim();
+      const exprText = normalizeExpression(rawExprText);
+      const thetaMin = 0;
+
+      const multiple = parseFloat(thetaMultipleInput.value);
+      const thetaMax = Number.isFinite(multiple) ? multiple * Math.PI : 2 * Math.PI;
+
+      const steps = Math.max(10, parseInt(thetaStepsInput.value, 10) || 1000);
+
+      let f;
+      try {
+        // simpler form without backticks to avoid template literal issues [web:57]
+        f = new Function('theta', 'return (' + exprText + ');');
+        f(thetaMin);
+      } catch (err) {
+        alert('Error in expression for r=f(theta):\n' + err.message);
+        return;
+      }
+
+      const points = [];
+      let maxR = 0;
+
+      for (let i = 0; i <= steps; i++) {
+        const t = thetaMin + (thetaMax - thetaMin) * (i / steps);
+        let r;
+        try {
+          r = f(t);
+        } catch (err) {
+          alert('Runtime error while evaluating r=f(theta):\n' + err.message);
+          return;
+        }
+
+        if (!Number.isFinite(r)) continue;
+        const absR = Math.abs(r);
+        if (absR > maxR) maxR = absR;
+        points.push({ theta: t, r: r });
+      }
+
+      if (maxR === 0 || points.length === 0) {
+        alert('No valid points to plot (check f(theta)).');
+        return;
+      }
+
+      window.lastPolarPoints = points;
+      window.lastMaxR = maxR;
+      renderPolar(points, maxR);
+    }
+
+    // Zoom (mouse wheel)
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+
+      const zoomFactor = 1.05;
+      const direction = e.deltaY < 0 ? 1 : -1;
+      const oldScale = viewScale;
+      const newScale = Math.max(0.1, Math.min(10, oldScale * (direction > 0 ? zoomFactor : 1 / zoomFactor)));
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = (e.clientX - rect.left) * window.devicePixelRatio;
+      const mouseY = (e.clientY - rect.top) * window.devicePixelRatio;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      const logicalX = (mouseX - cx) / oldScale - viewOffsetX;
+      const logicalY = (mouseY - cy) / oldScale - viewOffsetY;
+
+      viewScale = newScale;
+
+      const newLogicalX = (mouseX - cx) / newScale - viewOffsetX;
+      const newLogicalY = (mouseY - cy) / newScale - viewOffsetY;
+
+      viewOffsetX += newLogicalX - logicalX;
+      viewOffsetY += newLogicalY - logicalY;
+
+      if (window.lastPolarPoints && window.lastMaxR) {
+        renderPolar(window.lastPolarPoints, window.lastMaxR);
+      }
+    }, { passive: false });
+
+    // Pan (mouse drag)
+    canvas.addEventListener('mousedown', (e) => {
+      isPanning = true;
+      lastPanX = e.clientX;
+      lastPanY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+
+      const dx = e.clientX - lastPanX;
+      const dy = e.clientY - lastPanY;
+      lastPanX = e.clientX;
+      lastPanY = e.clientY;
+
+      viewOffsetX += dx / viewScale;
+      viewOffsetY += dy / viewScale;
+
+      if (window.lastPolarPoints && window.lastMaxR) {
+        renderPolar(window.lastPolarPoints, window.lastMaxR);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isPanning = false;
+    });
+
+    // Buttons
+    document.getElementById('plot-btn').addEventListener('click', plotPolar);
+
+    document.getElementById('recenter-btn').addEventListener('click', () => {
+      resetView();  // back to centered, unzoomed view
+
+      if (window.lastPolarPoints && window.lastMaxR) {
+        renderPolar(window.lastPolarPoints, window.lastMaxR);
+      } else {
+        // If no curve, just show axes
+        drawAxes();
+      }
+    });
+
+    document.getElementById('export-btn').addEventListener('click', exportPolarImage);
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      // Reset stored data
+      window.lastPolarPoints = null;
+      window.lastMaxR = null;
+
+      // Reset viewport
+      resetView();  // viewScale = 1, offsets = 0
+
+      // Reset controls to defaults
+      const exprInput = document.getElementById('expr-input');
+      const thetaMultipleInput = document.getElementById('theta-multiple');
+      const thetaStepsInput = document.getElementById('theta-steps');
+
+      if (exprInput) {
+        exprInput.value = '2*sin(3*theta)';    // default r=f(theta) [web:49][web:55]
+      }
+      if (thetaMultipleInput) {
+        thetaMultipleInput.value = '2';             // default θ_max = 2π
+      }
+      if (thetaStepsInput) {
+        thetaStepsInput.value = '1000';             // default steps
+      }
+
+      // Draw simple centered axes on a clean canvas
+      drawAxes();
+    });
+
+    // Auto-plot default expression on load
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      drawAxes();
+      plotPolar();
+    });
+  </script>
+</body>
+</html>
