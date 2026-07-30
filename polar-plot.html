@@ -194,26 +194,36 @@
     }
 
     function normalizeExpression(exprText) {
-      // Trim and handle common trig functions in JS syntax [web:124][web:132]
-      let s = exprText.trim();
+    let s = exprText.trim();
 
-      // Replace sin( ... ) with Math.sin( ... )
-      s = s.replace(/\bsin\s*\(/g, 'Math.sin(');
+    // Constants: pi, e  [web:133][web:136]
+    s = s.replace(/\bpi\b/gi, 'Math.PI');
+    s = s.replace(/\be\b/gi, 'Math.E');
 
-      // Replace cos( ... ) with Math.cos( ... )
-      s = s.replace(/\bcos\s*\(/g, 'Math.cos(');
+    // Trig: sin, cos, tan  [web:124][web:132]
+    s = s.replace(/\bsin\s*\(/gi, 'Math.sin(');
+    s = s.replace(/\bcos\s*\(/gi, 'Math.cos(');
+    s = s.replace(/\btan\s*\(/gi, 'Math.tan(');
 
-      // Replace tan( ... ) with Math.tan( ... )
-      s = s.replace(/\btan\s*\(/g, 'Math.tan(');
+    // Reciprocal trig: sec, csc, cot  [web:138][web:141][web:147]
+    // sec(x) -> 1/Math.cos(x)
+    s = s.replace(/\bsec\s*\(/gi, '1/Math.cos(');
+    // csc(x) -> 1/Math.sin(x)
+    s = s.replace(/\bcsc\s*\(/gi, '1/Math.sin(');
+    // cot(x) -> 1/Math.tan(x)
+    s = s.replace(/\bcot\s*\(/gi, '1/Math.tan(');
 
-      // Optional: add more, like sqrt, log, abs
-      s = s.replace(/\bsqrt\s*\(/g, 'Math.sqrt(');
-      s = s.replace(/\blog\s*\(/g, 'Math.log(');
-      s = s.replace(/\babs\s*\(/g, 'Math.abs(');
-      s = s.replace(/\bexp\s*\(/g, 'Math.exp(');
+    // Roots and abs
+    s = s.replace(/\bsqrt\s*\(/gi, 'Math.sqrt(');
+    s = s.replace(/\babs\s*\(/gi, 'Math.abs(');
 
-      return s;
-    }
+    // Logs:
+    
+    s = s.replace(/\blog\s*\(/gi, 'Math.log(');
+    s = s.replace(/\blog10\s*\(/gi, 'Math.log10(');
+
+    return s;
+  }
 
     function drawAxes() {
       // Reset transform to identity and clear entire canvas [web:90][web:101]
