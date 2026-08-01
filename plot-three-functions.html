@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plot Three Functions</title>
+  <style>
+    :root {
+      --err: #d33;
+    }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .err { color: var(--err); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <!-- Controls (example; adapt to your actual layout) -->
+  <div>
+    <label>y₁(x): <input id="y1Input" value="sin(x)"></label>
+    <div id="y1Err" class="err"></div>
+  </div>
+  <div>
+    <label>y₂(x): <input id="y2Input" value="cos(x)"></label>
+    <div id="y2Err" class="err"></div>
+  </div>
+  <div>
+    <label>y₃(x): <input id="y3Input" value="tan(x)"></label>
+    <div id="y3Err" class="err"></div>
+  </div>
+
+  <div>
+    <label>x min: <input id="xMin" value="-10"></label>
+    <label>x max: <input id="xMax" value="10"></label>
+  </div>
+  <div>
+    <label><input type="checkbox" id="yAuto" checked> Auto-fit y</label>
+    <label>y min: <input id="yMin" value="-1"></label>
+    <label>y max: <input id="yMax" value="1"></label>
+  </div>
+
+  <div>
+    x = <span id="xOut">—</span>,
+    y₁ = <span id="y1Out">—</span>,
+    y₂ = <span id="y2Out">—</span>,
+    y₃ = <span id="y3Out">—</span>
+  </div>
+
+  <button id="exportBtn">⤓ Export PNG (light)</button>
+
+  <!-- Live SVG plot (dark) -->
+  <svg id="plot" width="820" height="500"></svg>
+  <!-- Hidden export SVG (light) -->
+  <svg id="liveExportSvg" width="820" height="500" style="display:none"></svg>
+
+  <script>
+  (function(){
+    "use strict";
+
+    /* ================= expression engine ================= */
+
+    const FUNCS = {
+      sin: Math.sin, cos: Math.cos, tan: Math.tan,
+      asin: Math.asin, acos: Math.acos, atan: Math.atan,
+      sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+      exp: Math.exp, sqrt: Math.sqrt, cbrt: Math.cbrt,
+      abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round,
+      sign: Math.sign, ln: Math.log, log: Math.log10, log2: Math.log2,
+      min: Math.min, max: Math.max, pow: Math.pow,
+    };
+    const CONSTS = { pi: Math.PI, e: Math.E };
+
+    function tokenize(str){
+      const tokens = [];
+      let i = 0;
+      const n = str.length;
+      while (i < n){
+        const c = str[i];
+        if (c === ' ' || c === '\t' || c === '\n'){ i++; continue; }
+        if (/[0-9.]/.test(c)){
+          let j = i;
+          while (j < n && /[0-9.]/.test(str[j])) j++;
+          if (j < n && (str[j] === 'e' || str[j] === 'E') && /[0-9+\-]/.test(str[j+1]||'')){
+            j++;
+            if (str[j] === '+' || str[j] === '-') j++;
+            while (j < n && /[0-9]/.test(str[j])) j++;
+          }
+          const raw = str.slice(i,j);
+          if ((raw.match(/\./g)||[]).length > 1) throw new Error(`Malformed number '${raw}'`);
+          tokens.push({ type:'NUM', value: parseFloat(raw) });
+          i = j;
+          continue;
+        }
+        if (/[a-zA-Z_]/.test(c)){
+          let j = i;
+          while (j < n && /[a-zA-Z_0-9]/.test(str[j])) j++;
+          tokens.push({ type:'IDENT', value: str.slice(i,j) });
+          i = j;
+          continue;
+        }
+        if ('+-*/^%(),'.includes(c)){
+          tokens.push({ type:'OP', value:c });
+          i++;
+          continue;
+        }
+        throw new Error(`Unexpected character '${c}'`);
+      }
+      return tokens;
+    }
+
+    class Parser {
+      constructor(tokens){ this.toks = tokens; this.pos = 0; }
+      peek(){ return this.toks[this.pos]; }
+      expectOp(v){
+        const t = this.peek();
+        if (!t || t.type !== 'OP' || t.value !== v)
+          throw new Error(`Expected '${v}'${t ? ` but found '${t.value}'` : ', reached end of expression'}`);
+        this.pos++;
+      }
+      parse(){
+        const node = this.expression();
+        if (this.pos < this.toks.length) throw new Error(`Unexpected token '${this.peek().value}'`);
+        return node;
+      }
+      expression(){
+        let node = this.term();
+        while (true){
+          const t = this.peek();
+          if (t && t.type==='OP' && (t.value==='+' || t.value==='-')){
+            this.pos++;
+            node = { type:'bin', op:t.value, left:node, right:this.term() };
+          } else break;
+        }
+        return node;
+      }
+      startsPrimary(t){
+        if (!t) return false;
+        if (t.type==='NUM' || t.type==='IDENT') return true;
+        if (t.type==='OP' && t.value==='(') return true;
+        return false;
+      }
+      term(){
+        let node = this.unary();
+        while (true){
+          const t = this.peek();
+          if (t && t.type==='OP' && (t.value==='*' || t.value==='/' || t.value==='%')){
+            this.pos++;
+            node = { type:'bin', op:t.value, left:node, right:this.unary() };
+          } else if (this.startsPrimary(t)){
+            node = { type:'bin', op:'*', left:node, right:this.unary() };
+          } else break;
+        }
+        return node;
+      }
+      unary(){
+        const t = this.peek();
+        if (t && t.type==='OP' && (t.value==='-' || t.value==='+')){
+          this.pos++;
+          return { type: t.value==='-' ? 'neg' : 'pos', node: this.unary() };
+        }
+        return this.power();
+      }
+      power(){
+        const base = this.primary();
+        const t = this.peek();
+        if (t && t.type==='OP' && t.value==='^'){
+          this.pos++;
+          const exp = this.unary();
+          return { type:'pow', base, exp };
+        }
+        return base;
+      }
+      primary(){
+        const t = this.peek();
+        if (!t) throw new Error('Unexpected end of expression');
+        if (t.type === 'NUM'){ this.pos++; return { type:'num', value:t.value }; }
+        if (t.type === 'OP' && t.value === '('){
+          this.pos++;
+          const e = this.expression();
+          this.expectOp(')');
+          return e;
+        }
+        if (t.type === 'IDENT'){
+          this.pos++;
+          const name = t.value.toLowerCase();
+          const nt = this.peek();
+          if (nt && nt.type==='OP' && nt.value==='('){
+            this.pos++;
+            const args = [this.expression()];
+            while (this.peek() && this.peek().type==='OP' && this.peek().value===','){
+              this.pos++;
+              args.push(this.expression());
+            }
+            this.expectOp(')');
+            if (!(name in FUNCS)) throw new Error(`Unknown function '${name}'`);
+            return { type:'call', name, args };
+          }
+          if (name !== 'x' && !(name in CONSTS)) throw new Error(`Unknown identifier '${name}'`);
+          return { type:'ident', name };
+        }
+        throw new Error(`Unexpected token '${t.value}'`);
+      }
+    }
+
+    function parseExpr(str){
+      const trimmed = str.trim();
+      if (!trimmed) throw new Error('Enter an expression');
+      const tokens = tokenize(trimmed);
+      if (tokens.length === 0) throw new Error('Enter an expression');
+      return new Parser(tokens).parse();
+    }
+
+    function evalAST(node, x){
+      switch(node.type){
+        case 'num': return node.value;
+        case 'ident': return node.name === 'x' ? x : CONSTS[node.name];
+        case 'neg': return -evalAST(node.node, x);
+        case 'pos': return evalAST(node.node, x);
+        case 'pow': return Math.pow(evalAST(node.base,x), evalAST(node.exp,x));
+        case 'bin': {
+          const l = evalAST(node.left, x), r = evalAST(node.right, x);
+          switch(node.op){
+            case '+': return l+r;
+            case '-': return l-r;
+            case '*': return l*r;
+            case '/': return l/r;
+            case '%': return l%r;
+          }
+          break;
+        }
+        case 'call': {
+          const args = node.args.map(a => evalAST(a, x));
+          return FUNCS[node.name](...args);
+        }
+      }
+      throw new Error('Bad expression tree');
+    }
+
+    /* ================= state ================= */
+
+    const state = {
+      y1Expr: 'sin(x)', y2Expr: 'cos(x)', y3Expr: 'tan(x)',
+      y1AST: null, y2AST: null, y3AST: null,
+      y1Valid: true, y2Valid: true, y3Valid: true,
+      xMin: -10, xMax: 10,
+      yAuto: true, yMin: -1, yMax: 1
+    };
+
+    function tryParse(exprStr){
+      try { return { ast: parseExpr(exprStr), error: null }; }
+      catch(e){ return { ast: null, error: e.message }; }
+    }
+
+    /* ================= sampling ================= */
+
+    const SAMPLE_N = 900;
+
+    function sampleCurve(ast, xMin, xMax, count){
+      const xs = new Float64Array(count);
+      const ys = new Float64Array(count);
+      for (let i = 0; i < count; i++){
+        const x = xMin + (xMax - xMin) * i/(count-1);
+        xs[i] = x;
+        let y;
+        try { y = evalAST(ast, x); if (!isFinite(y)) y = NaN; }
+        catch(e){ y = NaN; }
+        ys[i] = y;
+      }
+      return { xs, ys };
+    }
+
+    function autoYRange(curves){
+      const pooled = [];
+      curves.forEach(c => { for (let i=0;i<c.ys.length;i++){ if (isFinite(c.ys[i])) pooled.push(c.ys[i]); } });
+      if (pooled.length === 0) return [-1, 1];
+      pooled.sort((a,b)=>a-b);
+      const pct = p => pooled[Math.min(pooled.length-1, Math.max(0, Math.round(p*(pooled.length-1))))];
+      let lo = pct(0.02), hi = pct(0.98);
+      let range = hi - lo;
+      if (range < 1e-9){
+        const mag = Math.max(Math.abs(hi), Math.abs(lo), 1);
+        lo -= mag; hi += mag; range = hi - lo;
+      }
+      const pad = range * 0.18;
+      return [lo - pad, hi + pad];
+    }
+
+    /* ================= nice ticks ================= */
+
+    function niceNum(range, round){
+      const exp = Math.floor(Math.log10(range || 1));
+      const frac = (range || 1) / Math.pow(10, exp);
+      let niceFrac;
+      if (round){
+        if (frac < 1.5) niceFrac = 1;
+        else if (frac < 3) niceFrac = 2;
+        else if (frac < 7) niceFrac = 5;
+        else niceFrac = 10;
+      } else {
+        if (frac <= 1) niceFrac = 1;
+        else if (frac <= 2) niceFrac = 2;
+        else if (frac <= 5) niceFrac = 5;
+        else niceFrac = 10;
+      }
+      return niceFrac * Math.pow(10, exp);
+    }
+
+    function ticks(min, max, count){
+      const range = niceNum(max - min, false);
+      const step = niceNum(range / (count - 1), true);
+      const niceMin = Math.floor(min/step) * step;
+      const niceMax = Math.ceil(max/step) * step;
+      const out = [];
+      for (let v = niceMin; v <= niceMax + step*0.5; v += step)
+        out.push(Math.round(v*1e9)/1e9);
+      return { vals: out, min: niceMin, max: niceMax, step };
+    }
+
+    /* ================= SVG plot builder ================= */
+
+    const SVGNS = "http://www.w3.org/2000/svg";
+    function el(tag, attrs){
+      const e = document.createElementNS(SVGNS, tag);
+      for (const k in attrs) e.setAttribute(k, attrs[k]);
+      return e;
+    }
+    function txt(tag_attrs, content){
+      const t = el('text', tag_attrs);
+      t.textContent = content;
+      return t;
+    }
+
+    const THEMES = {
+      dark: {
+        bg: '#1b2126', grid: 'rgba(214,224,226,0.07)',
+        axis: '#5c6b6e', text: '#8ea0a3', textStrong: '#dfe6e6',
+        amber: '#e8a94a', cyan: '#59c7c9', magenta: '#ff5fbf',
+        zero: 'rgba(214,224,226,0.28)'
+      },
+      light: {
+        bg: '#faf8f4', grid: 'rgba(30,30,28,0.08)',
+        axis: '#6b6a63', text: '#57564f', textStrong: '#1e1e1c',
+        amber: '#b9761f', cyan: '#1f7d80', magenta: '#c4147c',
+        zero: 'rgba(30,30,28,0.35)'
+      }
+    };
+
+    const VB_W = 820, VB_H = 500;
+    const M = { l: 62, r: 22, t: 88, b: 46 };
+    const plotW = VB_W - M.l - M.r;
+    const plotH = VB_H - M.t - M.b;
+
+    let lastCurves = null; // {c1, c2, c3} cached for hover
+
+    function buildPlot(target, theme){
+      while (target.firstChild) target.removeChild(target.firstChild);
+      target.setAttribute('viewBox', `0 0 ${VB_W} ${VB_H}`);
+      const T = THEMES[theme];
+
+      const xMin = state.xMin, xMax = state.xMax;
+
+      const c1 = state.y1Valid ? sampleCurve(state.y1AST, xMin, xMax, SAMPLE_N) : null;
+      const c2 = state.y2Valid ? sampleCurve(state.y2AST, xMin, xMax, SAMPLE_N) : null;
+      const c3 = state.y3Valid ? sampleCurve(state.y3AST, xMin, xMax, SAMPLE_N) : null;
+      lastCurves = { c1, c2, c3 };
+
+      let yMin, yMax;
+      if (state.yAuto){
+        const curves = [c1, c2, c3].filter(Boolean);
+        [yMin, yMax] = autoYRange(curves.length ? curves : [{ys:[-1,1]}]);
+      } else {
+        yMin = state.yMin; yMax = state.yMax;
+      }
+      if (!(yMax > yMin)) { yMin = -1; yMax = 1; }
+
+      const xT = ticks(xMin, xMax, 8);
+      const yT = ticks(yMin, yMax, 7);
+
+      function px(x){ return M.l + ((x - xT.min) / (xT.max - xT.min)) * plotW; }
+      function py(y){ return M.t + plotH - ((y - yT.min) / (yT.max - yT.min)) * plotH; }
+
+      // background
+      target.appendChild(el('rect', { x:0, y:0, width:VB_W, height:VB_H, fill:T.bg }));
+
+      /* ---- title block ---- */
+      target.appendChild(txt(
+        {
+          x:VB_W/2, y:32, fill:T.textStrong,
+          'font-size':21,
+          'font-family':'Fraunces, Georgia, serif',
+          'font-style':'italic', 'font-weight':600,
+          'text-anchor':'middle'
+        },
+        'Comparison of Three Functions'
+      ));
+
+      const fnRowY = 58;
+      const y1Label = `y\u2081 = ${state.y1Valid ? state.y1Expr : '(invalid)'}`;
+      const y2Label = `y\u2082 = ${state.y2Valid ? state.y2Expr : '(invalid)'}`;
+      const y3Label = `y\u2083 = ${state.y3Valid ? state.y3Expr : '(invalid)'}`;
+
+      const legendText = el('text', {
+        x:VB_W/2, y:fnRowY,
+        'font-size':13.5,
+        'font-family':'JetBrains Mono, monospace',
+        'text-anchor':'middle'
+      });
+
+      const tspan1 = document.createElementNS(SVGNS, 'tspan');
+      tspan1.setAttribute('fill', T.amber);
+      tspan1.textContent = y1Label;
+
+      const tspanSep1 = document.createElementNS(SVGNS, 'tspan');
+      tspanSep1.setAttribute('fill', T.text);
+      tspanSep1.textContent = '   ·   ';
+
+      const tspan2 = document.createElementNS(SVGNS, 'tspan');
+      tspan2.setAttribute('fill', T.cyan);
+      tspan2.textContent = y2Label;
+
+      const tspanSep2 = document.createElementNS(SVGNS, 'tspan');
+      tspanSep2.setAttribute('fill', T.text);
+      tspanSep2.textContent = '   ·   ';
+
+      const tspan3 = document.createElementNS(SVGNS, 'tspan');
+      tspan3.setAttribute('fill', T.magenta);
+      tspan3.textContent = y3Label;
+
+      legendText.appendChild(tspan1);
+      legendText.appendChild(tspanSep1);
+      legendText.appendChild(tspan2);
+      legendText.appendChild(tspanSep2);
+      legendText.appendChild(tspan3);
+      target.appendChild(legendText);
+
+      target.appendChild(el('line', {
+        x1:M.l, y1:72, x2:M.l+plotW, y2:72,
+        stroke:T.grid, 'stroke-width':1
+      }));
+
+      /* ---- grid ---- */
+      const gGrid = el('g', {});
+      xT.vals.forEach(v => {
+        if (v < xT.min - 1e-9 || v > xT.max + 1e-9) return;
+        gGrid.appendChild(el('line', {
+          x1:px(v), y1:M.t, x2:px(v), y2:M.t+plotH,
+          stroke:T.grid, 'stroke-width':1
+        }));
+      });
+      yT.vals.forEach(v => {
+        if (v < yT.min - 1e-9 || v > yT.max + 1e-9) return;
+        gGrid.appendChild(el('line', {
+          x1:M.l, y1:py(v), x2:M.l+plotW, y2:py(v),
+          stroke:T.grid, 'stroke-width':1
+        }));
+      });
+      target.appendChild(gGrid);
+
+      // zero lines
+      if (0 >= yT.min && 0 <= yT.max){
+        target.appendChild(el('line', {
+          x1:M.l, y1:py(0), x2:M.l+plotW, y2:py(0),
+          stroke:T.zero, 'stroke-width':1.2
+        }));
+      }
+      if (0 >= xT.min && 0 <= xT.max){
+        target.appendChild(el('line', {
+          x1:px(0), y1:M.t, x2:px(0), y2:M.t+plotH,
+          stroke:T.zero, 'stroke-width':1.2
+        }));
+      }
+
+      // frame
+      target.appendChild(el('line', {
+        x1:M.l, y1:M.t, x2:M.l, y2:M.t+plotH,
+        stroke:T.axis, 'stroke-width':1.2
+      }));
+      target.appendChild(el('line', {
+        x1:M.l, y1:M.t+plotH, x2:M.l+plotW, y2:M.t+plotH,
+        stroke:T.axis, 'stroke-width':1.2
+      }));
+
+      // x ticks
+      xT.vals.forEach(v => {
+        if (v < xT.min - 1e-9 || v > xT.max + 1e-9) return;
+        const x = px(v);
+        target.appendChild(el('line', {
+          x1:x, y1:M.t+plotH, x2:x, y2:M.t+plotH+5,
+          stroke:T.axis, 'stroke-width':1
+        }));
+        target.appendChild(txt({
+          x:x, y:M.t+plotH+20,
+          fill:T.text, 'font-size':12,
+          'font-family':'JetBrains Mono, monospace',
+          'text-anchor':'middle'
+        }, formatTick(v)));
+      });
+      target.appendChild(txt({
+        x:M.l+plotW/2, y:VB_H-8,
+        fill:T.text, 'font-size':12.5,
+        'font-family':'JetBrains Mono, monospace',
+        'text-anchor':'middle'
+      }, 'x'));
+
+      // y ticks
+      yT.vals.forEach(v => {
+        if (v < yT.min - 1e-9 || v > yT.max + 1e-9) return;
+        const y = py(v);
+        target.appendChild(el('line', {
+          x1:M.l-5, y1:y, x2:M.l, y2:y,
+          stroke:T.axis, 'stroke-width':1
+        }));
+        target.appendChild(txt({
+          x:M.l-9, y:y+4,
+          fill:T.text, 'font-size':11.5,
+          'font-family':'JetBrains Mono, monospace',
+          'text-anchor':'end'
+        }, formatTick(v)));
+      });
+      target.appendChild(txt({
+        x:16, y:M.t+plotH/2,
+        fill:T.text, 'font-size':12.5,
+        'font-family':'JetBrains Mono, monospace',
+        'text-anchor':'middle',
+        transform:`rotate(-90 16 ${M.t+plotH/2})`
+      }, 'y'));
+
+      /* ---- curves with discontinuity breaks ---- */
+      function pathFor(curve){
+        if (!curve) return '';
+        const { xs, ys } = curve;
+        let d = '';
+        let penDown = false;
+        const breakThresh = (yT.max - yT.min) * 0.7;
+        let prevY = null;
+        for (let i = 0; i < xs.length; i++){
+          const yv = ys[i];
+          if (!isFinite(yv)){ penDown = false; prevY = null; continue; }
+          const x = px(xs[i]);
+          const y = py(yv);
+          if (penDown && prevY !== null && Math.abs(yv - prevY) > breakThresh){
+            penDown = false;
+          }
+          if (!penDown){ d += 'M' + x.toFixed(2) + ',' + y.toFixed(2) + ' '; penDown = true; }
+          else { d += 'L' + x.toFixed(2) + ',' + y.toFixed(2) + ' '; }
+          prevY = yv;
+        }
+        return d;
+      }
+
+      // clip path
+      const clipId = 'clip-' + theme;
+      const clip = el('clipPath', { id: clipId });
+      clip.appendChild(el('rect', { x:M.l, y:M.t, width:plotW, height:plotH }));
+      target.appendChild(clip);
+
+      if (c2){
+        target.appendChild(el('path', {
+          d: pathFor(c2),
+          fill:'none', stroke:T.cyan,
+          'stroke-width':2.4, 'stroke-linejoin':'round',
+          'clip-path':`url(#${clipId})`
+        }));
+      }
+      if (c1){
+        target.appendChild(el('path', {
+          d: pathFor(c1),
+          fill:'none', stroke:T.amber,
+          'stroke-width':2.4, 'stroke-linejoin':'round',
+          'clip-path':`url(#${clipId})`
+        }));
+      }
+      if (c3){
+        target.appendChild(el('path', {
+          d: pathFor(c3),
+          fill:'none', stroke:T.magenta,
+          'stroke-width':2.4, 'stroke-linejoin':'round',
+          'clip-path':`url(#${clipId})`
+        }));
+      }
+
+      /* ---- hover crosshair (dark/live only) ---- */
+      if (theme === 'dark'){
+        const hoverG = el('g', { id:'hoverGroup', style:'display:none' });
+        hoverG.appendChild(el('line', {
+          id:'hoverLine', x1:0, y1:M.t, x2:0, y2:M.t+plotH,
+          stroke:T.textStrong, 'stroke-width':1,
+          'stroke-dasharray':'3,3', opacity:0.5
+        }));
+        hoverG.appendChild(el('circle', { id:'hoverDot1', r:4, fill:T.amber, opacity:0 }));
+        hoverG.appendChild(el('circle', { id:'hoverDot2', r:4, fill:T.cyan, opacity:0 }));
+        hoverG.appendChild(el('circle', { id:'hoverDot3', r:4, fill:T.magenta, opacity:0 }));
+        target.appendChild(hoverG);
+
+        const cap = el('rect', {
+          x:M.l, y:M.t, width:plotW, height:plotH,
+          fill:'transparent', style:'cursor:crosshair'
+        });
+        target.appendChild(cap);
+
+        const ctx = { px, py, xT };
+        cap.addEventListener('mousemove', (ev) => onHover(ev, target, ctx));
+        cap.addEventListener('mouseleave', () => clearHover(target));
+        cap.addEventListener('touchmove', (ev) => { onHover(ev.touches[0], target, ctx); }, {passive:true});
+        cap.addEventListener('touchend', () => clearHover(target));
+      }
+    }
+
+    function formatTick(v){
+      if (Number.isInteger(v)) return String(v);
+      const s = v.toPrecision(3).replace(/0+$/,'').replace(/\.$/,'');
+      return s;
+    }
+
+    function onHover(ev, target, ctx){
+      if (!lastCurves) return;
+      const svgRect = target.getBoundingClientRect();
+      const scaleX = VB_W / svgRect.width;
+      const mx = (ev.clientX - svgRect.left) * scaleX;
+      const xVal = ctx.xT.min + ((mx - M.l) / plotW) * (ctx.xT.max - ctx.xT.min);
+      if (xVal < state.xMin || xVal > state.xMax){ clearHover(target); return; }
+
+      const { c1, c2, c3 } = lastCurves;
+      const N = SAMPLE_N;
+      let idx = Math.round(((xVal - state.xMin) / (state.xMax - state.xMin)) * (N-1));
+      idx = Math.max(0, Math.min(N-1, idx));
+
+      const hoverG = target.querySelector('#hoverGroup');
+      if (!hoverG) return;
+      hoverG.style.display = '';
+      const xSample = c1 ? c1.xs[idx] : (c2 ? c2.xs[idx] : (c3 ? c3.xs[idx] : xVal));
+      const x = ctx.px(xSample);
+      const line = target.querySelector('#hoverLine');
+      line.setAttribute('x1', x); line.setAttribute('x2', x);
+
+      const dot1 = target.querySelector('#hoverDot1');
+      const dot2 = target.querySelector('#hoverDot2');
+      const dot3 = target.querySelector('#hoverDot3');
+      let y1Text = '—', y2Text = '—', y3Text = '—';
+
+      if (c1 && isFinite(c1.ys[idx])){
+        dot1.setAttribute('cx', x);
+        dot1.setAttribute('cy', ctx.py(c1.ys[idx]));
+        dot1.setAttribute('opacity', 1);
+        y1Text = c1.ys[idx].toFixed(4);
+      } else dot1.setAttribute('opacity', 0);
+
+      if (c2 && isFinite(c2.ys[idx])){
+        dot2.setAttribute('cx', x);
+        dot2.setAttribute('cy', ctx.py(c2.ys[idx]));
+        dot2.setAttribute('opacity', 1);
+        y2Text = c2.ys[idx].toFixed(4);
+      } else dot2.setAttribute('opacity', 0);
+
+      if (c3 && isFinite(c3.ys[idx])){
+        dot3.setAttribute('cx', x);
+        dot3.setAttribute('cy', ctx.py(c3.ys[idx]));
+        dot3.setAttribute('opacity', 1);
+        y3Text = c3.ys[idx].toFixed(4);
+      } else dot3.setAttribute('opacity', 0);
+
+      document.getElementById('xOut').textContent = xSample.toFixed(4);
+      document.getElementById('y1Out').textContent = y1Text;
+      document.getElementById('y2Out').textContent = y2Text;
+      document.getElementById('y3Out').textContent = y3Text;
+    }
+
+    function clearHover(target){
+      const hoverG = target.querySelector('#hoverGroup');
+      if (hoverG) hoverG.style.display = 'none';
+      document.getElementById('xOut').textContent = '—';
+      document.getElementById('y1Out').textContent = '—';
+      document.getElementById('y2Out').textContent = '—';
+      document.getElementById('y3Out').textContent = '—';
+    }
+
+    /* ================= UI wiring ================= */
+
+    const y1Input = document.getElementById('y1Input');
+    const y2Input = document.getElementById('y2Input');
+    const y3Input = document.getElementById('y3Input');
+    const y1Err = document.getElementById('y1Err');
+    const y2Err = document.getElementById('y2Err');
+    const y3Err = document.getElementById('y3Err');
+    const xMinInput = document.getElementById('xMin');
+    const xMaxInput = document.getElementById('xMax');
+    const yAutoCheck = document.getElementById('yAuto');
+    const yMinInput = document.getElementById('yMin');
+    const yMaxInput = document.getElementById('yMax');
+
+    function parseAndSetY(which){
+      let input, errEl;
+      if (which === 1){ input = y1Input; errEl = y1Err; }
+      else if (which === 2){ input = y2Input; errEl = y2Err; }
+      else { input = y3Input; errEl = y3Err; }
+
+      const { ast, error } = tryParse(input.value);
+      if (error){
+        errEl.textContent = error;
+        input.style.borderColor = 'var(--err)';
+        if (which === 1){ state.y1Valid = false; }
+        else if (which === 2){ state.y2Valid = false; }
+        else { state.y3Valid = false; }
+      } else {
+        errEl.textContent = '';
+        input.style.borderColor = '';
+        if (which === 1){
+          state.y1AST = ast; state.y1Valid = true; state.y1Expr = input.value.trim();
+        } else if (which === 2){
+          state.y2AST = ast; state.y2Valid = true; state.y2Expr = input.value.trim();
+        } else {
+          state.y3AST = ast; state.y3Valid = true; state.y3Expr = input.value.trim();
+        }
+      }
+    }
+
+    function debounce(fn, ms){
+      let t;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    const renderDebounced = debounce(render, 180);
+
+    y1Input.addEventListener('input', () => { parseAndSetY(1); renderDebounced(); });
+    y2Input.addEventListener('input', () => { parseAndSetY(2); renderDebounced(); });
+    y3Input.addEventListener('input', () => { parseAndSetY(3); renderDebounced(); });
+
+    function readRanges(){
+      let xmn = parseFloat(xMinInput.value), xmx = parseFloat(xMaxInput.value);
+      if (!isFinite(xmn)) xmn = -10;
+      if (!isFinite(xmx)) xmx = 10;
+      if (xmx <= xmn) xmx = xmn + 1;
+      state.xMin = xmn; state.xMax = xmx;
+
+      state.yAuto = yAutoCheck.checked;
+      yMinInput.disabled = state.yAuto;
+      yMaxInput.disabled = state.yAuto;
+      if (!state.yAuto){
+        let ymn = parseFloat(yMinInput.value), ymx = parseFloat(yMaxInput.value);
+        if (!isFinite(ymn)) ymn = -1;
+        if (!isFinite(ymx)) ymx = 1;
+        if (ymx <= ymn) ymx = ymn + 1;
+        state.yMin = ymn; state.yMax = ymx;
+      }
+    }
+
+    [xMinInput, xMaxInput, yMinInput, yMaxInput].forEach(inp => {
+      inp.addEventListener('input', () => { readRanges(); renderDebounced(); });
+    });
+    yAutoCheck.addEventListener('change', () => {
+      readRanges();
+      if (state.yAuto){
+        const svg = document.getElementById('plot');
+        buildPlot(svg, 'dark');
+        const curves = [lastCurves.c1, lastCurves.c2, lastCurves.c3].filter(Boolean);
+        const [ymn, ymx] = autoYRange(curves.length ? curves : [{ys:[-1,1]}]);
+        yMinInput.value = ymn.toFixed(2);
+        yMaxInput.value = ymx.toFixed(2);
+      }
+      render();
+    });
+
+    function render(){
+      readRanges();
+      const svg = document.getElementById('plot');
+      buildPlot(svg, 'dark');
+      clearHover(svg);
+    }
+
+    /* ================= export (light theme PNG) ================= */
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const exportSvg = document.getElementById('liveExportSvg');
+      buildPlot(exportSvg, 'light');
+
+      const serializer = new XMLSerializer();
+      let svgStr = serializer.serializeToString(exportSvg);
+      if (!svgStr.match(/^<svg[^>]+xmlns=/)) {
+        svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      const svg64 = btoa(unescape(encodeURIComponent(svgStr)));
+      const image64 = 'data:image/svg+xml;base64,' + svg64;
+
+      const img = new Image();
+      img.onload = function(){
+        const scale = 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = VB_W * scale;
+        canvas.height = VB_H * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#faf8f4';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const link = document.createElement('a');
+        link.download = 'function_comparison.png';
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      img.src = image64;
+    });
+
+    /* ================= init ================= */
+
+    parseAndSetY(1);
+    parseAndSetY(2);
+    parseAndSetY(3);
+    readRanges();
+    render();
+  })();
+  </script>
+</body>
+</html>
