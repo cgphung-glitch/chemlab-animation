@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Periodic Table App</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+  <style>
+    :root, [data-theme="light"] {
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem; --space-12: 3rem;
+      --color-bg: #f7f6f2; --color-surface:#fbfbf9; --color-surface-2:#f1efe9; --color-border:#d4d1ca; --color-divider:#dcd9d5;
+      --color-text:#28251d; --color-text-muted:#67645d; --color-text-faint:#93908a; --color-text-inverse:#f9f8f4;
+      --color-primary:#01696f; --color-primary-hover:#0c4e54; --color-primary-highlight:#cedcd8;
+      --solid-gas:#7a39bb; --solid-liquid:#006494; --solid-solid:#437a22; --solid-unknown:#964219;
+      --radius-sm:0.5rem; --radius-md:0.8rem; --radius-lg:1rem; --radius-full:9999px;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.06); --shadow-md:0 10px 30px rgba(0,0,0,.08);
+      --transition:180ms cubic-bezier(.16,1,.3,1);
+      --font-body:'Satoshi', Inter, sans-serif;
+      --tile-size: min(4.95vw, 72px);
+      --tile-gap: 0.32rem;
+    }
+    [data-theme="dark"] {
+      --color-bg:#171614; --color-surface:#1c1b19; --color-surface-2:#242320; --color-border:#393836; --color-divider:#262523;
+      --color-text:#ece9e1; --color-text-muted:#b5b1a9; --color-text-faint:#87837b; --color-text-inverse:#1c1b19;
+      --color-primary:#4f98a3; --color-primary-hover:#227f8b; --color-primary-highlight:#313b3b;
+      --solid-gas:#b68ae6; --solid-liquid:#6fb8df; --solid-solid:#87c06b; --solid-unknown:#d19a72;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.25); --shadow-md:0 12px 36px rgba(0,0,0,.35);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    html{-webkit-text-size-adjust:none;text-size-adjust:none;scroll-behavior:smooth}
+    body{margin:0;min-height:100dvh;font-family:var(--font-body);font-size:var(--text-base);line-height:1.5;background:var(--color-bg);color:var(--color-text)}
+    button,input,select{font:inherit;color:inherit}
+    button{cursor:pointer}
+    a,button,select{transition:background var(--transition), color var(--transition), border-color var(--transition), transform var(--transition), box-shadow var(--transition)}
+    :focus-visible{outline:2px solid var(--color-primary);outline-offset:3px}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .app{max-width:1600px;margin:0 auto;padding:var(--space-4)}
+    .topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-4);padding:var(--space-4);background:var(--color-surface);border:1px solid color-mix(in oklab,var(--color-text) 10%, transparent);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);position:sticky;top:0.75rem;z-index:20;backdrop-filter:blur(12px)}
+    .brand{display:flex;align-items:center;gap:var(--space-3)}
+    .logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--color-primary-highlight),transparent 70%), var(--color-surface-2);color:var(--color-primary);border:1px solid color-mix(in oklab,var(--color-primary) 25%, var(--color-border))}
+    .brand h1{margin:0;font-size:var(--text-xl);line-height:1.05;letter-spacing:-.03em}
+    .brand p{margin:0;color:var(--color-text-muted);font-size:var(--text-sm)}
+    .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-3);width:min(100%,860px)}
+    .control{display:flex;flex-direction:column;gap:var(--space-1)}
+    .control label{font-size:var(--text-xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-muted)}
+    select,.toggle,.search{min-height:46px;border-radius:var(--radius-md);border:1px solid color-mix(in oklab,var(--color-text) 12%, transparent);background:var(--color-surface-2);padding:0 var(--space-4)}
+    .toggle{display:inline-flex;align-items:center;justify-content:center;background:var(--color-surface-2)}
+    .toggle:hover,select:hover{border-color:color-mix(in oklab,var(--color-primary) 35%, var(--color-border))}
+    .search{width:100%}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--space-4);margin-top:var(--space-4)}
+    .panel{background:var(--color-surface);border:1px solid color-mix(in oklab,var(--color-text) 10%, transparent);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+    .table-wrap{padding:var(--space-4);overflow:auto}
+    .table-grid{display:grid;grid-template-columns:repeat(18,var(--tile-size));grid-auto-rows:var(--tile-size);gap:var(--tile-gap);min-width:max-content}
+    .cell{position:relative;border:1px solid color-mix(in oklab,var(--color-text) 10%, transparent);border-radius:0.9rem;background:var(--color-surface-2);padding:0.32rem;display:flex;flex-direction:column;justify-content:space-between;min-width:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+    .cell:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);z-index:2}
+    .cell.active{outline:2px solid var(--color-primary);outline-offset:2px}
+    .cell .num{font-size:0.62rem;color:var(--color-text-muted);font-weight:700}
+    .cell .sym{font-size:clamp(0.9rem,1vw,1.45rem);font-weight:700;line-height:1;text-align:center;letter-spacing:-.03em}
+    .cell .name{font-size:0.58rem;color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+    .cell .mass{font-size:0.56rem;color:var(--color-text-faint);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cell .metric{font-size:0.58rem;font-weight:700;text-align:center;color:var(--color-text)}
+    .state-gas{background:color-mix(in oklab,var(--solid-gas) 14%, var(--color-surface-2));border-color:color-mix(in oklab,var(--solid-gas) 38%, var(--color-border))}
+    .state-liquid{background:color-mix(in oklab,var(--solid-liquid) 16%, var(--color-surface-2));border-color:color-mix(in oklab,var(--solid-liquid) 40%, var(--color-border))}
+    .state-solid{background:color-mix(in oklab,var(--solid-solid) 16%, var(--color-surface-2));border-color:color-mix(in oklab,var(--solid-solid) 38%, var(--color-border))}
+    .state-unknown{background:color-mix(in oklab,var(--solid-unknown) 14%, var(--color-surface-2));border-color:color-mix(in oklab,var(--solid-unknown) 34%, var(--color-border))}
+    .placeholder{border-style:dashed;background:transparent;color:var(--color-text-faint);display:grid;place-items:center;font-size:var(--text-xs);text-align:center;padding:var(--space-2)}
+    .series-label{display:flex;align-items:center;gap:var(--space-2);margin-top:var(--space-4);margin-bottom:var(--space-2);color:var(--color-text-muted);font-size:var(--text-sm);font-weight:700}
+    .dot{width:10px;height:10px;border-radius:var(--radius-full)}
+    aside{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4)}
+    .detail-card h2{margin:0 0 var(--space-1);font-size:var(--text-lg)}
+    .detail-sub{color:var(--color-text-muted);margin-bottom:var(--space-4)}
+    .detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3)}
+    .stat{padding:var(--space-3);background:var(--color-surface-2);border:1px solid color-mix(in oklab,var(--color-text) 8%, transparent);border-radius:var(--radius-md)}
+    .stat .label{font-size:var(--text-xs);text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted);font-weight:700}
+    .stat .value{margin-top:var(--space-1);font-size:var(--text-sm);font-weight:700}
+    .legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
+    .legend-item{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted)}
+    .notes{font-size:var(--text-sm);color:var(--color-text-muted)}
+    .footer-note{padding:0 var(--space-4) var(--space-4);font-size:var(--text-xs);color:var(--color-text-faint)}
+    @media (max-width: 1100px){
+      .layout{grid-template-columns:1fr}
+      aside{order:-1}
+    }
+    @media (max-width: 820px){
+      .controls{grid-template-columns:1fr 1fr}
+      :root{--tile-size:min(12.8vw,66px)}
+    }
+    @media (max-width: 560px){
+      .app{padding:var(--space-3)}
+      .topbar{padding:var(--space-3);top:0.5rem}
+      .controls{grid-template-columns:1fr}
+      :root{--tile-size:min(15vw,58px);--tile-gap:0.24rem}
+      .table-wrap{padding:var(--space-3)}
+      .cell{padding:0.2rem;border-radius:0.7rem}
+      .cell .num{font-size:0.52rem}
+      .cell .sym{font-size:0.82rem}
+      .cell .name,.cell .mass,.cell .metric{font-size:0.48rem}
+      .detail-grid,.legend{grid-template-columns:1fr}
+    }
+    @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar panel">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="Periodic table logo">
+            <rect x="8" y="8" width="14" height="14" rx="3"></rect>
+            <rect x="26" y="8" width="14" height="14" rx="3"></rect>
+            <rect x="8" y="26" width="14" height="14" rx="3"></rect>
+            <path d="M29 29h8"></path>
+            <path d="M33 25v8"></path>
+          </svg>
+        </div>
+        <div>
+          <h1>Periodic Table</h1>
+          <p>Mobile-friendly element explorer with property overlays.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="control">
+          <label for="propertySelect">Property view</label>
+          <select id="propertySelect" aria-label="Select property to display">
+            <option value="mass">Average mass</option>
+            <option value="atomic_radius">Atomic radii</option>
+            <option value="ionization_energy">Ionization energies</option>
+            <option value="electron_affinity">Electron affinities</option>
+            <option value="electronegativity">Electronegativities</option>
+            <option value="oxidation_states">Oxidation states</option>
+            <option value="freezing_point">Freezing point</option>
+            <option value="boiling_point">Boiling point</option>
+            <option value="density">Density</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="stateFilter">State filter</label>
+          <select id="stateFilter" aria-label="Filter by state of matter">
+            <option value="all">All states</option>
+            <option value="solid">Solid</option>
+            <option value="liquid">Liquid</option>
+            <option value="gas">Gas</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="searchInput">Find element</label>
+          <input id="searchInput" class="search" type="search" placeholder="Search by name or symbol" aria-label="Search element by name or symbol">
+        </div>
+        <div class="control">
+          <label for="themeBtn">Theme</label>
+          <button id="themeBtn" class="toggle" type="button" aria-label="Toggle dark mode">Dark mode</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <main class="panel">
+        <div class="table-wrap">
+          <div id="tableGrid" class="table-grid" aria-label="Periodic table grid"></div>
+          <div class="series-label"><span class="dot" style="background:var(--solid-solid)"></span> Lanthanides and actinides are placed in the lower rows for mobile readability.</div>
+        </div>
+        <div class="footer-note">Tap or click any element to inspect details. Tile colors indicate state of matter at standard conditions.</div>
+      </main>
+
+      <aside class="panel detail-card">
+        <section>
+          <h2 id="detailTitle">Hydrogen</h2>
+          <div id="detailSub" class="detail-sub">Atomic number 1 · Nonmetal · Gas</div>
+          <div id="detailGrid" class="detail-grid"></div>
+        </section>
+        <section>
+          <h2 style="font-size:var(--text-lg);margin:0 0 var(--space-3)">Legend</h2>
+          <div class="legend">
+            <div class="legend-item"><span class="dot" style="background:var(--solid-gas)"></span>Gas</div>
+            <div class="legend-item"><span class="dot" style="background:var(--solid-liquid)"></span>Liquid</div>
+            <div class="legend-item"><span class="dot" style="background:var(--solid-solid)"></span>Solid</div>
+            <div class="legend-item"><span class="dot" style="background:var(--solid-unknown)"></span>Unknown</div>
+          </div>
+        </section>
+        <section class="notes">
+          The property menu updates the compact value shown on each tile while the side panel keeps a fuller set of element properties visible.
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const elements = [{number:1,symbol:'H',name:'Hydrogen',mass:'1.008',state:'gas',group:1,period:1,category:'Nonmetal',atomic_radius:'53 pm',ionization_energy:'1312.0 kJ/mol',electron_affinity:'72.8 kJ/mol',electronegativity:'2.20',oxidation_states:'+1, -1',freezing_point:'14.01 K',boiling_point:'20.28 K',density:'0.0000899 g/cm³'},{number:2,symbol:'He',name:'Helium',mass:'4.0026',state:'gas',group:18,period:1,category:'Noble gas',atomic_radius:'31 pm',ionization_energy:'2372.3 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'0',freezing_point:'0.95 K',boiling_point:'4.22 K',density:'0.0001785 g/cm³'},{number:3,symbol:'Li',name:'Lithium',mass:'6.94',state:'solid',group:1,period:2,category:'Alkali metal',atomic_radius:'167 pm',ionization_energy:'520.2 kJ/mol',electron_affinity:'59.6 kJ/mol',electronegativity:'0.98',oxidation_states:'+1',freezing_point:'453.65 K',boiling_point:'1603 K',density:'0.534 g/cm³'},{number:4,symbol:'Be',name:'Beryllium',mass:'9.0122',state:'solid',group:2,period:2,category:'Alkaline earth metal',atomic_radius:'112 pm',ionization_energy:'899.5 kJ/mol',electron_affinity:'n/a',electronegativity:'1.57',oxidation_states:'+2',freezing_point:'1560 K',boiling_point:'2742 K',density:'1.85 g/cm³'},{number:5,symbol:'B',name:'Boron',mass:'10.81',state:'solid',group:13,period:2,category:'Metalloid',atomic_radius:'87 pm',ionization_energy:'800.6 kJ/mol',electron_affinity:'26.7 kJ/mol',electronegativity:'2.04',oxidation_states:'+3',freezing_point:'2349 K',boiling_point:'4200 K',density:'2.34 g/cm³'},{number:6,symbol:'C',name:'Carbon',mass:'12.011',state:'solid',group:14,period:2,category:'Nonmetal',atomic_radius:'67 pm',ionization_energy:'1086.5 kJ/mol',electron_affinity:'121.8 kJ/mol',electronegativity:'2.55',oxidation_states:'+4, +2, -4',freezing_point:'3823 K',boiling_point:'4300 K',density:'2.267 g/cm³'},{number:7,symbol:'N',name:'Nitrogen',mass:'14.007',state:'gas',group:15,period:2,category:'Nonmetal',atomic_radius:'56 pm',ionization_energy:'1402.3 kJ/mol',electron_affinity:'-6.8 kJ/mol',electronegativity:'3.04',oxidation_states:'+5, +4, +3, +2, +1, -1, -2, -3',freezing_point:'63.15 K',boiling_point:'77.36 K',density:'0.0012506 g/cm³'},{number:8,symbol:'O',name:'Oxygen',mass:'15.999',state:'gas',group:16,period:2,category:'Nonmetal',atomic_radius:'48 pm',ionization_energy:'1313.9 kJ/mol',electron_affinity:'141.0 kJ/mol',electronegativity:'3.44',oxidation_states:'-2, -1, +1, +2',freezing_point:'54.36 K',boiling_point:'90.20 K',density:'0.001429 g/cm³'},{number:9,symbol:'F',name:'Fluorine',mass:'18.998',state:'gas',group:17,period:2,category:'Halogen',atomic_radius:'42 pm',ionization_energy:'1681.0 kJ/mol',electron_affinity:'328.2 kJ/mol',electronegativity:'3.98',oxidation_states:'-1',freezing_point:'53.48 K',boiling_point:'85.03 K',density:'0.001696 g/cm³'},{number:10,symbol:'Ne',name:'Neon',mass:'20.180',state:'gas',group:18,period:2,category:'Noble gas',atomic_radius:'38 pm',ionization_energy:'2080.7 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'0',freezing_point:'24.56 K',boiling_point:'27.07 K',density:'0.0008999 g/cm³'},{number:11,symbol:'Na',name:'Sodium',mass:'22.990',state:'solid',group:1,period:3,category:'Alkali metal',atomic_radius:'190 pm',ionization_energy:'495.8 kJ/mol',electron_affinity:'52.8 kJ/mol',electronegativity:'0.93',oxidation_states:'+1',freezing_point:'370.87 K',boiling_point:'1156 K',density:'0.971 g/cm³'},{number:12,symbol:'Mg',name:'Magnesium',mass:'24.305',state:'solid',group:2,period:3,category:'Alkaline earth metal',atomic_radius:'145 pm',ionization_energy:'737.7 kJ/mol',electron_affinity:'n/a',electronegativity:'1.31',oxidation_states:'+2',freezing_point:'923 K',boiling_point:'1363 K',density:'1.738 g/cm³'},{number:13,symbol:'Al',name:'Aluminum',mass:'26.982',state:'solid',group:13,period:3,category:'Post-transition metal',atomic_radius:'118 pm',ionization_energy:'577.5 kJ/mol',electron_affinity:'42.5 kJ/mol',electronegativity:'1.61',oxidation_states:'+3',freezing_point:'933.47 K',boiling_point:'2792 K',density:'2.70 g/cm³'},{number:14,symbol:'Si',name:'Silicon',mass:'28.085',state:'solid',group:14,period:3,category:'Metalloid',atomic_radius:'111 pm',ionization_energy:'786.5 kJ/mol',electron_affinity:'134.1 kJ/mol',electronegativity:'1.90',oxidation_states:'+4, -4',freezing_point:'1687 K',boiling_point:'3538 K',density:'2.329 g/cm³'},{number:15,symbol:'P',name:'Phosphorus',mass:'30.974',state:'solid',group:15,period:3,category:'Nonmetal',atomic_radius:'98 pm',ionization_energy:'1011.8 kJ/mol',electron_affinity:'72.0 kJ/mol',electronegativity:'2.19',oxidation_states:'+5, +3, -3',freezing_point:'317.3 K',boiling_point:'553.7 K',density:'1.82 g/cm³'},{number:16,symbol:'S',name:'Sulfur',mass:'32.06',state:'solid',group:16,period:3,category:'Nonmetal',atomic_radius:'88 pm',ionization_energy:'999.6 kJ/mol',electron_affinity:'200.4 kJ/mol',electronegativity:'2.58',oxidation_states:'+6, +4, -2',freezing_point:'388.36 K',boiling_point:'717.8 K',density:'2.067 g/cm³'},{number:17,symbol:'Cl',name:'Chlorine',mass:'35.45',state:'gas',group:17,period:3,category:'Halogen',atomic_radius:'79 pm',ionization_energy:'1251.2 kJ/mol',electron_affinity:'349.0 kJ/mol',electronegativity:'3.16',oxidation_states:'+7, +5, +1, -1',freezing_point:'171.6 K',boiling_point:'239.1 K',density:'0.003214 g/cm³'},{number:18,symbol:'Ar',name:'Argon',mass:'39.948',state:'gas',group:18,period:3,category:'Noble gas',atomic_radius:'71 pm',ionization_energy:'1520.6 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'0',freezing_point:'83.80 K',boiling_point:'87.30 K',density:'0.0017837 g/cm³'},{number:19,symbol:'K',name:'Potassium',mass:'39.098',state:'solid',group:1,period:4,category:'Alkali metal',atomic_radius:'243 pm',ionization_energy:'418.8 kJ/mol',electron_affinity:'48.4 kJ/mol',electronegativity:'0.82',oxidation_states:'+1',freezing_point:'336.53 K',boiling_point:'1032 K',density:'0.862 g/cm³'},{number:20,symbol:'Ca',name:'Calcium',mass:'40.078',state:'solid',group:2,period:4,category:'Alkaline earth metal',atomic_radius:'194 pm',ionization_energy:'589.8 kJ/mol',electron_affinity:'2.37 kJ/mol',electronegativity:'1.00',oxidation_states:'+2',freezing_point:'1115 K',boiling_point:'1757 K',density:'1.55 g/cm³'},{number:21,symbol:'Sc',name:'Scandium',mass:'44.956',state:'solid',group:3,period:4,category:'Transition metal',atomic_radius:'184 pm',ionization_energy:'633.1 kJ/mol',electron_affinity:'18.1 kJ/mol',electronegativity:'1.36',oxidation_states:'+3',freezing_point:'1814 K',boiling_point:'3109 K',density:'2.989 g/cm³'},{number:22,symbol:'Ti',name:'Titanium',mass:'47.867',state:'solid',group:4,period:4,category:'Transition metal',atomic_radius:'176 pm',ionization_energy:'658.8 kJ/mol',electron_affinity:'7.6 kJ/mol',electronegativity:'1.54',oxidation_states:'+4, +3',freezing_point:'1941 K',boiling_point:'3560 K',density:'4.54 g/cm³'},{number:23,symbol:'V',name:'Vanadium',mass:'50.942',state:'solid',group:5,period:4,category:'Transition metal',atomic_radius:'171 pm',ionization_energy:'650.9 kJ/mol',electron_affinity:'50.6 kJ/mol',electronegativity:'1.63',oxidation_states:'+5, +4, +3, +2',freezing_point:'2183 K',boiling_point:'3680 K',density:'6.11 g/cm³'},{number:24,symbol:'Cr',name:'Chromium',mass:'51.996',state:'solid',group:6,period:4,category:'Transition metal',atomic_radius:'166 pm',ionization_energy:'652.9 kJ/mol',electron_affinity:'64.3 kJ/mol',electronegativity:'1.66',oxidation_states:'+6, +3, +2',freezing_point:'2180 K',boiling_point:'2944 K',density:'7.15 g/cm³'},{number:25,symbol:'Mn',name:'Manganese',mass:'54.938',state:'solid',group:7,period:4,category:'Transition metal',atomic_radius:'161 pm',ionization_energy:'717.3 kJ/mol',electron_affinity:'n/a',electronegativity:'1.55',oxidation_states:'+7, +4, +2',freezing_point:'1519 K',boiling_point:'2334 K',density:'7.21 g/cm³'},{number:26,symbol:'Fe',name:'Iron',mass:'55.845',state:'solid',group:8,period:4,category:'Transition metal',atomic_radius:'156 pm',ionization_energy:'762.5 kJ/mol',electron_affinity:'15.7 kJ/mol',electronegativity:'1.83',oxidation_states:'+3, +2',freezing_point:'1811 K',boiling_point:'3134 K',density:'7.874 g/cm³'},{number:27,symbol:'Co',name:'Cobalt',mass:'58.933',state:'solid',group:9,period:4,category:'Transition metal',atomic_radius:'152 pm',ionization_energy:'760.4 kJ/mol',electron_affinity:'63.7 kJ/mol',electronegativity:'1.88',oxidation_states:'+3, +2',freezing_point:'1768 K',boiling_point:'3200 K',density:'8.90 g/cm³'},{number:28,symbol:'Ni',name:'Nickel',mass:'58.693',state:'solid',group:10,period:4,category:'Transition metal',atomic_radius:'149 pm',ionization_energy:'737.1 kJ/mol',electron_affinity:'112 kJ/mol',electronegativity:'1.91',oxidation_states:'+2, +3',freezing_point:'1728 K',boiling_point:'3186 K',density:'8.908 g/cm³'},{number:29,symbol:'Cu',name:'Copper',mass:'63.546',state:'solid',group:11,period:4,category:'Transition metal',atomic_radius:'145 pm',ionization_energy:'745.5 kJ/mol',electron_affinity:'119.2 kJ/mol',electronegativity:'1.90',oxidation_states:'+2, +1',freezing_point:'1357.77 K',boiling_point:'2835 K',density:'8.96 g/cm³'},{number:30,symbol:'Zn',name:'Zinc',mass:'65.38',state:'solid',group:12,period:4,category:'Transition metal',atomic_radius:'142 pm',ionization_energy:'906.4 kJ/mol',electron_affinity:'n/a',electronegativity:'1.65',oxidation_states:'+2',freezing_point:'692.68 K',boiling_point:'1180 K',density:'7.134 g/cm³'},{number:31,symbol:'Ga',name:'Gallium',mass:'69.723',state:'solid',group:13,period:4,category:'Post-transition metal',atomic_radius:'136 pm',ionization_energy:'578.8 kJ/mol',electron_affinity:'29.1 kJ/mol',electronegativity:'1.81',oxidation_states:'+3',freezing_point:'302.91 K',boiling_point:'2477 K',density:'5.91 g/cm³'},{number:32,symbol:'Ge',name:'Germanium',mass:'72.630',state:'solid',group:14,period:4,category:'Metalloid',atomic_radius:'125 pm',ionization_energy:'762.0 kJ/mol',electron_affinity:'118.9 kJ/mol',electronegativity:'2.01',oxidation_states:'+4, +2',freezing_point:'1211.4 K',boiling_point:'3106 K',density:'5.323 g/cm³'},{number:33,symbol:'As',name:'Arsenic',mass:'74.922',state:'solid',group:15,period:4,category:'Metalloid',atomic_radius:'114 pm',ionization_energy:'947.0 kJ/mol',electron_affinity:'78 kJ/mol',electronegativity:'2.18',oxidation_states:'+5, +3, -3',freezing_point:'1090 K',boiling_point:'887 K',density:'5.776 g/cm³'},{number:34,symbol:'Se',name:'Selenium',mass:'78.971',state:'solid',group:16,period:4,category:'Nonmetal',atomic_radius:'103 pm',ionization_energy:'941.0 kJ/mol',electron_affinity:'195 kJ/mol',electronegativity:'2.55',oxidation_states:'+6, +4, -2',freezing_point:'494 K',boiling_point:'958 K',density:'4.809 g/cm³'},{number:35,symbol:'Br',name:'Bromine',mass:'79.904',state:'liquid',group:17,period:4,category:'Halogen',atomic_radius:'94 pm',ionization_energy:'1139.9 kJ/mol',electron_affinity:'324.6 kJ/mol',electronegativity:'2.96',oxidation_states:'+5, +1, -1',freezing_point:'265.8 K',boiling_point:'332.0 K',density:'3.1028 g/cm³'},{number:36,symbol:'Kr',name:'Krypton',mass:'83.798',state:'gas',group:18,period:4,category:'Noble gas',atomic_radius:'88 pm',ionization_energy:'1350.8 kJ/mol',electron_affinity:'n/a',electronegativity:'3.00',oxidation_states:'0, +2',freezing_point:'115.79 K',boiling_point:'119.93 K',density:'0.003733 g/cm³'},{number:37,symbol:'Rb',name:'Rubidium',mass:'85.468',state:'solid',group:1,period:5,category:'Alkali metal',atomic_radius:'265 pm',ionization_energy:'403.0 kJ/mol',electron_affinity:'46.9 kJ/mol',electronegativity:'0.82',oxidation_states:'+1',freezing_point:'312.46 K',boiling_point:'961 K',density:'1.532 g/cm³'},{number:38,symbol:'Sr',name:'Strontium',mass:'87.62',state:'solid',group:2,period:5,category:'Alkaline earth metal',atomic_radius:'219 pm',ionization_energy:'549.5 kJ/mol',electron_affinity:'5.0 kJ/mol',electronegativity:'0.95',oxidation_states:'+2',freezing_point:'1050 K',boiling_point:'1655 K',density:'2.64 g/cm³'},{number:39,symbol:'Y',name:'Yttrium',mass:'88.906',state:'solid',group:3,period:5,category:'Transition metal',atomic_radius:'212 pm',ionization_energy:'600.0 kJ/mol',electron_affinity:'29.6 kJ/mol',electronegativity:'1.22',oxidation_states:'+3',freezing_point:'1799 K',boiling_point:'3609 K',density:'4.469 g/cm³'},{number:40,symbol:'Zr',name:'Zirconium',mass:'91.224',state:'solid',group:4,period:5,category:'Transition metal',atomic_radius:'206 pm',ionization_energy:'640.1 kJ/mol',electron_affinity:'41.1 kJ/mol',electronegativity:'1.33',oxidation_states:'+4',freezing_point:'2128 K',boiling_point:'4682 K',density:'6.52 g/cm³'},{number:41,symbol:'Nb',name:'Niobium',mass:'92.906',state:'solid',group:5,period:5,category:'Transition metal',atomic_radius:'198 pm',ionization_energy:'652.1 kJ/mol',electron_affinity:'86.1 kJ/mol',electronegativity:'1.6',oxidation_states:'+5, +3',freezing_point:'2750 K',boiling_point:'5017 K',density:'8.57 g/cm³'},{number:42,symbol:'Mo',name:'Molybdenum',mass:'95.95',state:'solid',group:6,period:5,category:'Transition metal',atomic_radius:'190 pm',ionization_energy:'684.3 kJ/mol',electron_affinity:'72.3 kJ/mol',electronegativity:'2.16',oxidation_states:'+6, +4',freezing_point:'2896 K',boiling_point:'4912 K',density:'10.28 g/cm³'},{number:43,symbol:'Tc',name:'Technetium',mass:'[98]',state:'solid',group:7,period:5,category:'Transition metal',atomic_radius:'183 pm',ionization_energy:'702.0 kJ/mol',electron_affinity:'53 kJ/mol',electronegativity:'1.9',oxidation_states:'+7, +4',freezing_point:'2430 K',boiling_point:'4538 K',density:'11.5 g/cm³'},{number:44,symbol:'Ru',name:'Ruthenium',mass:'101.07',state:'solid',group:8,period:5,category:'Transition metal',atomic_radius:'178 pm',ionization_energy:'710.2 kJ/mol',electron_affinity:'101.3 kJ/mol',electronegativity:'2.2',oxidation_states:'+3, +4, +8',freezing_point:'2607 K',boiling_point:'4423 K',density:'12.37 g/cm³'},{number:45,symbol:'Rh',name:'Rhodium',mass:'102.91',state:'solid',group:9,period:5,category:'Transition metal',atomic_radius:'173 pm',ionization_energy:'719.7 kJ/mol',electron_affinity:'109.7 kJ/mol',electronegativity:'2.28',oxidation_states:'+3, +1',freezing_point:'2237 K',boiling_point:'3968 K',density:'12.41 g/cm³'},{number:46,symbol:'Pd',name:'Palladium',mass:'106.42',state:'solid',group:10,period:5,category:'Transition metal',atomic_radius:'169 pm',ionization_energy:'804.4 kJ/mol',electron_affinity:'53.7 kJ/mol',electronegativity:'2.20',oxidation_states:'+2, +4',freezing_point:'1828.05 K',boiling_point:'3236 K',density:'12.02 g/cm³'},{number:47,symbol:'Ag',name:'Silver',mass:'107.87',state:'solid',group:11,period:5,category:'Transition metal',atomic_radius:'165 pm',ionization_energy:'731.0 kJ/mol',electron_affinity:'125.6 kJ/mol',electronegativity:'1.93',oxidation_states:'+1',freezing_point:'1234.93 K',boiling_point:'2435 K',density:'10.49 g/cm³'},{number:48,symbol:'Cd',name:'Cadmium',mass:'112.41',state:'solid',group:12,period:5,category:'Transition metal',atomic_radius:'161 pm',ionization_energy:'867.8 kJ/mol',electron_affinity:'n/a',electronegativity:'1.69',oxidation_states:'+2',freezing_point:'594.22 K',boiling_point:'1040 K',density:'8.65 g/cm³'},{number:49,symbol:'In',name:'Indium',mass:'114.82',state:'solid',group:13,period:5,category:'Post-transition metal',atomic_radius:'156 pm',ionization_energy:'558.3 kJ/mol',electron_affinity:'28.9 kJ/mol',electronegativity:'1.78',oxidation_states:'+3, +1',freezing_point:'429.75 K',boiling_point:'2345 K',density:'7.31 g/cm³'},{number:50,symbol:'Sn',name:'Tin',mass:'118.71',state:'solid',group:14,period:5,category:'Post-transition metal',atomic_radius:'145 pm',ionization_energy:'708.6 kJ/mol',electron_affinity:'107.3 kJ/mol',electronegativity:'1.96',oxidation_states:'+4, +2',freezing_point:'505.08 K',boiling_point:'2875 K',density:'7.287 g/cm³'},{number:51,symbol:'Sb',name:'Antimony',mass:'121.76',state:'solid',group:15,period:5,category:'Metalloid',atomic_radius:'133 pm',ionization_energy:'834.0 kJ/mol',electron_affinity:'103.2 kJ/mol',electronegativity:'2.05',oxidation_states:'+5, +3, -3',freezing_point:'903.78 K',boiling_point:'1860 K',density:'6.685 g/cm³'},{number:52,symbol:'Te',name:'Tellurium',mass:'127.60',state:'solid',group:16,period:5,category:'Metalloid',atomic_radius:'123 pm',ionization_energy:'869.3 kJ/mol',electron_affinity:'190.2 kJ/mol',electronegativity:'2.1',oxidation_states:'+6, +4, -2',freezing_point:'722.66 K',boiling_point:'1261 K',density:'6.232 g/cm³'},{number:53,symbol:'I',name:'Iodine',mass:'126.90',state:'solid',group:17,period:5,category:'Halogen',atomic_radius:'115 pm',ionization_energy:'1008.4 kJ/mol',electron_affinity:'295.2 kJ/mol',electronegativity:'2.66',oxidation_states:'+7, +5, +1, -1',freezing_point:'386.85 K',boiling_point:'457.4 K',density:'4.93 g/cm³'},{number:54,symbol:'Xe',name:'Xenon',mass:'131.29',state:'gas',group:18,period:5,category:'Noble gas',atomic_radius:'108 pm',ionization_energy:'1170.4 kJ/mol',electron_affinity:'n/a',electronegativity:'2.60',oxidation_states:'0, +2, +4, +6, +8',freezing_point:'161.36 K',boiling_point:'165.03 K',density:'0.005887 g/cm³'},{number:55,symbol:'Cs',name:'Cesium',mass:'132.91',state:'solid',group:1,period:6,category:'Alkali metal',atomic_radius:'298 pm',ionization_energy:'375.7 kJ/mol',electron_affinity:'45.5 kJ/mol',electronegativity:'0.79',oxidation_states:'+1',freezing_point:'301.59 K',boiling_point:'944 K',density:'1.873 g/cm³'},{number:56,symbol:'Ba',name:'Barium',mass:'137.33',state:'solid',group:2,period:6,category:'Alkaline earth metal',atomic_radius:'253 pm',ionization_energy:'502.9 kJ/mol',electron_affinity:'13.95 kJ/mol',electronegativity:'0.89',oxidation_states:'+2',freezing_point:'1000 K',boiling_point:'2170 K',density:'3.62 g/cm³'},{number:57,symbol:'La',name:'Lanthanum',mass:'138.91',state:'solid',group:3,period:8,category:'Lanthanide',atomic_radius:'195 pm',ionization_energy:'538.1 kJ/mol',electron_affinity:'48 kJ/mol',electronegativity:'1.10',oxidation_states:'+3',freezing_point:'1193 K',boiling_point:'3737 K',density:'6.15 g/cm³'},{number:58,symbol:'Ce',name:'Cerium',mass:'140.12',state:'solid',group:4,period:8,category:'Lanthanide',atomic_radius:'185 pm',ionization_energy:'534.4 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.12',oxidation_states:'+4, +3',freezing_point:'1071 K',boiling_point:'3697 K',density:'6.77 g/cm³'},{number:59,symbol:'Pr',name:'Praseodymium',mass:'140.91',state:'solid',group:5,period:8,category:'Lanthanide',atomic_radius:'247 pm',ionization_energy:'527 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.13',oxidation_states:'+3',freezing_point:'1208 K',boiling_point:'3793 K',density:'6.77 g/cm³'},{number:60,symbol:'Nd',name:'Neodymium',mass:'144.24',state:'solid',group:6,period:8,category:'Lanthanide',atomic_radius:'206 pm',ionization_energy:'533.1 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.14',oxidation_states:'+3',freezing_point:'1297 K',boiling_point:'3347 K',density:'7.01 g/cm³'},{number:61,symbol:'Pm',name:'Promethium',mass:'[145]',state:'solid',group:7,period:8,category:'Lanthanide',atomic_radius:'205 pm',ionization_energy:'540 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.13',oxidation_states:'+3',freezing_point:'1315 K',boiling_point:'3273 K',density:'7.26 g/cm³'},{number:62,symbol:'Sm',name:'Samarium',mass:'150.36',state:'solid',group:8,period:8,category:'Lanthanide',atomic_radius:'238 pm',ionization_energy:'544.5 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.17',oxidation_states:'+3, +2',freezing_point:'1345 K',boiling_point:'2067 K',density:'7.52 g/cm³'},{number:63,symbol:'Eu',name:'Europium',mass:'151.96',state:'solid',group:9,period:8,category:'Lanthanide',atomic_radius:'231 pm',ionization_energy:'547.1 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.2',oxidation_states:'+3, +2',freezing_point:'1099 K',boiling_point:'1802 K',density:'5.24 g/cm³'},{number:64,symbol:'Gd',name:'Gadolinium',mass:'157.25',state:'solid',group:10,period:8,category:'Lanthanide',atomic_radius:'233 pm',ionization_energy:'593.4 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.20',oxidation_states:'+3',freezing_point:'1585 K',boiling_point:'3546 K',density:'7.90 g/cm³'},{number:65,symbol:'Tb',name:'Terbium',mass:'158.93',state:'solid',group:11,period:8,category:'Lanthanide',atomic_radius:'225 pm',ionization_energy:'565.8 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.2',oxidation_states:'+4, +3',freezing_point:'1629 K',boiling_point:'3503 K',density:'8.23 g/cm³'},{number:66,symbol:'Dy',name:'Dysprosium',mass:'162.50',state:'solid',group:12,period:8,category:'Lanthanide',atomic_radius:'228 pm',ionization_energy:'573.0 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.22',oxidation_states:'+3',freezing_point:'1680 K',boiling_point:'2840 K',density:'8.55 g/cm³'},{number:67,symbol:'Ho',name:'Holmium',mass:'164.93',state:'solid',group:13,period:8,category:'Lanthanide',atomic_radius:'226 pm',ionization_energy:'581.0 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.23',oxidation_states:'+3',freezing_point:'1734 K',boiling_point:'2973 K',density:'8.80 g/cm³'},{number:68,symbol:'Er',name:'Erbium',mass:'167.26',state:'solid',group:14,period:8,category:'Lanthanide',atomic_radius:'226 pm',ionization_energy:'589.3 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.24',oxidation_states:'+3',freezing_point:'1802 K',boiling_point:'3141 K',density:'9.07 g/cm³'},{number:69,symbol:'Tm',name:'Thulium',mass:'168.93',state:'solid',group:15,period:8,category:'Lanthanide',atomic_radius:'222 pm',ionization_energy:'596.7 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.25',oxidation_states:'+3, +2',freezing_point:'1818 K',boiling_point:'2223 K',density:'9.32 g/cm³'},{number:70,symbol:'Yb',name:'Ytterbium',mass:'173.05',state:'solid',group:16,period:8,category:'Lanthanide',atomic_radius:'222 pm',ionization_energy:'603.4 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.1',oxidation_states:'+3, +2',freezing_point:'1097 K',boiling_point:'1469 K',density:'6.90 g/cm³'},{number:71,symbol:'Lu',name:'Lutetium',mass:'174.97',state:'solid',group:17,period:8,category:'Lanthanide',atomic_radius:'217 pm',ionization_energy:'523.5 kJ/mol',electron_affinity:'50 kJ/mol',electronegativity:'1.27',oxidation_states:'+3',freezing_point:'1925 K',boiling_point:'3675 K',density:'9.84 g/cm³'},{number:72,symbol:'Hf',name:'Hafnium',mass:'178.49',state:'solid',group:4,period:6,category:'Transition metal',atomic_radius:'208 pm',ionization_energy:'658.5 kJ/mol',electron_affinity:'0 kJ/mol',electronegativity:'1.3',oxidation_states:'+4',freezing_point:'2506 K',boiling_point:'4876 K',density:'13.31 g/cm³'},{number:73,symbol:'Ta',name:'Tantalum',mass:'180.95',state:'solid',group:5,period:6,category:'Transition metal',atomic_radius:'200 pm',ionization_energy:'761.0 kJ/mol',electron_affinity:'31 kJ/mol',electronegativity:'1.5',oxidation_states:'+5',freezing_point:'3290 K',boiling_point:'5731 K',density:'16.69 g/cm³'},{number:74,symbol:'W',name:'Tungsten',mass:'183.84',state:'solid',group:6,period:6,category:'Transition metal',atomic_radius:'193 pm',ionization_energy:'770.0 kJ/mol',electron_affinity:'78.6 kJ/mol',electronegativity:'2.36',oxidation_states:'+6, +4',freezing_point:'3695 K',boiling_point:'6203 K',density:'19.25 g/cm³'},{number:75,symbol:'Re',name:'Rhenium',mass:'186.21',state:'solid',group:7,period:6,category:'Transition metal',atomic_radius:'188 pm',ionization_energy:'760.0 kJ/mol',electron_affinity:'14.5 kJ/mol',electronegativity:'1.9',oxidation_states:'+7, +4',freezing_point:'3459 K',boiling_point:'5869 K',density:'21.02 g/cm³'},{number:76,symbol:'Os',name:'Osmium',mass:'190.23',state:'solid',group:8,period:6,category:'Transition metal',atomic_radius:'185 pm',ionization_energy:'840.0 kJ/mol',electron_affinity:'106.1 kJ/mol',electronegativity:'2.2',oxidation_states:'+4, +3',freezing_point:'3306 K',boiling_point:'5285 K',density:'22.59 g/cm³'},{number:77,symbol:'Ir',name:'Iridium',mass:'192.22',state:'solid',group:9,period:6,category:'Transition metal',atomic_radius:'180 pm',ionization_energy:'880.0 kJ/mol',electron_affinity:'151 kJ/mol',electronegativity:'2.20',oxidation_states:'+4, +3',freezing_point:'2719 K',boiling_point:'4701 K',density:'22.56 g/cm³'},{number:78,symbol:'Pt',name:'Platinum',mass:'195.08',state:'solid',group:10,period:6,category:'Transition metal',atomic_radius:'177 pm',ionization_energy:'870.0 kJ/mol',electron_affinity:'205.3 kJ/mol',electronegativity:'2.28',oxidation_states:'+4, +2',freezing_point:'2041.4 K',boiling_point:'4098 K',density:'21.45 g/cm³'},{number:79,symbol:'Au',name:'Gold',mass:'196.97',state:'solid',group:11,period:6,category:'Transition metal',atomic_radius:'174 pm',ionization_energy:'890.1 kJ/mol',electron_affinity:'222.8 kJ/mol',electronegativity:'2.54',oxidation_states:'+3, +1',freezing_point:'1337.33 K',boiling_point:'3129 K',density:'19.30 g/cm³'},{number:80,symbol:'Hg',name:'Mercury',mass:'200.59',state:'liquid',group:12,period:6,category:'Transition metal',atomic_radius:'171 pm',ionization_energy:'1007.1 kJ/mol',electron_affinity:'n/a',electronegativity:'2.00',oxidation_states:'+2, +1',freezing_point:'234.32 K',boiling_point:'629.88 K',density:'13.534 g/cm³'},{number:81,symbol:'Tl',name:'Thallium',mass:'204.38',state:'solid',group:13,period:6,category:'Post-transition metal',atomic_radius:'156 pm',ionization_energy:'589.4 kJ/mol',electron_affinity:'19.2 kJ/mol',electronegativity:'1.62',oxidation_states:'+3, +1',freezing_point:'577 K',boiling_point:'1746 K',density:'11.85 g/cm³'},{number:82,symbol:'Pb',name:'Lead',mass:'207.2',state:'solid',group:14,period:6,category:'Post-transition metal',atomic_radius:'154 pm',ionization_energy:'715.6 kJ/mol',electron_affinity:'35.1 kJ/mol',electronegativity:'2.33',oxidation_states:'+4, +2',freezing_point:'600.61 K',boiling_point:'2022 K',density:'11.34 g/cm³'},{number:83,symbol:'Bi',name:'Bismuth',mass:'208.98',state:'solid',group:15,period:6,category:'Post-transition metal',atomic_radius:'143 pm',ionization_energy:'703.0 kJ/mol',electron_affinity:'91.2 kJ/mol',electronegativity:'2.02',oxidation_states:'+5, +3',freezing_point:'544.7 K',boiling_point:'1837 K',density:'9.78 g/cm³'},{number:84,symbol:'Po',name:'Polonium',mass:'[209]',state:'solid',group:16,period:6,category:'Post-transition metal',atomic_radius:'135 pm',ionization_energy:'812.1 kJ/mol',electron_affinity:'183.3 kJ/mol',electronegativity:'2.0',oxidation_states:'+4, +2',freezing_point:'527 K',boiling_point:'1235 K',density:'9.32 g/cm³'},{number:85,symbol:'At',name:'Astatine',mass:'[210]',state:'solid',group:17,period:6,category:'Halogen',atomic_radius:'127 pm',ionization_energy:'890 kJ/mol',electron_affinity:'233 kJ/mol',electronegativity:'2.2',oxidation_states:'+7, +5, +1, -1',freezing_point:'575 K',boiling_point:'610 K',density:'7 g/cm³'},{number:86,symbol:'Rn',name:'Radon',mass:'[222]',state:'gas',group:18,period:6,category:'Noble gas',atomic_radius:'120 pm',ionization_energy:'1037.0 kJ/mol',electron_affinity:'n/a',electronegativity:'2.2',oxidation_states:'0',freezing_point:'202 K',boiling_point:'211.5 K',density:'0.00973 g/cm³'},{number:87,symbol:'Fr',name:'Francium',mass:'[223]',state:'solid',group:1,period:7,category:'Alkali metal',atomic_radius:'348 pm',ionization_energy:'380 kJ/mol',electron_affinity:'47 kJ/mol',electronegativity:'0.7',oxidation_states:'+1',freezing_point:'300 K',boiling_point:'950 K',density:'1.87 g/cm³'},{number:88,symbol:'Ra',name:'Radium',mass:'[226]',state:'solid',group:2,period:7,category:'Alkaline earth metal',atomic_radius:'283 pm',ionization_energy:'509.3 kJ/mol',electron_affinity:'10 kJ/mol',electronegativity:'0.9',oxidation_states:'+2',freezing_point:'973 K',boiling_point:'2010 K',density:'5.5 g/cm³'},{number:89,symbol:'Ac',name:'Actinium',mass:'[227]',state:'solid',group:3,period:9,category:'Actinide',atomic_radius:'195 pm',ionization_energy:'499 kJ/mol',electron_affinity:'35 kJ/mol',electronegativity:'1.1',oxidation_states:'+3',freezing_point:'1323 K',boiling_point:'3471 K',density:'10.07 g/cm³'},{number:90,symbol:'Th',name:'Thorium',mass:'232.04',state:'solid',group:4,period:9,category:'Actinide',atomic_radius:'180 pm',ionization_energy:'587 kJ/mol',electron_affinity:'112.7 kJ/mol',electronegativity:'1.3',oxidation_states:'+4',freezing_point:'2023 K',boiling_point:'5061 K',density:'11.72 g/cm³'},{number:91,symbol:'Pa',name:'Protactinium',mass:'231.04',state:'solid',group:5,period:9,category:'Actinide',atomic_radius:'180 pm',ionization_energy:'568 kJ/mol',electron_affinity:'53 kJ/mol',electronegativity:'1.5',oxidation_states:'+5, +4',freezing_point:'1845 K',boiling_point:'4300 K',density:'15.37 g/cm³'},{number:92,symbol:'U',name:'Uranium',mass:'238.03',state:'solid',group:6,period:9,category:'Actinide',atomic_radius:'175 pm',ionization_energy:'597.6 kJ/mol',electron_affinity:'50.9 kJ/mol',electronegativity:'1.38',oxidation_states:'+6, +4, +3',freezing_point:'1408 K',boiling_point:'4404 K',density:'18.95 g/cm³'},{number:93,symbol:'Np',name:'Neptunium',mass:'[237]',state:'solid',group:7,period:9,category:'Actinide',atomic_radius:'175 pm',ionization_energy:'604.5 kJ/mol',electron_affinity:'45 kJ/mol',electronegativity:'1.36',oxidation_states:'+6, +5, +4, +3',freezing_point:'917 K',boiling_point:'4273 K',density:'20.45 g/cm³'},{number:94,symbol:'Pu',name:'Plutonium',mass:'[244]',state:'solid',group:8,period:9,category:'Actinide',atomic_radius:'175 pm',ionization_energy:'584.7 kJ/mol',electron_affinity:'48 kJ/mol',electronegativity:'1.28',oxidation_states:'+6, +5, +4, +3',freezing_point:'913 K',boiling_point:'3505 K',density:'19.84 g/cm³'},{number:95,symbol:'Am',name:'Americium',mass:'[243]',state:'solid',group:9,period:9,category:'Actinide',atomic_radius:'175 pm',ionization_energy:'578 kJ/mol',electron_affinity:'10 kJ/mol',electronegativity:'1.3',oxidation_states:'+6, +5, +4, +3',freezing_point:'1449 K',boiling_point:'2880 K',density:'13.69 g/cm³'},{number:96,symbol:'Cm',name:'Curium',mass:'[247]',state:'solid',group:10,period:9,category:'Actinide',atomic_radius:'174 pm',ionization_energy:'581 kJ/mol',electron_affinity:'27 kJ/mol',electronegativity:'1.3',oxidation_states:'+3',freezing_point:'1613 K',boiling_point:'3383 K',density:'13.51 g/cm³'},{number:97,symbol:'Bk',name:'Berkelium',mass:'[247]',state:'solid',group:11,period:9,category:'Actinide',atomic_radius:'170 pm',ionization_energy:'601 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+4, +3',freezing_point:'1259 K',boiling_point:'2900 K',density:'14.78 g/cm³'},{number:98,symbol:'Cf',name:'Californium',mass:'[251]',state:'solid',group:12,period:9,category:'Actinide',atomic_radius:'n/a',ionization_energy:'608 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+3',freezing_point:'1173 K',boiling_point:'1743 K',density:'15.1 g/cm³'},{number:99,symbol:'Es',name:'Einsteinium',mass:'[252]',state:'solid',group:13,period:9,category:'Actinide',atomic_radius:'n/a',ionization_energy:'619 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+3',freezing_point:'1133 K',boiling_point:'1269 K',density:'8.84 g/cm³'},{number:100,symbol:'Fm',name:'Fermium',mass:'[257]',state:'unknown',group:14,period:9,category:'Actinide',atomic_radius:'n/a',ionization_energy:'627 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+3',freezing_point:'1800 K',boiling_point:'n/a',density:'n/a'},{number:101,symbol:'Md',name:'Mendelevium',mass:'[258]',state:'unknown',group:15,period:9,category:'Actinide',atomic_radius:'n/a',ionization_energy:'635 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+3, +2',freezing_point:'1100 K',boiling_point:'n/a',density:'n/a'},{number:102,symbol:'No',name:'Nobelium',mass:'[259]',state:'unknown',group:16,period:9,category:'Actinide',atomic_radius:'n/a',ionization_energy:'642 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+3, +2',freezing_point:'1100 K',boiling_point:'n/a',density:'n/a'},{number:103,symbol:'Lr',name:'Lawrencium',mass:'[266]',state:'unknown',group:17,period:9,category:'Actinide',atomic_radius:'n/a',ionization_energy:'470 kJ/mol',electron_affinity:'n/a',electronegativity:'1.3',oxidation_states:'+3',freezing_point:'1900 K',boiling_point:'n/a',density:'n/a'},{number:104,symbol:'Rf',name:'Rutherfordium',mass:'[267]',state:'unknown',group:4,period:7,category:'Transition metal',atomic_radius:'157 pm',ionization_energy:'580 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+4',freezing_point:'2400 K',boiling_point:'5800 K',density:'23.2 g/cm³'},{number:105,symbol:'Db',name:'Dubnium',mass:'[268]',state:'unknown',group:5,period:7,category:'Transition metal',atomic_radius:'149 pm',ionization_energy:'n/a',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+5, +4',freezing_point:'n/a',boiling_point:'n/a',density:'29.3 g/cm³'},{number:106,symbol:'Sg',name:'Seaborgium',mass:'[269]',state:'unknown',group:6,period:7,category:'Transition metal',atomic_radius:'143 pm',ionization_energy:'757 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+6',freezing_point:'n/a',boiling_point:'n/a',density:'35.0 g/cm³'},{number:107,symbol:'Bh',name:'Bohrium',mass:'[270]',state:'unknown',group:7,period:7,category:'Transition metal',atomic_radius:'141 pm',ionization_energy:'742 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+7, +5, +4, +3',freezing_point:'n/a',boiling_point:'n/a',density:'37.1 g/cm³'},{number:108,symbol:'Hs',name:'Hassium',mass:'[277]',state:'unknown',group:8,period:7,category:'Transition metal',atomic_radius:'134 pm',ionization_energy:'733 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+8, +6, +4, +2',freezing_point:'n/a',boiling_point:'n/a',density:'40.7 g/cm³'},{number:109,symbol:'Mt',name:'Meitnerium',mass:'[278]',state:'unknown',group:9,period:7,category:'Unknown',atomic_radius:'129 pm',ionization_energy:'800 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+9, +3, +1',freezing_point:'n/a',boiling_point:'n/a',density:'37.4 g/cm³'},{number:110,symbol:'Ds',name:'Darmstadtium',mass:'[281]',state:'unknown',group:10,period:7,category:'Unknown',atomic_radius:'128 pm',ionization_energy:'960 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+8, +6, +4, +2, 0',freezing_point:'n/a',boiling_point:'n/a',density:'34.8 g/cm³'},{number:111,symbol:'Rg',name:'Roentgenium',mass:'[282]',state:'unknown',group:11,period:7,category:'Unknown',atomic_radius:'121 pm',ionization_energy:'1022 kJ/mol',electron_affinity:'151 kJ/mol',electronegativity:'n/a',oxidation_states:'+5, +3, +1, -1',freezing_point:'n/a',boiling_point:'n/a',density:'28.7 g/cm³'},{number:112,symbol:'Cn',name:'Copernicium',mass:'[285]',state:'unknown',group:12,period:7,category:'Transition metal',atomic_radius:'122 pm',ionization_energy:'1155 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+2, +4',freezing_point:'283 K',boiling_point:'340 K',density:'23.7 g/cm³'},{number:113,symbol:'Nh',name:'Nihonium',mass:'[286]',state:'unknown',group:13,period:7,category:'Unknown',atomic_radius:'136 pm',ionization_energy:'704.9 kJ/mol',electron_affinity:'66.6 kJ/mol',electronegativity:'n/a',oxidation_states:'+3, +1',freezing_point:'700 K',boiling_point:'1430 K',density:'16 g/cm³'},{number:114,symbol:'Fl',name:'Flerovium',mass:'[289]',state:'unknown',group:14,period:7,category:'Post-transition metal',atomic_radius:'143 pm',ionization_energy:'812.1 kJ/mol',electron_affinity:'n/a',electronegativity:'n/a',oxidation_states:'+4, +2',freezing_point:'340 K',boiling_point:'420 K',density:'14 g/cm³'},{number:115,symbol:'Mc',name:'Moscovium',mass:'[290]',state:'unknown',group:15,period:7,category:'Unknown',atomic_radius:'162 pm',ionization_energy:'538 kJ/mol',electron_affinity:'35.3 kJ/mol',electronegativity:'n/a',oxidation_states:'+3, +1',freezing_point:'700 K',boiling_point:'1400 K',density:'13.5 g/cm³'},{number:116,symbol:'Lv',name:'Livermorium',mass:'[293]',state:'unknown',group:16,period:7,category:'Unknown',atomic_radius:'175 pm',ionization_energy:'663.9 kJ/mol',electron_affinity:'74.9 kJ/mol',electronegativity:'n/a',oxidation_states:'+4, +2',freezing_point:'709 K',boiling_point:'1085 K',density:'12.9 g/cm³'},{number:117,symbol:'Ts',name:'Tennessine',mass:'[294]',state:'unknown',group:17,period:7,category:'Unknown',atomic_radius:'165 pm',ionization_energy:'742.9 kJ/mol',electron_affinity:'165.9 kJ/mol',electronegativity:'n/a',oxidation_states:'+5, +3, +1, -1',freezing_point:'723 K',boiling_point:'883 K',density:'7.2 g/cm³'},{number:118,symbol:'Og',name:'Oganesson',mass:'[294]',state:'unknown',group:18,period:7,category:'Noble gas',atomic_radius:'157 pm',ionization_energy:'860.1 kJ/mol',electron_affinity:'5.4 kJ/mol',electronegativity:'n/a',oxidation_states:'0, +2, +4',freezing_point:'325 K',boiling_point:'450 K',density:'5.0 g/cm³'}];
+
+    const placeholders = [
+      {text:'57–71', col:3, row:6},
+      {text:'89–103', col:3, row:7}
+    ];
+
+    const propertyConfig = {
+      mass:{label:'Average mass', key:'mass'},
+      atomic_radius:{label:'Atomic radii', key:'atomic_radius'},
+      ionization_energy:{label:'Ionization energies', key:'ionization_energy'},
+      electron_affinity:{label:'Electron affinities', key:'electron_affinity'},
+      electronegativity:{label:'Electronegativities', key:'electronegativity'},
+      oxidation_states:{label:'Oxidation states', key:'oxidation_states'},
+      freezing_point:{label:'Freezing point', key:'freezing_point'},
+      boiling_point:{label:'Boiling point', key:'boiling_point'},
+      density:{label:'Density', key:'density'}
+    };
+
+    const tableGrid = document.getElementById('tableGrid');
+    const propertySelect = document.getElementById('propertySelect');
+    const stateFilter = document.getElementById('stateFilter');
+    const searchInput = document.getElementById('searchInput');
+    const detailTitle = document.getElementById('detailTitle');
+    const detailSub = document.getElementById('detailSub');
+    const detailGrid = document.getElementById('detailGrid');
+    const themeBtn = document.getElementById('themeBtn');
+    let activeElement = elements[0];
+
+    function tileMetric(element, prop){
+      return element[propertyConfig[prop].key] || 'n/a';
+    }
+
+    function renderTable(){
+      tableGrid.innerHTML = '';
+      placeholders.forEach(p => {
+        const d = document.createElement('div');
+        d.className = 'cell placeholder';
+        d.style.gridColumn = p.col;
+        d.style.gridRow = p.row;
+        d.textContent = p.text;
+        tableGrid.appendChild(d);
+      });
+
+      const prop = propertySelect.value;
+      const state = stateFilter.value;
+      const q = searchInput.value.trim().toLowerCase();
+
+      elements.forEach(el => {
+        const matchesState = state === 'all' || el.state === state;
+        const matchesSearch = !q || el.name.toLowerCase().includes(q) || el.symbol.toLowerCase().includes(q);
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = `cell state-${el.state}${activeElement.number===el.number ? ' active' : ''}`;
+        cell.style.gridColumn = el.group;
+        cell.style.gridRow = el.period;
+        cell.ariaLabel = `${el.name}, atomic number ${el.number}`;
+        cell.innerHTML = `
+          <div class="num">${el.number}</div>
+          <div class="sym">${el.symbol}</div>
+          <div class="name">${el.name}</div>
+          <div class="${prop === 'mass' ? 'mass' : 'metric'}">${tileMetric(el, prop)}</div>
+        `;
+        if(!(matchesState && matchesSearch)){
+          cell.style.opacity = '0.2';
+          cell.style.filter = 'grayscale(0.4)';
+        }
+        cell.addEventListener('click', () => {
+          activeElement = el;
+          renderTable();
+          renderDetails(el);
+        });
+        tableGrid.appendChild(cell);
+      });
+    }
+
+    function renderDetails(el){
+      detailTitle.textContent = `${el.name} (${el.symbol})`;
+      detailSub.textContent = `Atomic number ${el.number} · ${el.category} · ${el.state.charAt(0).toUpperCase()+el.state.slice(1)}`;
+      const fields = [
+        ['Average mass', el.mass],
+        ['Atomic radius', el.atomic_radius],
+        ['Ionization energy', el.ionization_energy],
+        ['Electron affinity', el.electron_affinity],
+        ['Electronegativity', el.electronegativity],
+        ['Oxidation states', el.oxidation_states],
+        ['Freezing point', el.freezing_point],
+        ['Boiling point', el.boiling_point],
+        ['Density', el.density]
+      ];
+      detailGrid.innerHTML = fields.map(([label, value]) => `
+        <div class="stat">
+          <div class="label">${label}</div>
+          <div class="value">${value || 'n/a'}</div>
+        </div>
+      `).join('');
+    }
+
+    function applyTheme(next){
+      document.documentElement.setAttribute('data-theme', next);
+      themeBtn.textContent = next === 'dark' ? 'Light mode' : 'Dark mode';
+      themeBtn.setAttribute('aria-label', next === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+    themeBtn.addEventListener('click', ()=>{
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    [propertySelect,stateFilter].forEach(el => el.addEventListener('change', renderTable));
+    searchInput.addEventListener('input', renderTable);
+
+    renderTable();
+    renderDetails(activeElement);
+  </script>
+</body>
+</html>
