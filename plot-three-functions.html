@@ -655,7 +655,7 @@
         ];
 
         curves.forEach(c => {
-          if (c.xFn && c.yFn) plotParametric(c.xFn, c.yFn, pMin, pMax, toScreenX, toScreenY);
+          if (c.xFn && c.yFn) plotParametric(c.xFn, c.yFn, pMin, pMax, c.color, toScreenX, toScreenY);
         });
 
         if (hoverPos) {
