@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Titration Bench — Acid/Base Titration Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg: #11141a;
+  --bg-grid-major: #1c212b;
+  --bg-grid-minor: #171b22;
+  --panel: #171b22;
+  --panel-raised: #1d222b;
+  --line: #2a3140;
+  --line-soft: #232935;
+  --ink: #e8e6df;
+  --ink-dim: #9aa2b1;
+  --ink-faint: #5c6675;
+  --amber: #e8a33d;
+  --amber-dim: #a8792f;
+  --cyan: #5fd0c8;
+  --cyan-dim: #3d8f89;
+  --rose: #e2685f;
+  --green: #7fbf7f;
+  --shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  background:
+    repeating-linear-gradient(0deg, var(--bg-grid-minor) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, var(--bg-grid-minor) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg, var(--bg-grid-major) 0 1px, transparent 1px 120px),
+    repeating-linear-gradient(90deg, var(--bg-grid-major) 0 1px, transparent 1px 120px),
+    var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height:100vh;
+}
+.wrap{ max-width: 1440px; margin: 0 auto; padding: 20px 24px 60px; }
+
+header.app-header{
+  display:flex; align-items:baseline; justify-content:space-between;
+  padding-bottom:16px; margin-bottom:18px;
+  border-bottom: 1px solid var(--line);
+}
+header.app-header h1{
+  font-family:'Fraunces', serif; font-weight:600; font-size:1.7rem; margin:0;
+  letter-spacing:0.2px;
+}
+header.app-header h1 span{ color: var(--amber); }
+header.app-header .tag{
+  font-family:'JetBrains Mono', monospace; font-size:0.72rem; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing:1.5px;
+}
+
+/* ---------- Setup bar ---------- */
+.setup{
+  background: var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:16px 18px;
+  margin-bottom:20px;
+  display:grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  gap:14px;
+  box-shadow: var(--shadow);
+}
+.field{ display:flex; flex-direction:column; gap:6px; min-width:0; }
+.field label{
+  font-size:0.68rem; text-transform:uppercase; letter-spacing:0.9px;
+  color: var(--ink-faint); font-weight:600;
+}
+select, input[type=number]{
+  background: var(--panel-raised);
+  border:1px solid var(--line);
+  color: var(--ink);
+  border-radius:6px;
+  padding:8px 10px;
+  font-family:'JetBrains Mono', monospace;
+  font-size:0.85rem;
+  outline:none;
+  width:100%;
+}
+select:focus, input[type=number]:focus{ border-color: var(--amber); }
+select:disabled, input[type=number]:disabled{
+  opacity:0.5; cursor:not-allowed; background: rgba(255,255,255,0.02);
+  font-style: italic; color: var(--ink-faint);
+}
+.field .hint{ font-size:0.68rem; color: var(--ink-faint); font-family:'JetBrains Mono',monospace; }
+
+.setup-actions{
+  grid-column: 1 / -1;
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  padding-top:4px; border-top:1px dashed var(--line-soft); margin-top:2px;
+}
+button{
+  font-family:'Inter', sans-serif; font-weight:600; font-size:0.82rem;
+  border-radius:7px; border:1px solid var(--line); cursor:pointer;
+  padding:9px 16px; background: var(--panel-raised); color: var(--ink);
+  transition: all 0.15s ease;
+}
+button:hover:not(:disabled){ border-color: var(--amber); color: var(--amber); }
+button:disabled{ opacity:0.35; cursor:not-allowed; }
+button.primary{ background: var(--amber); color:#1a1206; border-color: var(--amber); }
+button.primary:hover:not(:disabled){ background:#f3b158; color:#1a1206; }
+button.ghost{ background:transparent; }
+button.small{ padding:6px 10px; font-size:0.75rem; }
+
+.status-msg{
+  font-family:'JetBrains Mono', monospace; font-size:0.75rem;
+  color: var(--ink-faint); margin-left:auto;
+}
+.status-msg.warn{ color: var(--rose); }
+
+/* ---------- Main layout ---------- */
+.main-grid{
+  display:grid;
+  grid-template-columns: 420px 1fr;
+  gap:20px;
+  align-items:start;
+}
+@media (max-width: 980px){
+  .main-grid{ grid-template-columns: 1fr; }
+  .setup{ grid-template-columns: repeat(2,1fr); }
+}
+
+.panel{
+  background: var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:18px;
+  box-shadow: var(--shadow);
+}
+.panel h2{
+  font-family:'Fraunces', serif; font-weight:600; font-size:1.05rem;
+  margin:0 0 12px; color: var(--ink);
+  display:flex; align-items:center; gap:8px;
+}
+.panel h2 .dot{ width:7px; height:7px; border-radius:50%; background: var(--amber); display:inline-block; }
+
+/* ---------- Left: apparatus ---------- */
+.apparatus-stage{
+  position:relative;
+  display:flex; justify-content:center;
+  padding:6px 0 4px;
+}
+.readouts{
+  display:grid; grid-template-columns: repeat(3,1fr); gap:10px; margin:14px 0;
+}
+.readout{
+  background: var(--panel-raised); border:1px solid var(--line-soft);
+  border-radius:8px; padding:8px 10px; text-align:center;
+}
+.readout .val{ font-family:'JetBrains Mono', monospace; font-size:1.15rem; font-weight:600; color: var(--cyan); }
+.readout .lbl{ font-size:0.62rem; text-transform:uppercase; letter-spacing:0.8px; color: var(--ink-faint); margin-top:2px; }
+
+.controls-grid{
+  display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;
+}
+.controls-grid .grp{
+  display:flex; flex-direction:column; gap:6px; flex:1; min-width:140px;
+}
+.controls-grid .grp-label{ font-size:0.65rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-faint); }
+.controls-grid .row{ display:flex; gap:6px; }
+.controls-grid button{ flex:1; }
+
+/* ---------- Right: chart & table ---------- */
+.axis-toggle{
+  display:flex; gap:6px; margin-bottom:10px;
+}
+.axis-toggle button{ flex:1; }
+.axis-toggle button.active{ background: var(--cyan); color:#08201d; border-color: var(--cyan); }
+
+.chart-wrap{
+  background: var(--panel-raised);
+  border:1px solid var(--line-soft);
+  border-radius:8px;
+  padding:8px;
+}
+.eq-banner{
+  margin-top:10px; padding:9px 12px; border-radius:7px;
+  background: rgba(232,163,61,0.08); border:1px solid var(--amber-dim);
+  font-family:'JetBrains Mono', monospace; font-size:0.78rem; color: var(--amber);
+}
+.export-row{
+  display:flex; gap:8px; margin-top:10px;
+}
+.export-row button{ flex:1; }
+.name-row{
+  margin-top:12px; display:flex; flex-direction:column; gap:6px;
+}
+.name-row label{
+  font-size:0.68rem; text-transform:uppercase; letter-spacing:0.9px;
+  color: var(--ink-faint); font-weight:600;
+}
+.name-row input[type=text]{
+  background: var(--panel-raised); border:1px solid var(--line);
+  color: var(--ink); border-radius:6px; padding:8px 10px;
+  font-family:'Inter', sans-serif; font-size:0.85rem; outline:none; width:100%;
+}
+.name-row input[type=text]:focus{ border-color: var(--amber); }
+
+.table-wrap{
+  margin-top:16px; max-height:280px; overflow-y:auto;
+  border:1px solid var(--line-soft); border-radius:8px;
+}
+table{ width:100%; border-collapse:collapse; font-family:'JetBrains Mono', monospace; font-size:0.76rem; }
+thead th{
+  position:sticky; top:0; background: var(--panel-raised); color: var(--ink-dim);
+  text-align:right; padding:8px 10px; font-weight:600; border-bottom:1px solid var(--line);
+  font-size:0.68rem; text-transform:uppercase; letter-spacing:0.6px;
+}
+thead th:first-child, tbody td:first-child{ text-align:left; }
+tbody td{ text-align:right; padding:6px 10px; border-bottom:1px solid var(--line-soft); color: var(--ink); }
+tbody tr:hover{ background: rgba(95,208,200,0.05); }
+tbody tr.eq-row{ background: rgba(232,163,61,0.10); }
+tbody td.dim{ color: var(--ink-faint); }
+
+.reveal-box{
+  margin-top:12px; font-family:'JetBrains Mono', monospace; font-size:0.78rem;
+  color: var(--ink-faint); padding:10px 12px; border:1px dashed var(--line-soft); border-radius:7px;
+}
+.reveal-box b{ color: var(--green); }
+
+.drip-drop{
+  animation: dripFall 0.55s ease-in forwards;
+}
+@keyframes dripFall{
+  0%{ opacity:1; transform: translateY(0); }
+  85%{ opacity:1; }
+  100%{ opacity:0; transform: translateY(var(--drip-dist, 60px)); }
+}
+.ripple-ring{
+  animation: rippleGrow 0.6s ease-out forwards;
+}
+@keyframes rippleGrow{
+  0%{ opacity:0.7; r:2; }
+  100%{ opacity:0; r:34; }
+}
+.liquid-fill{ transition: d 0.35s ease, fill 0.4s ease; }
+.burette-fill{ transition: y 0.35s ease, height 0.35s ease; }
+
+.footnote{
+  margin-top:22px; font-size:0.72rem; color: var(--ink-faint); font-family:'JetBrains Mono',monospace;
+  text-align:center;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <h1>Titration <span>Bench</span></h1>
+    <div class="tag">General Chemistry · Acid–Base Titration</div>
+  </header>
+
+  <!-- ===================== SETUP BAR ===================== -->
+  <section class="setup" id="setupBar">
+    <div class="field">
+      <label for="acidSelect">Acid</label>
+      <select id="acidSelect"></select>
+    </div>
+    <div class="field">
+      <label for="baseSelect">Base</label>
+      <select id="baseSelect"></select>
+    </div>
+    <div class="field">
+      <label for="titrantSelect">Titrant (in burette)</label>
+      <select id="titrantSelect"></select>
+    </div>
+    <div class="field">
+      <label for="titrantConc">Titrant concentration (M)</label>
+      <input type="number" id="titrantConc" min="0.001" max="10" step="0.001" value="0.100">
+      <span class="hint" id="titrantConcHint">known — set by you</span>
+    </div>
+    <div class="field">
+      <label for="analyteVol">Volume of unknown in flask (mL)</label>
+      <input type="number" id="analyteVol" min="1" max="200" step="0.1" value="25.0">
+      <span class="hint">its concentration is randomized</span>
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <div class="hint" id="unknownIdHint" style="padding-top:8px;">—</div>
+    </div>
+
+    <div class="setup-actions">
+      <button class="primary" id="startBtn">Start / Re-Start</button>
+      <button class="ghost" id="newUnknownBtn">New random unknown</button>
+      <button class="ghost" id="revealBtn" disabled>Reveal unknown</button>
+      <span class="status-msg" id="statusMsg"></span>
+    </div>
+  </section>
+
+  <!-- ===================== MAIN GRID ===================== -->
+  <div class="main-grid">
+
+    <!-- LEFT: apparatus -->
+    <div class="panel">
+      <h2><span class="dot"></span>Apparatus</h2>
+      <div class="apparatus-stage" id="apparatusStage"></div>
+
+      <div class="readouts">
+        <div class="readout"><div class="val" id="rBurette">100.0</div><div class="lbl">Burette left (mL)</div></div>
+        <div class="readout"><div class="val" id="rFlaskVol">0.0</div><div class="lbl">Flask total (mL)</div></div>
+        <div class="readout"><div class="val" id="rPH">—</div><div class="lbl">pH (live)</div></div>
+      </div>
+
+      <div class="controls-grid">
+        <div class="grp">
+          <div class="grp-label">Add titrant</div>
+          <div class="row">
+            <button data-add="0.1" disabled>+0.1 mL</button>
+            <button data-add="0.5" disabled>+0.5 mL</button>
+            <button data-add="1"   disabled>+1 mL</button>
+          </div>
+        </div>
+        <div class="grp">
+          <div class="grp-label">Dilute the unknown</div>
+          <div class="row">
+            <button data-water="10" disabled>+10 mL water</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: chart + table -->
+    <div class="panel">
+      <h2><span class="dot"></span>Titration curve</h2>
+      <div class="axis-toggle">
+        <button class="active" data-mode="pH">pH</button>
+        <button data-mode="d1">1st derivative</button>
+        <button data-mode="d2">2nd derivative</button>
+      </div>
+      <div class="chart-wrap">
+        <svg id="chartSvg" viewBox="0 0 640 340" width="100%" style="display:block;"></svg>
+      </div>
+      <div class="eq-banner" id="eqBanner">Add titrant to begin plotting the curve.</div>
+
+      <div class="name-row">
+        <label for="userNameInput">Name (printed on the exported graph)</label>
+        <input type="text" id="userNameInput" placeholder="e.g. Jordan Lee" maxlength="60">
+      </div>
+      <div class="export-row">
+        <button class="ghost small" id="exportGraphBtn">Export graph (light mode)</button>
+        <button class="ghost small" id="exportTableBtn">Export table (CSV)</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Vol. titrant (mL)</th><th>pH</th><th>dpH/dV</th><th>d²pH/dV²</th></tr>
+          </thead>
+          <tbody id="dataTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="reveal-box" id="revealBox" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="footnote">Simplified equilibrium model for instructional use · strong acids/bases treated as fully dissociated · single-equivalence-point simplification for polyprotic species</div>
+</div>
+
+<script>
+/* =========================================================================
+   TITRATION BENCH — chemistry model, apparatus animation, chart & table
+   ========================================================================= */
+
+const Kw = 1e-14;
+
+// ---- Reagent library -----------------------------------------------------
+// eq = equivalents of H+ (acids) or OH- (bases) released per mole (fully dissoc. species)
+// Ka / Kb of null means "randomize on start" (the unknown species)
+const ACIDS = {
+  hcl:      { key:'hcl',      name:'HCl',          formula:'HCl',        Ka:1e10,  eq:1, kind:'strong' },
+  hno3:     { key:'hno3',     name:'Nitric acid',  formula:'HNO\u2083',  Ka:1e10,  eq:1, kind:'strong' },
+  h2so4:    { key:'h2so4',    name:'Sulfuric acid',formula:'H\u2082SO\u2084', Ka:1e10, eq:2, kind:'strong' },
+  acetic:   { key:'acetic',   name:'Acetic acid',  formula:'CH\u2083COOH',Ka:1.8e-5,eq:1, kind:'weak' },
+  vinegar:  { key:'vinegar',  name:'Vinegar (household)', formula:'CH\u2083COOH (dilute, aq.)', Ka:1.8e-5, eq:1, kind:'vinegar' },
+  unknownA: { key:'unknownA', name:'Unknown acid \u201cHA\u201d', formula:'HA (unknown)', Ka:null, eq:1, kind:'weak-unknown' },
+};
+
+const BASES = {
+  naoh:     { key:'naoh',     name:'NaOH',          formula:'NaOH',       Kb:1e10, eq:1, kind:'strong' },
+  koh:      { key:'koh',      name:'KOH',           formula:'KOH',        Kb:1e10, eq:1, kind:'strong' },
+  caoh2:    { key:'caoh2',    name:'Calcium hydroxide', formula:'Ca(OH)\u2082', Kb:1e10, eq:2, kind:'strong' },
+  nh3:      { key:'nh3',      name:'Ammonia',       formula:'NH\u2083',   Kb:1.8e-5, eq:1, kind:'weak' },
+  unknownB: { key:'unknownB', name:'Unknown base \u201cB\u201d', formula:'B (unknown)', Kb:null, eq:1, kind:'weak-unknown' },
+};
+
+// ---- General equilibrium pH solver ---------------------------------------
+// Charge balance: [H+] + [BH+] = [OH-] + [A-]
+// C_HA, Ka  : total analytical acid concentration (equiv/L) and its Ka (huge = strong)
+// C_B,  Kb  : total analytical base concentration (equiv/L) and its Kb (huge = strong)
+function solvePH(C_HA, Ka, C_B, Kb) {
+  function f(pH) {
+    const h = Math.pow(10, -pH);
+    const Aminus = C_HA * Ka / (Ka + h);
+    const BHplus = C_B * Kb * h / (Kw + Kb * h);
+    return h + BHplus - Kw / h - Aminus;
+  }
+  let lo = -2, hi = 16;
+  for (let i = 0; i < 120; i++) {
+    const mid = (lo + hi) / 2;
+    if (f(mid) > 0) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function randRange(a, b) { return a + Math.random() * (b - a); }
+
+// Vinegar: household vinegar is a dilute aqueous solution of acetic acid,
+// typically labeled by %v/v acetic acid (4.8-5.2% varies bottle to bottle).
+// Convert %v/v glacial acetic acid -> molarity using its density and molar mass.
+const ACETIC_DENSITY = 1.049;   // g/mL (glacial acetic acid)
+const ACETIC_MOLAR_MASS = 60.05; // g/mol
+function vinegarPercentToMolarity(pctVV) {
+  // pctVV mL acetic acid per 100 mL vinegar -> g/L -> mol/L
+  return (pctVV * 10 * ACETIC_DENSITY) / ACETIC_MOLAR_MASS;
+}
+
+// ---- Application state ----------------------------------------------------
+const state = {
+  started: false,
+  acid: null, base: null,          // resolved reagent objects (with randomized Ka/Kb filled in)
+  titrantIs: 'base',               // 'acid' | 'base' — which one sits in the burette
+  titrantConc: 0.1,                // mol/L, user supplied
+  analyteVolume: 25.0,             // mL, user supplied (volume of unknown pipetted into flask)
+  analyteConc: null,               // mol/L, randomized (hidden from user)
+  Vtitrant: 0,                     // mL added so far
+  Vwater: 0,                       // mL water added so far
+  data: [],                        // [{V, pH}]
+  mode: 'pH',                      // 'pH' | 'd1' | 'd2'
+};
+
+function computePH(Vtitrant, Vwater) {
+  const totalV_L = (state.analyteVolume + Vwater + Vtitrant) / 1000;
+  if (totalV_L <= 0) return null;
+  let C_HA = 0, Ka = 1e10, C_B = 0, Kb = 1e10;
+  if (state.titrantIs === 'base') {
+    C_HA = (state.analyteConc * state.acid.eq * state.analyteVolume / 1000) / totalV_L;
+    Ka = state.acid.Ka;
+    C_B = (state.titrantConc * state.base.eq * Vtitrant / 1000) / totalV_L;
+    Kb = state.base.Kb;
+  } else {
+    C_B = (state.analyteConc * state.base.eq * state.analyteVolume / 1000) / totalV_L;
+    Kb = state.base.Kb;
+    C_HA = (state.titrantConc * state.acid.eq * Vtitrant / 1000) / totalV_L;
+    Ka = state.acid.Ka;
+  }
+  return solvePH(C_HA, Ka, C_B, Kb);
+}
+
+function pHAtCurrentState() {
+  return computePH(state.Vtitrant, state.Vwater);
+}
+
+// Volume of titrant (mL) needed to reach equivalence, from the true (hidden)
+// analyte amount and the known titrant concentration.
+function equivalenceVolumeTrue() {
+  const analyteIsAcid = state.titrantIs === 'base';
+  const eqAnalyte = analyteIsAcid ? state.acid.eq : state.base.eq;
+  const eqTitrant = analyteIsAcid ? state.base.eq : state.acid.eq;
+  return (state.analyteConc * eqAnalyte * state.analyteVolume) / (state.titrantConc * eqTitrant);
+}
+
+// pH at half of the true equivalence volume (idealized: no water dilution).
+function halfEquivalencePH() {
+  const Vhalf = equivalenceVolumeTrue() / 2;
+  return computePH(Vhalf, 0);
+}
+
+// pH at the true equivalence volume itself (idealized: no water dilution).
+function equivalencePH() {
+  const Veq = equivalenceVolumeTrue();
+  return computePH(Veq, 0);
+}
+
+// ---- Derivatives & equivalence point --------------------------------------
+// Central differences on the (possibly unevenly spaced) recorded points.
+// Returns { d1:[...], d2:[...] } aligned to state.data indices (null at edges).
+function computeDerivatives(data) {
+  const n = data.length;
+  const d1 = new Array(n).fill(null);
+  const d2 = new Array(n).fill(null);
+  for (let i = 1; i < n - 1; i++) {
+    const dV = data[i + 1].V - data[i - 1].V;
+    if (dV > 1e-9) d1[i] = (data[i + 1].pH - data[i - 1].pH) / dV;
+  }
+  // one-sided at the very edges, if there are at least 2 points
+  if (n >= 2) {
+    if (data[1].V - data[0].V > 1e-9) d1[0] = (data[1].pH - data[0].pH) / (data[1].V - data[0].V);
+    if (data[n - 1].V - data[n - 2].V > 1e-9) d1[n - 1] = (data[n - 1].pH - data[n - 2].pH) / (data[n - 1].V - data[n - 2].V);
+  }
+  for (let i = 1; i < n - 1; i++) {
+    if (d1[i - 1] == null || d1[i + 1] == null) continue;
+    const dV = data[i + 1].V - data[i - 1].V;
+    if (dV > 1e-9) d2[i] = (d1[i + 1] - d1[i - 1]) / dV;
+  }
+  return { d1, d2 };
+}
+
+// Equivalence volume from 1st derivative: volume at max |dpH/dV| (peak),
+// refined with a parabolic vertex fit using its two neighbors when possible.
+// Requires the peak to be a genuine INTERIOR maximum (curve rising then
+// falling around it) — if the steepest point found so far sits at the edge
+// of the data, the real equivalence point hasn't been bracketed yet, so we
+// report "not found" rather than a misleading guess.
+function equivalenceFromD1(data, d1) {
+  let bestI = -1, bestVal = -1;
+  for (let i = 0; i < d1.length; i++) {
+    if (d1[i] == null) continue;
+    if (Math.abs(d1[i]) > bestVal) { bestVal = Math.abs(d1[i]); bestI = i; }
+  }
+  if (bestI <= 0 || bestI >= d1.length - 1) return null; // edge = not bracketed yet
+  if (d1[bestI - 1] == null || d1[bestI + 1] == null) return null;
+  // must actually be a local max in |d1|, not just the running max at a plateau
+  if (Math.abs(d1[bestI]) < Math.abs(d1[bestI - 1]) || Math.abs(d1[bestI]) < Math.abs(d1[bestI + 1])) return null;
+
+  const x0 = data[bestI - 1].V, x1 = data[bestI].V, x2 = data[bestI + 1].V;
+  const y0 = Math.abs(d1[bestI - 1]), y1 = Math.abs(d1[bestI]), y2 = Math.abs(d1[bestI + 1]);
+  const denom = (x0 - x1) * (x0 - x2) * (x1 - x2);
+  if (Math.abs(denom) > 1e-9) {
+    const A = (x2 * (y1 - y0) + x1 * (y0 - y2) + x0 * (y2 - y1)) / denom;
+    const B = (x2 * x2 * (y0 - y1) + x1 * x1 * (y2 - y0) + x0 * x0 * (y1 - y2)) / denom;
+    if (Math.abs(A) > 1e-9) {
+      const vertex = -B / (2 * A);
+      if (vertex > x0 && vertex < x2) return vertex;
+    }
+  }
+  return x1;
+}
+
+// Equivalence volume from 2nd derivative: linear-interpolated zero crossing,
+// restricted to the neighborhood of the 1st-derivative peak so that tiny
+// floating-point noise in flat, far-from-equivalence regions (where the true
+// 2nd derivative is genuinely ~0) can't be mistaken for the real inflection.
+function equivalenceFromD2(data, d2, anchorV) {
+  if (anchorV == null) return null; // no confidently-bracketed peak yet
+  const pts = [];
+  for (let i = 0; i < d2.length; i++) if (d2[i] != null) pts.push({ V: data[i].V, y: d2[i] });
+  let best = null, bestDist = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if ((a.y > 0 && b.y < 0) || (a.y < 0 && b.y > 0)) {
+      const t = a.y / (a.y - b.y);
+      const V = a.V + t * (b.V - a.V);
+      const dist = Math.abs(V - anchorV);
+      if (dist < bestDist) { bestDist = dist; best = V; }
+    }
+  }
+  return best;
+}
+
+// ---- DOM refs ---------------------------------------------------------
+const acidSelect = document.getElementById('acidSelect');
+const baseSelect = document.getElementById('baseSelect');
+const titrantSelect = document.getElementById('titrantSelect');
+const titrantConcInput = document.getElementById('titrantConc');
+const titrantConcHint = document.getElementById('titrantConcHint');
+const analyteVolInput = document.getElementById('analyteVol');
+const unknownIdHint = document.getElementById('unknownIdHint');
+const startBtn = document.getElementById('startBtn');
+const newUnknownBtn = document.getElementById('newUnknownBtn');
+const revealBtn = document.getElementById('revealBtn');
+const revealBox = document.getElementById('revealBox');
+const statusMsg = document.getElementById('statusMsg');
+const rBurette = document.getElementById('rBurette');
+const rFlaskVol = document.getElementById('rFlaskVol');
+const rPH = document.getElementById('rPH');
+const eqBanner = document.getElementById('eqBanner');
+const dataTableBody = document.getElementById('dataTableBody');
+const chartSvg = document.getElementById('chartSvg');
+const exportGraphBtn = document.getElementById('exportGraphBtn');
+const exportTableBtn = document.getElementById('exportTableBtn');
+const userNameInput = document.getElementById('userNameInput');
+const apparatusStage = document.getElementById('apparatusStage');
+
+function populateSelectors() {
+  acidSelect.innerHTML = Object.values(ACIDS).map(a => `<option value="${a.key}">${a.name}</option>`).join('');
+  baseSelect.innerHTML = Object.values(BASES).map(b => `<option value="${b.key}">${b.name}</option>`).join('');
+  updateTitrantOptions();
+}
+
+function updateTitrantOptions() {
+  const a = ACIDS[acidSelect.value];
+  const b = BASES[baseSelect.value];
+  const prev = titrantSelect.value;
+  titrantSelect.innerHTML = `
+    <option value="acid">${a.name} (acid)</option>
+    <option value="base">${b.name} (base)</option>`;
+  if (prev === 'acid' || prev === 'base') titrantSelect.value = prev;
+  updateUnknownHint();
+}
+
+function updateUnknownHint() {
+  const titrantIsAcid = titrantSelect.value === 'acid';
+  const acidDef = ACIDS[acidSelect.value];
+  const baseDef = BASES[baseSelect.value];
+  const analyteName = titrantIsAcid ? baseDef.name : acidDef.name;
+  unknownIdHint.textContent = `Unknown in flask: ${analyteName}`;
+
+  if (!state.started) {
+    if (titrantIsAcid && acidDef.key === 'vinegar') {
+      // Vinegar as titrant: its concentration isn't something you set — it's
+      // whatever's in the bottle (label says ~5%, but varies 4.8-5.2% v/v).
+      titrantConcInput.disabled = true;
+      titrantConcInput.value = '';
+      titrantConcInput.placeholder = '\u2248 0.87 (label ~5%, varies)';
+      titrantConcHint.textContent = 'vinegar \u2014 concentration varies bottle to bottle';
+    } else {
+      titrantConcInput.disabled = false;
+      titrantConcInput.placeholder = '';
+      if (!titrantConcInput.value) titrantConcInput.value = '0.100';
+      titrantConcHint.textContent = 'known \u2014 set by you';
+    }
+  }
+}
+
+acidSelect.addEventListener('change', updateTitrantOptions);
+baseSelect.addEventListener('change', updateTitrantOptions);
+titrantSelect.addEventListener('change', updateUnknownHint);
+
+// ---- Start / reset experiment ------------------------------------------
+// The randomized "unknown" (analyte concentration, and pKa/pKb if an unknown
+// species was chosen) is preserved across Start/Re-Start so a re-start repeats
+// the same hidden unknown. Only "New random unknown" clears it.
+const savedUnknown = { conc: null, pKa: null, pKb: null, vinegarPct: null };
+
+function buildResolvedReagents() {
+  const acidDef = ACIDS[acidSelect.value];
+  const baseDef = BASES[baseSelect.value];
+  const acid = Object.assign({}, acidDef);
+  const base = Object.assign({}, baseDef);
+  if (acid.Ka == null) { // unknown acid: randomize pKa 2-6 (once; then reused)
+    if (savedUnknown.pKa == null) savedUnknown.pKa = randRange(2, 6);
+    acid.pKa = savedUnknown.pKa;
+    acid.Ka = Math.pow(10, -acid.pKa);
+  }
+  if (acid.kind === 'vinegar') { // household vinegar: 4.8-5.2% v/v, varies bottle to bottle
+    if (savedUnknown.vinegarPct == null) savedUnknown.vinegarPct = randRange(4.8, 5.2);
+    acid.vinegarPct = savedUnknown.vinegarPct;
+    acid.trueConc = vinegarPercentToMolarity(acid.vinegarPct);
+  }
+  if (base.Kb == null) { // unknown base: randomize pKb 2-6 (once; then reused)
+    if (savedUnknown.pKb == null) savedUnknown.pKb = randRange(2, 6);
+    base.pKb = savedUnknown.pKb;
+    base.Kb = Math.pow(10, -base.pKb);
+  }
+  return { acid, base };
+}
+
+function startExperiment() {
+  const { acid, base } = buildResolvedReagents();
+  state.acid = acid;
+  state.base = base;
+  state.titrantIs = titrantSelect.value;
+  state.analyteVolume = parseFloat(analyteVolInput.value) || 25.0;
+
+  if (state.titrantIs === 'acid' && acid.kind === 'vinegar') {
+    // Vinegar's true concentration isn't user-set — it's inherent to the bottle
+    state.titrantConc = acid.trueConc;
+  } else {
+    state.titrantConc = parseFloat(titrantConcInput.value) || 0.1;
+  }
+
+  if (state.titrantIs === 'base' && acid.kind === 'vinegar') {
+    // Vinegar as the unknown in the flask: use its own realistic concentration
+    // instead of the generic 0.100-0.500 M draw used for other unknowns.
+    state.analyteConc = acid.trueConc;
+  } else {
+    if (savedUnknown.conc == null) savedUnknown.conc = randRange(0.100, 0.500);
+    state.analyteConc = savedUnknown.conc; // hidden unknown concentration (same across re-starts)
+  }
+
+  state.Vtitrant = 0;
+  state.Vwater = 0;
+  state.data = [];
+  state.started = true;
+  state.mode = 'pH';
+  document.querySelectorAll('.axis-toggle button').forEach(b => b.classList.remove('active'));
+  const phToggleBtn = document.querySelector('.axis-toggle button[data-mode="pH"]');
+  if (phToggleBtn) phToggleBtn.classList.add('active');
+
+  // lock setup controls
+  [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput].forEach(el => el.disabled = true);
+  document.querySelectorAll('[data-add]').forEach(b => b.disabled = false);
+  document.querySelectorAll('[data-water]').forEach(b => b.disabled = false);
+  revealBtn.disabled = false;
+  revealBox.style.display = 'none';
+  statusMsg.textContent = '';
+  statusMsg.classList.remove('warn');
+
+  // initial point at V = 0
+  const pH0 = pHAtCurrentState();
+  state.data.push({ V: 0, pH: pH0 });
+
+  renderApparatus();
+  updateReadouts();
+  renderChart();
+  renderTable();
+  eqBanner.textContent = 'Titration started. Add titrant to build the curve.';
+}
+
+function resetToSetup() {
+  state.started = false;
+  [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput].forEach(el => el.disabled = false);
+  document.querySelectorAll('[data-add]').forEach(b => b.disabled = true);
+  document.querySelectorAll('[data-water]').forEach(b => b.disabled = true);
+  revealBtn.disabled = true;
+  revealBox.style.display = 'none';
+  state.data = [];
+  state.Vtitrant = 0;
+  state.Vwater = 0;
+  rBurette.textContent = '100.0';
+  rFlaskVol.textContent = '0.0';
+  rPH.textContent = '\u2014';
+  dataTableBody.innerHTML = '';
+  chartSvg.innerHTML = '';
+  eqBanner.textContent = 'Add titrant to begin plotting the curve.';
+  renderApparatus();
+  updateUnknownHint(); // re-applies vinegar-as-titrant field lock if applicable
+}
+
+startBtn.addEventListener('click', startExperiment);
+newUnknownBtn.addEventListener('click', () => {
+  savedUnknown.conc = null;
+  savedUnknown.pKa = null;
+  savedUnknown.pKb = null;
+  savedUnknown.vinegarPct = null;
+  resetToSetup();
+  statusMsg.textContent = 'New unknown ready \u2014 press Start to begin.';
+});
+
+// ---- Dispensing -----------------------------------------------------------
+const BURETTE_CAPACITY = 100;   // mL
+const FLASK_CAPACITY = 250;     // mL
+
+function addTitrant(mL) {
+  if (!state.started) return;
+  const remaining = BURETTE_CAPACITY - state.Vtitrant;
+  if (remaining <= 0.0001) {
+    statusMsg.textContent = 'Burette is empty \u2014 refill not modeled in this demo.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  const actual = Math.min(mL, remaining);
+  state.Vtitrant += actual;
+  const pH = pHAtCurrentState();
+  state.data.push({ V: round3(state.Vtitrant), pH });
+  statusMsg.textContent = '';
+  statusMsg.classList.remove('warn');
+
+  triggerDrip();
+  updateReadouts();
+  renderChart();
+  renderTable();
+}
+
+function addWater(mL) {
+  if (!state.started) return;
+  if (state.analyteVolume + state.Vwater + state.Vtitrant + mL > FLASK_CAPACITY) {
+    statusMsg.textContent = 'Flask is at capacity (250 mL).';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  state.Vwater += mL;
+  const pH = pHAtCurrentState();
+  // Water dilutes without changing titrant volume: update the in-place point
+  // at the current titrant volume rather than creating a duplicate x-value.
+  const last = state.data[state.data.length - 1];
+  if (last && Math.abs(last.V - state.Vtitrant) < 1e-6) {
+    last.pH = pH;
+  } else {
+    state.data.push({ V: round3(state.Vtitrant), pH });
+  }
+  statusMsg.textContent = '';
+  statusMsg.classList.remove('warn');
+
+  triggerRipple();
+  updateReadouts();
+  renderChart();
+  renderTable();
+}
+
+function round3(x) { return Math.round(x * 1000) / 1000; }
+
+document.querySelectorAll('[data-add]').forEach(btn => {
+  btn.addEventListener('click', () => addTitrant(parseFloat(btn.dataset.add)));
+});
+document.querySelectorAll('[data-water]').forEach(btn => {
+  btn.addEventListener('click', () => addWater(parseFloat(btn.dataset.water)));
+});
+
+revealBtn.addEventListener('click', () => {
+  const parts = [`True unknown concentration: <b>${state.analyteConc.toFixed(4)} M</b>`];
+  if (state.acid.kind === 'vinegar' && state.titrantIs === 'base') {
+    parts.push(`(vinegar \u2248 <b>${state.acid.vinegarPct.toFixed(2)}%</b> v/v acetic acid)`);
+  }
+  if (state.acid.kind === 'vinegar' && state.titrantIs === 'acid') {
+    parts.push(`True titrant (vinegar) concentration: <b>${state.titrantConc.toFixed(4)} M</b> (\u2248 ${state.acid.vinegarPct.toFixed(2)}% v/v)`);
+  }
+  const pkParts = [];
+  if (state.acid.pKa != null) pkParts.push(`pKa = ${state.acid.pKa.toFixed(2)}`);
+  if (state.base.pKb != null) pkParts.push(`pKb = ${state.base.pKb.toFixed(2)}`);
+  const halfPH = halfEquivalencePH();
+  const halfPHStr = halfPH != null ? halfPH.toFixed(2) : '\u2014';
+  pkParts.push(`pH at half-equivalence = <b>${halfPHStr}</b>`);
+  const eqPH = equivalencePH();
+  const eqPHStr = eqPH != null ? eqPH.toFixed(2) : '\u2014';
+  pkParts.push(`pH at equivalence = <b>${eqPHStr}</b>`);
+  parts.push(...pkParts);
+  revealBox.innerHTML = parts.join(' &nbsp;\u2022&nbsp; ');
+  revealBox.style.display = 'block';
+});
+
+function updateReadouts() {
+  rBurette.textContent = (BURETTE_CAPACITY - state.Vtitrant).toFixed(1);
+  rFlaskVol.textContent = (state.analyteVolume + state.Vwater + state.Vtitrant).toFixed(1);
+  const cur = pHAtCurrentState();
+  rPH.textContent = cur != null ? cur.toFixed(2) : '\u2014';
+  renderApparatus();
+}
+
+// ---- pH -> color (universal-indicator-like gradient) ----------------------
+const PH_STOPS = [
+  { pH: 0,  c: [196, 58, 48] },
+  { pH: 2,  c: [214, 88, 45] },
+  { pH: 4,  c: [224, 140, 45] },
+  { pH: 6,  c: [199, 191, 63] },
+  { pH: 7,  c: [110, 176, 92] },
+  { pH: 8,  c: [79, 163, 150] },
+  { pH: 10, c: [66, 120, 190] },
+  { pH: 12, c: [92, 92, 196] },
+  { pH: 14, c: [134, 82, 190] },
+];
+function pHToColor(pH) {
+  const p = Math.max(0, Math.min(14, pH == null ? 7 : pH));
+  for (let i = 0; i < PH_STOPS.length - 1; i++) {
+    const a = PH_STOPS[i], b = PH_STOPS[i + 1];
+    if (p >= a.pH && p <= b.pH) {
+      const t = (p - a.pH) / (b.pH - a.pH);
+      const c = a.c.map((v, k) => Math.round(v + t * (b.c[k] - v)));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+  }
+  return 'rgb(150,150,150)';
+}
+
+// ---- Apparatus SVG (burette + Erlenmeyer flask) ---------------------------
+const CX = 130;                 // horizontal center for flask/burette
+const BUR_TOP = 14, BUR_BOTTOM = 210, BUR_W = 34;   // burette tube bounds
+const NECK_TOP = 232, NECK_BOTTOM = 258, NECK_W = 24;
+const BODY_BOTTOM = 336, BASE_W = 101;   // base width reduced 40% from original 168
+
+function flaskHalfWidthAt(y) {
+  if (y <= NECK_BOTTOM) return NECK_W / 2;
+  const t = (y - NECK_BOTTOM) / (BODY_BOTTOM - NECK_BOTTOM);
+  return (NECK_W + (BASE_W - NECK_W) * t) / 2;
+}
+
+function renderApparatus() {
+  const remaining = state.started ? Math.max(0, BURETTE_CAPACITY - state.Vtitrant) : BURETTE_CAPACITY;
+  const burFrac = remaining / BURETTE_CAPACITY;
+  const burLiquidTopY = BUR_TOP + (1 - burFrac) * (BUR_BOTTOM - BUR_TOP);
+
+  const totalFlaskVol = state.started ? (state.analyteVolume + state.Vwater + state.Vtitrant) : 0;
+  const flaskFrac = Math.min(1, totalFlaskVol / FLASK_CAPACITY);
+  let liquidY = BODY_BOTTOM - flaskFrac * (BODY_BOTTOM - NECK_TOP);
+  liquidY = Math.max(NECK_TOP, Math.min(BODY_BOTTOM, liquidY));
+  const hw = flaskHalfWidthAt(liquidY);
+  const hwBase = BASE_W / 2;
+
+  const pH = state.started ? pHAtCurrentState() : null;
+  const liquidColor = state.started && totalFlaskVol > 0 ? pHToColor(pH) : 'rgba(95,208,200,0.12)';
+  const titrantColor = state.started ? (state.titrantIs === 'acid' ? '#e2685f' : '#5fd0c8') : '#586273';
+
+  // graduation marks on burette (every 10 mL of its 100 mL span)
+  let grads = '';
+  for (let m = 0; m <= 100; m += 10) {
+    const y = BUR_TOP + (m / 100) * (BUR_BOTTOM - BUR_TOP);
+    const len = (m % 50 === 0) ? 10 : 6;
+    grads += `<line x1="${CX + BUR_W/2}" y1="${y}" x2="${CX + BUR_W/2 + len}" y2="${y}" stroke="#4a5568" stroke-width="1"/>`;
+    if (m % 50 === 0) grads += `<text x="${CX + BUR_W/2 + 14}" y="${y+3}" font-size="8" fill="#7a8494" font-family="JetBrains Mono, monospace">${m}</text>`;
+  }
+
+  const liquidPath = `M ${CX-hwBase},${BODY_BOTTOM}
+    L ${CX+hwBase},${BODY_BOTTOM}
+    L ${CX+hw},${liquidY}
+    L ${CX-hw},${liquidY} Z`;
+
+  const flaskOutline = `M ${CX-NECK_W/2},${NECK_TOP}
+    L ${CX-NECK_W/2},${NECK_BOTTOM}
+    L ${CX-hwBase},${BODY_BOTTOM-4}
+    Q ${CX-hwBase},${BODY_BOTTOM} ${CX-hwBase+8},${BODY_BOTTOM}
+    L ${CX+hwBase-8},${BODY_BOTTOM}
+    Q ${CX+hwBase},${BODY_BOTTOM} ${CX+hwBase},${BODY_BOTTOM-4}
+    L ${CX+NECK_W/2},${NECK_BOTTOM}
+    L ${CX+NECK_W/2},${NECK_TOP}`;
+
+  apparatusStage.innerHTML = `
+  <svg viewBox="0 0 260 360" width="260" height="360" style="overflow:visible;">
+    <!-- burette clamp/stand -->
+    <line x1="20" y1="10" x2="20" y2="230" stroke="#3a4356" stroke-width="4" stroke-linecap="round"/>
+    <line x1="20" y1="16" x2="${CX-BUR_W/2-2}" y2="16" stroke="#3a4356" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- burette tube -->
+    <rect x="${CX-BUR_W/2}" y="${BUR_TOP}" width="${BUR_W}" height="${BUR_BOTTOM-BUR_TOP}" rx="3"
+      fill="rgba(255,255,255,0.03)" stroke="#4a5568" stroke-width="1.5"/>
+    <rect class="burette-fill" x="${CX-BUR_W/2+1.5}" y="${burLiquidTopY}" width="${BUR_W-3}" height="${Math.max(0,BUR_BOTTOM-burLiquidTopY-1.5)}"
+      fill="${titrantColor}" opacity="0.85"/>
+    ${grads}
+    <!-- burette tip -->
+    <path d="M ${CX-6},${BUR_BOTTOM} L ${CX+6},${BUR_BOTTOM} L ${CX+2},${BUR_BOTTOM+16} L ${CX-2},${BUR_BOTTOM+16} Z"
+      fill="rgba(255,255,255,0.05)" stroke="#4a5568" stroke-width="1.2"/>
+    <line x1="${CX}" y1="${BUR_BOTTOM+16}" x2="${CX}" y2="${BUR_BOTTOM+24}" stroke="#4a5568" stroke-width="1.2"/>
+    <g id="dripLayer"></g>
+
+    <!-- flask -->
+    <path d="${flaskOutline}" fill="none" stroke="#5c6675" stroke-width="1.6"/>
+    <path class="liquid-fill" d="${liquidPath}" fill="${liquidColor}" opacity="0.88"/>
+    <g id="rippleLayer"></g>
+    <path d="${flaskOutline}" fill="none" stroke="#5c6675" stroke-width="1.6" opacity="0.55"/>
+    <ellipse cx="${CX}" cy="${BODY_BOTTOM}" rx="${hwBase-2}" ry="3" fill="none" stroke="#3a4150" stroke-width="1"/>
+
+    <text x="${CX}" y="${BUR_TOP-6}" text-anchor="middle" font-size="9" fill="#7a8494" font-family="JetBrains Mono, monospace">100 mL burette</text>
+    <text x="${CX}" y="${BODY_BOTTOM+22}" text-anchor="middle" font-size="9" fill="#7a8494" font-family="JetBrains Mono, monospace">250 mL flask</text>
+  </svg>`;
+}
+
+function triggerDrip() {
+  const layer = apparatusStage.querySelector('#dripLayer');
+  if (!layer) return;
+  const drop = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  drop.setAttribute('cx', CX);
+  drop.setAttribute('cy', BUR_BOTTOM + 20);
+  drop.setAttribute('r', 3);
+  drop.setAttribute('fill', state.titrantIs === 'acid' ? '#e2685f' : '#5fd0c8');
+  drop.classList.add('drip-drop');
+  drop.style.setProperty('--drip-dist', (NECK_TOP - BUR_BOTTOM - 20) + 'px');
+  layer.appendChild(drop);
+  setTimeout(() => drop.remove(), 600);
+  setTimeout(triggerRipple, 480);
+}
+
+function triggerRipple() {
+  const layer = apparatusStage.querySelector('#rippleLayer');
+  if (!layer) return;
+  const totalFlaskVol = state.analyteVolume + state.Vwater + state.Vtitrant;
+  const flaskFrac = Math.min(1, totalFlaskVol / FLASK_CAPACITY);
+  const y = Math.max(NECK_TOP, Math.min(BODY_BOTTOM, BODY_BOTTOM - flaskFrac * (BODY_BOTTOM - NECK_TOP)));
+  const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  ring.setAttribute('cx', CX);
+  ring.setAttribute('cy', y);
+  ring.setAttribute('r', 2);
+  ring.setAttribute('fill', 'none');
+  ring.setAttribute('stroke', '#dfe6ee');
+  ring.setAttribute('stroke-width', '1.2');
+  ring.classList.add('ripple-ring');
+  layer.appendChild(ring);
+  setTimeout(() => ring.remove(), 650);
+}
+
+// ---- Chart rendering --------------------------------------------------
+// ---- Chart theming (used for on-screen dark render + light-mode export) --
+const CHART_THEMES = {
+  dark:  { bg: null,      grid:'#232935', axis:'#4a5568', tick:'#7a8494', axisLabel:'#9aa2b1', line:'#5fd0c8', dot:'#5fd0c8', eq:'#e8a33d', font:'JetBrains Mono, monospace', labelFont:'Inter, sans-serif' },
+  light: { bg:'#ffffff',  grid:'#dcdcd2', axis:'#333333', tick:'#444444', axisLabel:'#1a1a1a', line:'#0f766e', dot:'#0f766e', eq:'#b45309', font:'JetBrains Mono, monospace', labelFont:'Inter, sans-serif' },
+};
+
+function computeChartGeometry() {
+  const n = state.data.length;
+  if (n === 0) return null;
+  const { d1, d2 } = computeDerivatives(state.data);
+  let points, yLabel, eqV;
+  if (state.mode === 'pH') {
+    points = state.data.map(p => ({ x: p.V, y: p.pH }));
+    yLabel = 'pH';
+    eqV = equivalenceFromD1(state.data, d1);
+  } else if (state.mode === 'd1') {
+    points = state.data.map((p, i) => d1[i] != null ? { x: p.V, y: d1[i] } : null).filter(Boolean);
+    yLabel = 'dpH/dV';
+    eqV = equivalenceFromD1(state.data, d1);
+  } else {
+    points = state.data.map((p, i) => d2[i] != null ? { x: p.V, y: d2[i] } : null).filter(Boolean);
+    yLabel = 'd\u00b2pH/dV\u00b2';
+    eqV = equivalenceFromD2(state.data, d2, equivalenceFromD1(state.data, d1));
+  }
+  return { points, yLabel, eqV };
+}
+
+function wrapSVG(inner, W, H, T) {
+  const bgRect = T.bg ? `<rect x="0" y="0" width="${W}" height="${H}" fill="${T.bg}"/>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${bgRect}${inner}</svg>`;
+}
+
+function escapeXml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' }[c]));
+}
+
+// Builds the chart markup for a given theme. standalone=true returns a full
+// self-contained <svg>...</svg> (used for export); standalone=false returns
+// just the inner elements (used to fill the existing on-screen <svg id="chartSvg">).
+function buildChartSVG(theme, standalone) {
+  const T = CHART_THEMES[theme];
+  const W = 640, H = 340;
+  const margin = { l: 56, r: 20, t: 42, b: 38 };
+  const geo = computeChartGeometry();
+
+  const acidName = state.acid ? state.acid.name : '';
+  const baseName = state.base ? state.base.name : '';
+  let titleMarkup = '';
+  if (acidName && baseName) {
+    const titrantConcStr = state.titrantConc != null ? state.titrantConc.toFixed(2) + ' M ' : '';
+    const acidLabel = state.titrantIs === 'acid' ? `${titrantConcStr}${acidName}` : `${acidName} (unknown)`;
+    const baseLabel = state.titrantIs === 'base' ? `${titrantConcStr}${baseName}` : `${baseName} (unknown)`;
+    titleMarkup = `<text x="${W / 2}" y="18" text-anchor="middle" font-size="14" font-weight="600" fill="${T.axisLabel}" font-family="Fraunces, Georgia, serif">${escapeXml(acidLabel)} + ${escapeXml(baseLabel)}</text>`;
+    if (standalone) {
+      const userName = userNameInput && userNameInput.value.trim();
+      if (userName) {
+        titleMarkup += `<text x="${W / 2}" y="33" text-anchor="middle" font-size="10" fill="${T.tick}" font-family="Inter, sans-serif">Prepared by ${escapeXml(userName)}</text>`;
+      }
+    }
+  }
+
+  if (!geo) {
+    return standalone ? wrapSVG(titleMarkup, W, H, T) : titleMarkup;
+  }
+  updateEqBanner(geo.eqV);
+  const { points, yLabel, eqV } = geo;
+
+  if (points.length === 0) {
+    const msg = titleMarkup + `<text x="320" y="170" text-anchor="middle" fill="${T.tick}" font-family="Inter, sans-serif" font-size="13">Not enough points yet for this view.</text>`;
+    return standalone ? wrapSVG(msg, W, H, T) : msg;
+  }
+
+  const plotW = W - margin.l - margin.r, plotH = H - margin.t - margin.b;
+  let xMin = Math.min(0, ...points.map(p => p.x)), xMax = Math.max(...points.map(p => p.x), 1);
+  let yMin, yMax;
+  if (state.mode === 'pH') { yMin = 0; yMax = 14; }
+  else {
+    yMin = Math.min(...points.map(p => p.y)); yMax = Math.max(...points.map(p => p.y));
+    const pad = (yMax - yMin) * 0.2 || Math.max(1, Math.abs(yMax) * 0.2) || 1;
+    yMin -= pad; yMax += pad;
+  }
+  if (xMax - xMin < 1) xMax = xMin + 1;
+
+  const xScale = v => margin.l + (v - xMin) / (xMax - xMin) * plotW;
+  const yScale = v => margin.t + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+
+  let grid = '';
+  const xTicks = 6, yTicks = 7;
+  for (let i = 0; i <= xTicks; i++) {
+    const v = xMin + i / xTicks * (xMax - xMin);
+    const x = xScale(v);
+    grid += `<line x1="${x}" y1="${margin.t}" x2="${x}" y2="${H - margin.b}" stroke="${T.grid}" stroke-width="1"/>`;
+    grid += `<text x="${x}" y="${H - margin.b + 15}" text-anchor="middle" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(1)}</text>`;
+  }
+  for (let i = 0; i <= yTicks; i++) {
+    const v = yMin + i / yTicks * (yMax - yMin);
+    const y = yScale(v);
+    grid += `<line x1="${margin.l}" y1="${y}" x2="${W - margin.r}" y2="${y}" stroke="${T.grid}" stroke-width="1"/>`;
+    grid += `<text x="${margin.l - 8}" y="${y + 3}" text-anchor="end" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(state.mode === 'pH' ? 1 : 2)}</text>`;
+  }
+
+  const pathD = points.map((p, i) => (i === 0 ? 'M' : 'L') + xScale(p.x).toFixed(2) + ',' + yScale(p.y).toFixed(2)).join(' ');
+  const dots = points.map(p => `<circle cx="${xScale(p.x).toFixed(2)}" cy="${yScale(p.y).toFixed(2)}" r="2.6" fill="${T.dot}"/>`).join('');
+
+  let eqMarker = '';
+  if (eqV != null && eqV >= xMin && eqV <= xMax) {
+    const ex = xScale(eqV);
+    eqMarker = `<line x1="${ex}" y1="${margin.t}" x2="${ex}" y2="${H - margin.b}" stroke="${T.eq}" stroke-width="1.4" stroke-dasharray="4,3"/>
+      <text x="${ex}" y="${margin.t + 10}" text-anchor="${ex > W - 90 ? 'end' : 'start'}" font-size="9" fill="${T.eq}" font-family="${T.font}">V\u2091\u2093 \u2248 ${eqV.toFixed(2)}</text>`;
+  }
+
+  const inner = `
+    ${titleMarkup}
+    ${grid}
+    <line x1="${margin.l}" y1="${margin.t}" x2="${margin.l}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
+    <line x1="${margin.l}" y1="${H - margin.b}" x2="${W - margin.r}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
+    ${eqMarker}
+    <path d="${pathD}" fill="none" stroke="${T.line}" stroke-width="2"/>
+    ${dots}
+    <text x="${(margin.l + W - margin.r) / 2}" y="${H - 4}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}">Volume of titrant (mL)</text>
+    <text x="14" y="${(margin.t + H - margin.b) / 2}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}" transform="rotate(-90 14 ${(margin.t + H - margin.b) / 2})">${yLabel}</text>
+  `;
+  return standalone ? wrapSVG(inner, W, H, T) : inner;
+}
+
+function drawChart() {
+  chartSvg.innerHTML = buildChartSVG('dark', false);
+}
+
+function updateEqBanner(eqV) {
+  if (eqV == null) {
+    eqBanner.textContent = state.data.length < 3
+      ? 'Add a few more titrant increments to resolve an equivalence point.'
+      : 'No clear equivalence point detected yet \u2014 keep adding titrant.';
+    return;
+  }
+  const method = state.mode === 'd2'
+    ? 'located where the 2nd derivative crosses zero'
+    : state.mode === 'd1'
+      ? 'located at the peak of the 1st derivative'
+      : 'estimated from the steepest part of the curve';
+  eqBanner.innerHTML = `Estimated equivalence point at <b style="color:var(--amber)">${eqV.toFixed(2)} mL</b> titrant \u2014 ${method}.`;
+}
+
+// ---- Table rendering --------------------------------------------------
+function renderTable() {
+  const { d1, d2 } = computeDerivatives(state.data);
+  const eqV = equivalenceFromD1(state.data, d1);
+  let closestIdx = -1, closestDist = Infinity;
+  if (eqV != null) {
+    state.data.forEach((p, i) => { const d = Math.abs(p.V - eqV); if (d < closestDist) { closestDist = d; closestIdx = i; } });
+  }
+  dataTableBody.innerHTML = state.data.map((p, i) => {
+    const d1v = d1[i] != null ? d1[i].toFixed(3) : '<span class="dim">\u2014</span>';
+    const d2v = d2[i] != null ? d2[i].toFixed(3) : '<span class="dim">\u2014</span>';
+    const rowClass = i === closestIdx ? 'eq-row' : '';
+    return `<tr class="${rowClass}"><td>${p.V.toFixed(2)}</td><td>${p.pH.toFixed(2)}</td><td>${d1v}</td><td>${d2v}</td></tr>`;
+  }).join('');
+  const wrap = dataTableBody.closest('.table-wrap');
+  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+}
+
+function renderChart() { drawChart(); }
+
+// ---- Export: graph (light mode) & table (CSV) -----------------------------
+function downloadBlob(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function exportGraphLightMode() {
+  if (!state.started || state.data.length === 0) {
+    statusMsg.textContent = 'Start a titration and add some titrant before exporting the graph.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  const svgString = buildChartSVG('light', true);
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2; // crisper raster export
+    const W = 640, H = 340;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, W, H);
+    URL.revokeObjectURL(svgUrl);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        statusMsg.textContent = 'Could not generate the image \u2014 try the SVG export instead.';
+        statusMsg.classList.add('warn');
+        return;
+      }
+      const pngUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `titration_curve_${state.mode}_light.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(pngUrl), 2000);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    // Fallback: if the browser can't rasterize the SVG (rare), offer the raw SVG file instead.
+    downloadBlob(svgString, `titration_curve_${state.mode}_light.svg`, 'image/svg+xml');
+  };
+  img.src = svgUrl;
+}
+
+function exportTableCSV() {
+  if (!state.started || state.data.length === 0) {
+    statusMsg.textContent = 'Start a titration and add some titrant before exporting the table.';
+    statusMsg.classList.add('warn');
+    return;
+  }
+  const { d1, d2 } = computeDerivatives(state.data);
+  const rows = [];
+
+  rows.push(['Acid', state.acid.name]);
+  rows.push(['Base', state.base.name]);
+  rows.push(['Titrant', state.titrantIs === 'acid' ? state.acid.name : state.base.name]);
+  rows.push(['Titrant concentration (M)', state.titrantConc.toFixed(4)]);
+  rows.push(['Volume of unknown in flask (mL)', state.analyteVolume.toFixed(2)]);
+  rows.push([]);
+  rows.push(['Volume of titrant (mL)', 'pH', 'dpH/dV', 'd2pH/dV2']);
+  state.data.forEach((p, i) => {
+    rows.push([
+      p.V.toFixed(3),
+      p.pH.toFixed(3),
+      d1[i] != null ? d1[i].toFixed(4) : '',
+      d2[i] != null ? d2[i].toFixed(4) : '',
+    ]);
+  });
+  rows.push([]);
+
+  rows.push(['Unknown concentration (M)', state.analyteConc.toFixed(4)]);
+  if (state.acid.kind === 'vinegar') {
+    rows.push(['Vinegar % v/v acetic acid', state.acid.vinegarPct.toFixed(2)]);
+  }
+  if (state.titrantIs === 'acid' && state.acid.kind === 'vinegar') {
+    rows.push(['True titrant (vinegar) concentration (M)', state.titrantConc.toFixed(4)]);
+  }
+  if (state.acid.pKa != null) rows.push(['pKa', state.acid.pKa.toFixed(2)]);
+  if (state.base.pKb != null) rows.push(['pKb', state.base.pKb.toFixed(2)]);
+  const halfPH = halfEquivalencePH();
+  if (halfPH != null) rows.push(['pH at half-equivalence', halfPH.toFixed(2)]);
+  const eqPH = equivalencePH();
+  if (eqPH != null) rows.push(['pH at equivalence', eqPH.toFixed(2)]);
+
+  const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+  downloadBlob(csv, 'titration_table.csv', 'text/csv;charset=utf-8');
+}
+
+function csvEscape(val) {
+  const s = String(val);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+exportGraphBtn.addEventListener('click', exportGraphLightMode);
+exportTableBtn.addEventListener('click', exportTableCSV);
+
+// ---- Axis toggle wiring -------------------------------------------------
+document.querySelectorAll('.axis-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.axis-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = btn.dataset.mode;
+    renderChart();
+  });
+});
+
+// ---- Bootstrap ------------------------------------------------------------
+populateSelectors();
+renderApparatus();
+</script>
+</body>
+</html>
