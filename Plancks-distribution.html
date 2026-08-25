@@ -1,93 +1,522 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Planck's Distribution of Radiant Energy</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planck's Law Blackbody Radiation Plotter</title>
+
+  <!-- MathJax for rendering LaTeX notation in HTML -->
+    <script>
+      window.MathJax = {
+    tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Chart.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #controls { margin-bottom: 10px; }
-    label { margin-right: 10px; }
-    input[type="number"] { width: 100px; }
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding: 1rem;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      padding: 0.5rem 0;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.25rem;
+    }
+
+    header p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 850px) {
+      .main-grid {
+        grid-template-columns: 340px 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Preset Buttons */
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .btn-preset {
+      background: #f1f5f9;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.4rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-preset:hover {
+      background: #e2e8f0;
+    }
+
+    /* Temperature Controls */
+    .temp-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .temp-item {
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+    }
+
+    .temp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .temp-label {
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .temp-color-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .temp-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .temp-input-wrapper input[type="number"] {
+      width: 80px;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-align: right;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+    }
+
+    /* Chart Container */
+    .chart-card {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      min-height: 400px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      min-height: 350px;
+    }
+
+    /* Action Toolbar */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .btn-export {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background-color 0.2s ease;
+      width: 100%;
+    }
+
+    @media (min-width: 500px) {
+      .btn-export {
+        width: auto;
+      }
+    }
+
+    .btn-export:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .info-box {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
   </style>
 </head>
 <body>
 
-<h2>Planck's Distribution of Radiant Energy</h2>
+<div class="app-container">
+  <header>
+    <h1>Planck's Law Spectral Radiation</h1>
+    <p>Compare blackbody radiation curves across different temperatures</p>
+  </header>
 
-<div id="controls">
-  <label for="temp">Temperature T (K):</label>
-  <input type="number" id="temp" value="2000" min="100" max="20000" step="100">
-  <button onclick="updatePlot()">Plot</button>
+  <div class="main-grid">
+    <!-- Controls Panel -->
+    <div class="card">
+      <div class="card-title">
+        <span>Presets</span>
+      </div>
+      <div class="presets">
+        <button class="btn-preset" onclick="applyPreset([3000, 4000, 5000, 6000])">Standard Stars</button>
+        <button class="btn-preset" onclick="applyPreset([2800, 3200, 5800, null])">Bulb vs Sun</button>
+        <button class="btn-preset" onclick="applyPreset([300, 500, 1000, 1500])">Low Temp (IR)</button>
+        <button class="btn-preset" onclick="applyPreset([4000, 6000, 8000, 10000])">Hot Stars</button>
+      </div>
+
+      <div class="card-title">
+        <span>Temperatures (K)</span>
+      </div>
+
+      <div class="temp-list" id="tempControls"></div>
+    </div>
+
+    <!-- Plot Area -->
+    <div class="card chart-card">
+      <div class="chart-wrapper">
+        <canvas id="planckChart"></canvas>
+      </div>
+
+      <div class="toolbar">
+        <div class="info-box">
+          <b>Wien's Peak:</b> $\lambda_{max} \approx 2.897 \times 10^6 / T \text{ nm}$. Dynamic autoscaling adjusts the Y-axis to clearly frame active curves.
+        </div>
+        <button class="btn-export" onclick="exportLightModePNG()">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+          </svg>
+          Export Light PNG
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div id="plot" style="width: 800px; height: 500px;"></div>
-
 <script>
-// Physical constants (SI)
-const pi = Math.PI;
-const h  = 6.63e-34;     // J·s  (as in your sheet)
-const c  = 3.00e8;       // m/s
-const kB = 1.38e-23;     // J/K
+  // Physical Constants (SI Units)
+  const h = 6.62607015e-34;  // Planck constant (J*s)
+  const c = 2.99792458e8;     // Speed of light (m/s)
+  const k = 1.380649e-23;     // Boltzmann constant (J/K)
 
-// Wavelength grid (close to your Excel range: 0.5–6.5 µm)
-function generateWavelengths() {
-  const lambdas = [];
-  const lambdaMin = 0.5e-6;
-  const lambdaMax = 6.5e-6;
-  const n = 200;
-  const step = (lambdaMax - lambdaMin) / (n - 1);
-  for (let i = 0; i < n; i++) {
-    lambdas.push(lambdaMin + i * step);
+  // Configurable Curves (Up to 4)
+  const curves = [
+    { id: 0, temp: 6000, active: true, color: '#dc2626' }, // Red
+    { id: 1, temp: 5000, active: true, color: '#ea580c' }, // Orange
+    { id: 2, temp: 4000, active: true, color: '#2563eb' }, // Blue
+    { id: 3, temp: 3000, active: true, color: '#16a34a' }  // Green
+  ];
+
+  let chart = null;
+
+  // Planck's Law Formula: Spectral Radiance I(lambda, T) in kW / (m² · nm · sr)
+  function planckLaw(wavelengthNm, T) {
+    if (T <= 0 || wavelengthNm <= 0) return 0;
+    const lambdaM = wavelengthNm * 1e-9;
+    const exponent = (h * c) / (lambdaM * k * T);
+    if (exponent > 700) return 0; // Prevent overflow
+
+    const radiance = (2 * h * Math.pow(c, 2)) / (Math.pow(lambdaM, 5) * (Math.exp(exponent) - 1));
+    return radiance / 1e12; // Convert W/(m^3 * sr) to kW / (m^2 * nm * sr)
   }
-  return lambdas;
-}
 
-// Planck spectral energy density u(λ, T) in J·m⁻4
-function planckDistribution(lambda, T) {
-  const a = (8 * pi * h * c) / Math.pow(lambda, 5);
-  const exponent = (h * c) / (lambda * kB * T);
-  const b = Math.exp(exponent) - 1;
-  return a / b;
-}
-
-const wavelengths = generateWavelengths();
-
-function computeSpectrum(T) {
-  const u = [];
-  for (let i = 0; i < wavelengths.length; i++) {
-    u.push(planckDistribution(wavelengths[i], T));
+  // Generate Wavelength Samples (100 nm to 3000 nm)
+  function generateWavelengths() {
+    const wavelengths = [];
+    for (let l = 100; l <= 3000; l += 15) {
+      wavelengths.push(l);
+    }
+    return wavelengths;
   }
-  return u;
-}
 
-function updatePlot() {
-  const T = parseFloat(document.getElementById('temp').value);
-  const u = computeSpectrum(T);
+  // Initialize UI controls dynamically
+  function initControls() {
+    const container = document.getElementById('tempControls');
+    container.innerHTML = '';
 
-  const trace = {
-    x: wavelengths.map(l => l * 1e6), // convert to µm for x-axis
-    y: u,
-    mode: 'lines',
-    name: `T = ${T} K`
-  };
+    curves.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'temp-item';
+      div.innerHTML = `
+        <div class="temp-header">
+          <label class="temp-label">
+            <input type="checkbox" ${item.active ? 'checked' : ''} onchange="toggleCurve(${index}, this.checked)">
+            <span class="temp-color-indicator" style="background:${item.color}"></span>
+            Curve ${index + 1}
+          </label>
+          <div class="temp-input-wrapper">
+            <input type="number" min="100" max="12000" step="50" value="${item.temp}" 
+              onchange="updateTempFromInput(${index}, this.value)">
+            <span style="font-size: 0.8rem; color: var(--text-muted)">K</span>
+          </div>
+        </div>
+        <div class="slider-row">
+          <input type="range" min="300" max="10000" step="50" value="${item.temp}" 
+            ${!item.active ? 'disabled' : ''}
+            oninput="updateTempFromSlider(${index}, this.value)">
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
 
-  const layout = {
-    xaxis: {
-      title: 'Wavelength (µm)'
-    },
-    yaxis: {
-      title: 'Energy density (J·m⁻4)',
-      rangemode: 'tozero'
-    },
-    title: 'Planck\'s Distribution of Radiant Energy'
-  };
+  function toggleCurve(index, isActive) {
+    curves[index].active = isActive;
+    initControls();
+    updatePlot();
+  }
 
-  Plotly.newPlot('plot', [trace], layout);
-}
+  function updateTempFromInput(index, val) {
+    const parsed = Math.max(100, Math.min(12000, Number(val) || 3000));
+    curves[index].temp = parsed;
+    initControls();
+    updatePlot();
+  }
 
-// Initial plot
-updatePlot();
+  function updateTempFromSlider(index, val) {
+    curves[index].temp = Number(val);
+    const inputs = document.querySelectorAll('.temp-input-wrapper input');
+    if (inputs[index]) inputs[index].value = val;
+    updatePlot();
+  }
+
+  function applyPreset(presetTemps) {
+    presetTemps.forEach((temp, i) => {
+      if (temp !== null) {
+        curves[i].temp = temp;
+        curves[i].active = true;
+      } else {
+        curves[i].active = false;
+      }
+    });
+    initControls();
+    updatePlot();
+  }
+
+  // Build Chart Datasets
+  function buildDatasets(wavelengths) {
+    return curves
+      .filter(c => c.active)
+      .map(c => {
+        const data = wavelengths.map(wl => ({
+          x: wl,
+          y: planckLaw(wl, c.temp)
+        }));
+
+        return {
+          label: `${c.temp} K`,
+          data: data,
+          borderColor: c.color,
+          backgroundColor: c.color + '15',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          tension: 0.3,
+          fill: false
+        };
+      });
+  }
+
+  // Create Chart.js Plot
+  function createChart() {
+    const ctx = document.getElementById('planckChart').getContext('2d');
+    const wavelengths = generateWavelengths();
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: buildDatasets(wavelengths)
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'nearest',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              usePointStyle: true,
+              font: { size: 12, weight: '600' }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              title: (items) => `Wavelength: ${items[0].raw.x} nm`,
+              label: (item) => ` Radiance: ${item.raw.y.toExponential(3)} kW/(m²·nm·sr)`
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: {
+              display: true,
+              text: 'Wavelength λ (nm)',
+              font: { size: 13, weight: '600' }
+            },
+            min: 100,
+            max: 3000
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Spectral Radiance (kW / m² · nm · sr)',
+              font: { size: 13, weight: '600' }
+            },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  // Update Plot Data and Auto-scale Y-Axis
+  function updatePlot() {
+    if (!chart) return;
+    const wavelengths = generateWavelengths();
+    chart.data.datasets = buildDatasets(wavelengths);
+    chart.update();
+  }
+
+  // Export Chart as a clean Light-Mode PNG
+  function exportLightModePNG() {
+    if (!chart) return;
+
+    // Save current device pixel ratio & resolution
+    const canvas = document.getElementById('planckChart');
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    
+    const ctx = tempCanvas.getContext('2d');
+
+    // Fill white background for light mode export
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    ctx.drawImage(canvas, 0, 0);
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.download = 'planck-distribution-light-mode.png';
+    link.href = tempCanvas.toDataURL('image/png', 1.0);
+    link.click();
+  }
+
+  // Initialize App on load
+  window.addEventListener('DOMContentLoaded', () => {
+    initControls();
+    createChart();
+  });
 </script>
 
 </body>
