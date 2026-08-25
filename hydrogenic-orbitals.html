@@ -67,7 +67,7 @@
   #viewer-wrap{ position:relative; }
   #canvas3d{
     width:100%; height:640px; background:var(--bg); border:1px solid var(--border);
-    border-radius:10px; display:block; cursor:grab;
+    border-radius:10px; display:block; cursor:grab; touch-action:none;
   }
   #status{
     position:absolute; bottom:10px; left:12px; font-size:11px; color:var(--text-dim);
@@ -477,6 +477,52 @@ function init3D(){
     cam.dist = Math.max(2, Math.min(300, cam.dist + e.deltaY*0.03));
     updateCamera();
   }, { passive:false });
+
+  // Touch controls: one finger to rotate, two fingers to pinch-zoom.
+  let pinchDist=0;
+  function touchPoint(t){ return { x:t.clientX, y:t.clientY }; }
+  function pinchDistance(touches){
+    const dx = touches[0].clientX-touches[1].clientX;
+    const dy = touches[0].clientY-touches[1].clientY;
+    return Math.hypot(dx,dy);
+  }
+  canvas.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(e.touches.length===1){
+      dragging=true;
+      const p=touchPoint(e.touches[0]); lastX=p.x; lastY=p.y;
+    } else if(e.touches.length===2){
+      dragging=false;
+      pinchDist=pinchDistance(e.touches);
+    }
+  }, { passive:false });
+  canvas.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    if(e.touches.length===1 && dragging){
+      const p=touchPoint(e.touches[0]);
+      const dx=p.x-lastX, dy=p.y-lastY;
+      lastX=p.x; lastY=p.y;
+      cam.theta -= dx*0.01;
+      cam.phi = Math.max(0.1, Math.min(Math.PI-0.1, cam.phi - dy*0.01));
+      updateCamera();
+    } else if(e.touches.length===2){
+      const d = pinchDistance(e.touches);
+      if(pinchDist>0){
+        cam.dist = Math.max(2, Math.min(300, cam.dist - (d-pinchDist)*0.05));
+        updateCamera();
+      }
+      pinchDist = d;
+    }
+  }, { passive:false });
+  canvas.addEventListener('touchend', e=>{
+    if(e.touches.length===0){ dragging=false; pinchDist=0; }
+    else if(e.touches.length===1){
+      const p=touchPoint(e.touches[0]); lastX=p.x; lastY=p.y;
+      pinchDist=0;
+    }
+  });
+  canvas.addEventListener('touchcancel', ()=>{ dragging=false; pinchDist=0; });
+
   window.addEventListener('resize', resize3D);
 
   document.getElementById('status').textContent = 'Ready.';
