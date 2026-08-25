@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Planck's Distribution of Radiant Energy</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #controls { margin-bottom: 10px; }
+    label { margin-right: 10px; }
+    input[type="number"] { width: 100px; }
+  </style>
+</head>
+<body>
+
+<h2>Planck's Distribution of Radiant Energy</h2>
+
+<div id="controls">
+  <label for="temp">Temperature T (K):</label>
+  <input type="number" id="temp" value="2000" min="100" max="20000" step="100">
+  <button onclick="updatePlot()">Plot</button>
+</div>
+
+<div id="plot" style="width: 800px; height: 500px;"></div>
+
+<script>
+// Physical constants (SI)
+const pi = Math.PI;
+const h  = 6.63e-34;     // J·s  (as in your sheet)
+const c  = 3.00e8;       // m/s
+const kB = 1.38e-23;     // J/K
+
+// Wavelength grid (close to your Excel range: 0.5–6.5 µm)
+function generateWavelengths() {
+  const lambdas = [];
+  const lambdaMin = 0.5e-6;
+  const lambdaMax = 6.5e-6;
+  const n = 200;
+  const step = (lambdaMax - lambdaMin) / (n - 1);
+  for (let i = 0; i < n; i++) {
+    lambdas.push(lambdaMin + i * step);
+  }
+  return lambdas;
+}
+
+// Planck spectral energy density u(λ, T) in J·m⁻4
+function planckDistribution(lambda, T) {
+  const a = (8 * pi * h * c) / Math.pow(lambda, 5);
+  const exponent = (h * c) / (lambda * kB * T);
+  const b = Math.exp(exponent) - 1;
+  return a / b;
+}
+
+const wavelengths = generateWavelengths();
+
+function computeSpectrum(T) {
+  const u = [];
+  for (let i = 0; i < wavelengths.length; i++) {
+    u.push(planckDistribution(wavelengths[i], T));
+  }
+  return u;
+}
+
+function updatePlot() {
+  const T = parseFloat(document.getElementById('temp').value);
+  const u = computeSpectrum(T);
+
+  const trace = {
+    x: wavelengths.map(l => l * 1e6), // convert to µm for x-axis
+    y: u,
+    mode: 'lines',
+    name: `T = ${T} K`
+  };
+
+  const layout = {
+    xaxis: {
+      title: 'Wavelength (µm)'
+    },
+    yaxis: {
+      title: 'Energy density (J·m⁻4)',
+      rangemode: 'tozero'
+    },
+    title: 'Planck\'s Distribution of Radiant Energy'
+  };
+
+  Plotly.newPlot('plot', [trace], layout);
+}
+
+// Initial plot
+updatePlot();
+</script>
+
+</body>
+</html>
