@@ -1266,8 +1266,50 @@ function generate3DFromVSEPR(mol){
     const steric = Math.max(1, m.stericNumber(id));
 
     if(parentId==null){
-      // root atom: no established direction to be consistent with yet, so a fixed,
-      // unrotated template is as good as any starting orientation.
+      const heavyNeighbors = unvisited.filter(nid=> m.getAtom(nid).el!=='H');
+      if(heavyNeighbors.length===1 && (steric===3 || steric===4)){
+        // Root has exactly one heavy neighbor (a plain, unbranched chain start, e.g. ethane's
+        // or propane's first carbon). Its own remaining substituents (almost always H) need to
+        // go through the SAME dihedral-aware placement the rest of the chain uses below, just
+        // phase-shifted by 60° from the pattern its child will use - using the identical
+        // pattern on both ends of the same bond gives an eclipsed conformation (0°/120°/240°
+        // dihedrals); shifting one end by 60° gives the correct staggered one (60°/180°/300°).
+        // This is what fixes ethane/propane/butane/pentane showing the first C-C bond eclipsed.
+        const childId = heavyNeighbors[0];
+        const childIdx = unvisited.indexOf(childId);
+        const childDir = [1,0,0]; // arbitrary but fixed starting orientation for the first bond
+        placeOne(id, childId, childDir);
+
+        const toParentAnalog = childDir; // root treats its one heavy neighbor like a "parent"
+        const refVec = Math.abs(toParentAnalog[2]) < 0.9 ? [0,0,1] : [1,0,0];
+        let pn = cross(refVec, toParentAnalog);
+        if(Math.hypot(...pn) < 1e-6){
+          const alt = Math.abs(toParentAnalog[0]) < 0.9 ? [1,0,0] : [0,1,0];
+          pn = cross(alt, toParentAnalog);
+        }
+        pn = normalize(pn);
+        const ipp = normalize(cross(pn, toParentAnalog));
+        const rTheta = steric===4 ? 109.5*Math.PI/180 : 120*Math.PI/180;
+        function rootLocalDir(phiDeg){
+          const phi = phiDeg*Math.PI/180;
+          const v = add(
+            scale(toParentAnalog, Math.cos(rTheta)),
+            add(scale(ipp, Math.sin(rTheta)*Math.cos(phi)),
+                scale(pn, Math.sin(rTheta)*Math.sin(phi)))
+          );
+          return normalize(v);
+        }
+        const others = unvisited.filter((_,k)=>k!==childIdx);
+        const basePhis = steric===4 ? [180,60,-60] : [180,0]; // must match the child's own pattern below
+        others.forEach((nid,k)=>{
+          const phi = (basePhis[k] !== undefined ? basePhis[k] : (k*360/others.length)) + 60;
+          placeOne(id, nid, rootLocalDir(phi));
+        });
+        return;
+      }
+      // root atom with no single heavy neighbor to be consistent with (isolated atom, or a
+      // genuine branch point with several heavy neighbors): a fixed, unrotated template is as
+      // good as any starting orientation.
       const template = GEOM_DIRS[Math.min(steric,6)].map(d=>normalize(d));
       unvisited.forEach((nid,k)=>{
         const dir = template[k] || template[template.length-1];
@@ -2557,6 +2599,11 @@ document.getElementById('btnAutoH').addEventListener('click', ()=>{
       mol.addBond(a.id, h.id, 1);
     });
   });
+
+  // cleanupHeavySkeleton2D lays the skeleton out starting from the origin, which sits at the
+  // canvas's top-left corner - recenter (and gently rescale) the whole result into the visible
+  // viewBox, same as file imports already do.
+  fitToCanvas2D(mol);
 
   pushHistory(); render2D();
 });
