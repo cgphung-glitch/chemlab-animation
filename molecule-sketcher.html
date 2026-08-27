@@ -867,6 +867,169 @@ function layout2D(mol){
   }
 }
 
+// ===================== 2D structure clean-up (used by "Auto-fill H to valence") =====================
+// distributeAnglesInGaps: given the angles (radians) of a heavy atom's existing bonds, return k new
+// angles that fill the remaining open space evenly (used both for spacing out branch/chain directions
+// on the heavy skeleton, and for fanning out H atoms into whatever gaps are left around each atom).
+function distributeAnglesInGaps(existingAngles, k){
+  if(k<=0) return [];
+  if(existingAngles.length===0){
+    if(k===2){
+      // special case: an atom with exactly 2 substituents and none placed yet (typically the
+      // very first/root atom of a plain chain) should still bend at the conventional ~120°
+      // zigzag angle, not run straight through at the 180° a naive full-circle split would give
+      return [ -Math.PI/2 - (60*Math.PI/180), -Math.PI/2 + (60*Math.PI/180) ];
+    }
+    // nothing placed yet at this atom - spread k directions evenly around the full circle
+    const result = [];
+    for(let i=0;i<k;i++) result.push(-Math.PI/2 + i*2*Math.PI/k);
+    return result;
+  }
+  if(existingAngles.length===1){
+    // exactly one existing bond: space the k new ones symmetrically around the rest of the
+    // circle (e.g. k=1 lands directly opposite the existing bond; k=2 lands at ±120° from it,
+    // i.e. symmetric ±60° either side of "straight across" - a branch point, or a methyl's H's)
+    const base = existingAngles[0];
+    const step = 2*Math.PI/(k+1);
+    const result = [];
+    for(let i=1;i<=k;i++) result.push(base + i*step);
+    return result;
+  }
+  if(existingAngles.length===2){
+    // exactly two existing bonds (the common case: an interior chain atom or a ring atom) -
+    // put all k new directions into whichever of the two gaps is larger, evenly spaced within
+    // it. Splitting new substituents across BOTH gaps (as a naive largest-gap-first bisection
+    // would sometimes do) can push one of them into the small "inside" notch of a zigzag/ring
+    // bend, landing it close to a substituent on the neighboring atom - always preferring the
+    // single larger open side avoids that.
+    const [a0,a1] = existingAngles;
+    const span1 = ((a1-a0)%(2*Math.PI)+2*Math.PI)%(2*Math.PI); // a0 -> a1
+    const span2 = 2*Math.PI - span1; // a1 -> a0 (the other way around)
+    const gapStart = span1>=span2 ? a0 : a1;
+    const gapSpan = Math.max(span1,span2);
+    const step = gapSpan/(k+1);
+    const result = [];
+    for(let i=1;i<=k;i++) result.push(gapStart + i*step);
+    return result;
+  }
+  // three or more existing bonds (rare - an atom that's already branched and needs even more
+  // substituents): fill the largest remaining gap(s) evenly via greedy bisection.
+  const sorted = [...existingAngles].sort((a,b)=>a-b);
+  const gaps = sorted.map((a,i)=>{
+    const next = sorted[(i+1)%sorted.length];
+    let span = (next - a) % (2*Math.PI);
+    if(span <= 1e-9) span += 2*Math.PI;
+    return { start:a, span };
+  });
+  const result = [];
+  for(let n=0;n<k;n++){
+    gaps.sort((x,y)=>y.span-x.span);
+    const g = gaps.shift();
+    const mid = g.start + g.span/2;
+    result.push(mid);
+    gaps.push({ start:g.start, span:g.span/2 });
+    gaps.push({ start:mid, span:g.span/2 });
+  }
+  return result;
+}
+
+// cleanupHeavySkeleton2D: re-lays-out every non-H atom into a proper, evenly-spaced 2D skeleton
+// - rings become regular polygons, chains become an alternating zigzag (the 2D counterpart of the
+// anti/staggered 3D chain fix), and branch points spread their bonds evenly - instead of whatever
+// cramped or overlapping positions freehand drawing happened to leave them in. H atoms are left
+// alone here; they get freshly placed afterward once the heavy-atom bond angles are final.
+function cleanupHeavySkeleton2D(mol){
+  const BOND2D = 55; // matches the existing 2D layout/spring convention used elsewhere in this file
+  const positions = {};
+  const visited = new Set();
+  const queue = [];
+  const isHeavy = id => mol.getAtom(id).el !== 'H';
+  const heavyBondsOf = id => mol.bondsOf(id).map(b=> b.a===id? b.b : b.a).filter(isHeavy);
+
+  const rings = findRings(mol).filter(r=>r.length>=3 && r.length<=8 && r.every(isHeavy));
+  let ringOffsetX = 0;
+  rings.forEach(ring=>{
+    if(ring.some(id=>visited.has(id))) return;
+    const N = ring.length;
+    const radius = BOND2D/(2*Math.sin(Math.PI/N));
+    const cx = ringOffsetX; ringOffsetX += radius*2.6; // keep separate rings from overlapping
+    ring.forEach((id,i)=>{
+      const ang = 2*Math.PI*i/N;
+      positions[id] = [cx + radius*Math.cos(ang), radius*Math.sin(ang)];
+      visited.add(id);
+    });
+    // place any exocyclic branches (e.g. toluene's methyl) pointing outward from the ring
+    ring.forEach((id,i)=>{
+      const prevId = ring[(i-1+N)%N], nextId = ring[(i+1)%N];
+      const p = positions[id];
+      const angToPrev = Math.atan2(positions[prevId][1]-p[1], positions[prevId][0]-p[0]);
+      const angToNext = Math.atan2(positions[nextId][1]-p[1], positions[nextId][0]-p[0]);
+      const branches = heavyBondsOf(id).filter(o=> o!==prevId && o!==nextId && !visited.has(o));
+      if(branches.length===0) return;
+      const branchAngles = distributeAnglesInGaps([angToPrev, angToNext], branches.length);
+      branches.forEach((bid,k)=>{
+        const ang = branchAngles[k];
+        positions[bid] = [ p[0]+Math.cos(ang)*BOND2D, p[1]+Math.sin(ang)*BOND2D ];
+        visited.add(bid);
+        queue.push({ id: bid, backAngle: ang+Math.PI, turnSign: 1 });
+      });
+    });
+  });
+
+  function pickRoot(){
+    return mol.atoms.reduce((best,a)=>{
+      if(!isHeavy(a.id) || visited.has(a.id)) return best;
+      const deg = heavyBondsOf(a.id).length;
+      const bestDeg = best? heavyBondsOf(best.id).length : -1;
+      if(deg>bestDeg) return a;
+      return best;
+    }, null);
+  }
+
+  for(;;){
+    if(queue.length===0){
+      const root = pickRoot() || mol.atoms.find(a=>isHeavy(a.id) && !visited.has(a.id));
+      if(!root) break;
+      if(!positions[root.id]) positions[root.id] = [0,0];
+      visited.add(root.id);
+      queue.push({ id: root.id, backAngle: null, turnSign: 1 });
+    }
+    while(queue.length){
+      const { id, backAngle, turnSign } = queue.shift();
+      const p = positions[id];
+      const remaining = heavyBondsOf(id).filter(o=>!visited.has(o));
+      if(remaining.length===0) continue;
+
+      let targetAngles;
+      if(backAngle==null){
+        targetAngles = distributeAnglesInGaps([], remaining.length);
+      } else if(remaining.length===1){
+        // plain chain continuation: alternate the turn side each hop so the chain extends in a
+        // zigzag instead of always turning the same way (which is what curls a chain into an arc)
+        const away = backAngle + Math.PI;
+        targetAngles = [ away + turnSign*(60*Math.PI/180) ];
+      } else {
+        targetAngles = distributeAnglesInGaps([backAngle], remaining.length);
+      }
+
+      remaining.forEach((nid,k)=>{
+        const ang = targetAngles[k];
+        positions[nid] = [ p[0]+Math.cos(ang)*BOND2D, p[1]+Math.sin(ang)*BOND2D ];
+        visited.add(nid);
+        const nextTurn = remaining.length===1 ? -turnSign : 1;
+        queue.push({ id: nid, backAngle: ang+Math.PI, turnSign: nextTurn });
+      });
+    }
+    if(mol.atoms.filter(a=>isHeavy(a.id)).every(a=>visited.has(a.id))) break;
+  }
+
+  mol.atoms.forEach(a=>{
+    if(a.el==='H') return;
+    const p = positions[a.id];
+    if(p){ a.x = p[0]; a.y = p[1]; }
+  });
+}
+
 // ===================== VSEPR 3D geometry generator =====================
 const GEOM_DIRS = {
   1: [[0,0,1]],
@@ -930,6 +1093,61 @@ function matMul(a,b){
   return r;
 }
 
+// ---- Ring perception (SSSR-ish): for each non-spanning-tree ("back") edge found while
+// BFS-walking a connected component, the shortest path between its two endpoints (found
+// without using that edge) plus the edge itself is one ring. Good enough for the simple,
+// largely non-fused rings drawn in an intro-chem context (benzene, cyclohexane, pyridine,
+// furan, cyclopentadiene, etc). Returned rings list atoms in walk order, i.e. ring[i] is
+// bonded to ring[(i+1)%N] for every i, including the wraparound.
+function findRings(m){
+  const adj = {};
+  m.atoms.forEach(a=> adj[a.id]=[]);
+  m.bonds.forEach(b=>{ adj[b.a].push(b.b); adj[b.b].push(b.a); });
+  function shortestPath(start, goal, excludeKey){
+    const prev = {}; const q=[start]; const vis=new Set([start]);
+    while(q.length){
+      const id = q.shift();
+      if(id===goal) break;
+      for(const nb of adj[id]){
+        const key = id+'_'+nb;
+        if(key===excludeKey) continue;
+        if(!vis.has(nb)){ vis.add(nb); prev[nb]=id; q.push(nb); }
+      }
+    }
+    if(!vis.has(goal)) return null;
+    const path=[goal]; let cur=goal;
+    while(cur!==start){ cur=prev[cur]; path.push(cur); }
+    return path.reverse();
+  }
+  const seen = new Set();
+  const rings = [];
+  m.atoms.forEach(start=>{
+    if(seen.has(start.id)) return;
+    const order=[]; const treeEdges = new Set();
+    const q=[start.id]; seen.add(start.id);
+    while(q.length){
+      const id = q.shift(); order.push(id);
+      adj[id].forEach(nb=>{
+        if(!seen.has(nb)){ seen.add(nb); treeEdges.add(id+'_'+nb); treeEdges.add(nb+'_'+id); q.push(nb); }
+      });
+    }
+    const inComponent = new Set(order);
+    m.bonds.forEach(b=>{
+      if(!inComponent.has(b.a) || !inComponent.has(b.b)) return;
+      if(treeEdges.has(b.a+'_'+b.b)) return; // spanning-tree edge, not a ring closure
+      const path = shortestPath(b.a, b.b, b.a+'_'+b.b);
+      if(path && path.length>=3) rings.push(path);
+    });
+  });
+  // de-duplicate rings describing the same atom set
+  const uniq = []; const seenSets = new Set();
+  rings.forEach(r=>{
+    const key = [...r].sort((x,y)=>x-y).join(',');
+    if(!seenSets.has(key)){ seenSets.add(key); uniq.push(r); }
+  });
+  return uniq;
+}
+
 function generate3DFromVSEPR(mol){
   const m = mol.clone();
   const n = m.atoms.length;
@@ -937,7 +1155,6 @@ function generate3DFromVSEPR(mol){
   if(n===1){ m.atoms[0].x=0; m.atoms[0].y=0; m.atoms[0].z=0; return m; }
 
   const BOND_LEN = 1.5;
-  const placed = new Set();
   const positions = {}; // id -> [x,y,z]
   const visited = new Set();
   // dirAssignment[centerId+'_'+neighborId] = the exact unit direction (in the center's local
@@ -945,61 +1162,197 @@ function generate3DFromVSEPR(mol){
   // between any two neighbors of a center (e.g. 90/120/180 around a trigonal-bipyramidal atom)
   // instead of one averaged angle, which is what previously collapsed shapes like seesaw/T-shape.
   const dirAssignment = {};
+  const queue = [];
+  const parentOf = {}; // atom id -> id of the atom it was placed relative to (root/ring atoms -> null)
 
-  // choose root: atom with highest bond count (most connected heavy atom)
-  let root = m.atoms.reduce((best,a)=>{
-    const deg = m.bondsOf(a.id).length;
-    const bestDeg = best? m.bondsOf(best.id).length : -1;
-    if(a.el!=='H' && deg>bestDeg) return a;
-    return best;
-  }, null) || m.atoms[0];
-
-  positions[root.id] = [0,0,0];
-  visited.add(root.id);
-
-  const queue = [{id: root.id, parentDir: null}];
-  while(queue.length){
-    const { id, parentDir } = queue.shift();
-    const atom = m.getAtom(id);
-    const steric = Math.max(1, m.stericNumber(id));
-    const geomKey = Math.min(steric, 6);
-    let dirs = GEOM_DIRS[geomKey].map(d=>[...d]);
-
-    // rotate the direction template so that direction[0] points opposite parentDir (back toward parent)
-    if(parentDir){
-      const backDir = normalize(scale(parentDir,-1));
-      const R = rotationAligning(dirs[0], backDir);
-      dirs = dirs.map(d=> matVec(R, d));
-    }
-
-    const bonds = m.bondsOf(id);
-    const unvisitedBonds = bonds.filter(b=>{
-      const other = b.a===id? b.b : b.a;
-      return !visited.has(other);
+  // ---- Step 1: lay out rings as exact, closed regular polygons first. Placing a ring's
+  // atoms with the tree-walk below (which only ever looks at ONE parent bond per atom) has
+  // no way to guarantee the walk actually closes back up into a proper hexagon/pentagon/etc
+  // — two independently-grown "arms" of the ring can meet at the wrong angle, leaving the
+  // closing bond stretched or compressed and the spring relaxer stuck in a distorted local
+  // minimum (this is what made benzene come out as a lopsided, unequal-bond-length hexagon).
+  // Placing the ring as an exact polygon up front avoids that. Fused/bridged ring systems
+  // fall back to the tree-walk for whichever ring isn't laid out here (a pre-existing
+  // limitation, not a regression).
+  const rings = findRings(m).filter(r=>r.length>=3 && r.length<=8);
+  let ringStackZ = 0;
+  rings.forEach(ring=>{
+    if(ring.some(id=>visited.has(id))) return;
+    const N = ring.length;
+    const avgLen = ring.reduce((s,id,i)=>{
+      const A=m.getAtom(id), B=m.getAtom(ring[(i+1)%N]);
+      return s + BOND_LEN*((elRadius(A.el)+elRadius(B.el))/1.5);
+    },0)/N;
+    const radius = avgLen/(2*Math.sin(Math.PI/N));
+    const cz = ringStackZ; ringStackZ += radius*2.4; // keep separate rings from overlapping
+    ring.forEach((id,i)=>{
+      const ang = 2*Math.PI*i/N;
+      positions[id] = [radius*Math.cos(ang), radius*Math.sin(ang), cz];
+      visited.add(id);
+      parentOf[id] = null;
     });
+    // place each ring atom's non-ring substituents (H / side chains) consistent with its
+    // own steric number, using the two now-fixed ring-bond directions at that atom
+    ring.forEach((id,i)=>{
+      const prevId = ring[(i-1+N)%N], nextId = ring[(i+1)%N];
+      const p = positions[id];
+      const d1 = normalize(sub(positions[prevId], p));
+      const d2 = normalize(sub(positions[nextId], p));
+      dirAssignment[id+'_'+prevId]=d1; dirAssignment[prevId+'_'+id]=scale(d1,-1);
+      dirAssignment[id+'_'+nextId]=d2; dirAssignment[nextId+'_'+id]=scale(d2,-1);
+      const outward = normalize(scale(add(d1,d2),-1)); // in-plane, away from ring center
+      const planeNormal = normalize(cross(d1,d2)); // perpendicular to the ring plane
+      const subs = m.bondsOf(id).map(b=> b.a===id?b.b:b.a).filter(o=> o!==prevId && o!==nextId);
+      let subDirs = [];
+      if(subs.length===1) subDirs = [outward]; // sp2 ring atom (e.g. benzene C-H): in-plane
+      else if(subs.length===2){ // sp3 ring atom (e.g. cyclohexane CH2): split above/below plane
+        const tilt = 55*Math.PI/180;
+        subDirs = [
+          normalize(add(scale(outward,Math.cos(tilt)), scale(planeNormal,Math.sin(tilt)))),
+          normalize(add(scale(outward,Math.cos(tilt)), scale(planeNormal,-Math.sin(tilt))))
+        ];
+      } else if(subs.length>0){ // rare (steric 5/6 ring atom) - spread evenly, best-effort
+        for(let k=0;k<subs.length;k++){
+          const a = (k+1)/(subs.length+1)*Math.PI - Math.PI/2;
+          subDirs.push(normalize(add(scale(outward,Math.cos(a)), scale(planeNormal,Math.sin(a)))));
+        }
+      }
+      subs.forEach((subId,k)=>{
+        if(visited.has(subId)) return;
+        const dir = subDirs[k] || outward;
+        const other = m.getAtom(subId);
+        const len = BOND_LEN*((elRadius(m.getAtom(id).el)+elRadius(other.el))/1.5);
+        positions[subId] = add(p, scale(dir, Math.max(len,1.0)));
+        visited.add(subId);
+        dirAssignment[id+'_'+subId]=dir; dirAssignment[subId+'_'+id]=scale(dir,-1);
+        parentOf[subId] = id;
+        queue.push(subId);
+      });
+    });
+  });
 
-    // assign directions: skip index 0 if it was used for parent-back-direction
-    let dirIdx = parentDir ? 1 : 0;
-    // sort neighbors: put lone pairs conceptually last (they just don't get atoms)
-    for(const b of unvisitedBonds){
-      const other = b.a===id? b.b : b.a;
-      if(visited.has(other)) continue;
-      if(dirIdx >= dirs.length){ dirIdx = dirs.length-1; }
-      const dir = dirs[dirIdx] || dirs[dirs.length-1];
-      dirIdx++;
-      const otherAtom = m.getAtom(other);
-      const len = BOND_LEN * ((elRadius(atom.el)+elRadius(otherAtom.el))/1.5) ;
-      const unitDir = normalize(dir);
-      const pos = add(positions[id], scale(unitDir, Math.max(len,1.0)));
-      positions[other] = pos;
-      visited.add(other);
-      dirAssignment[id+'_'+other] = unitDir;
-      dirAssignment[other+'_'+id] = scale(unitDir,-1);
-      queue.push({ id: other, parentDir: dir });
+  // ---- Step 2: tree-walk VSEPR placement for everything else (acyclic chains, and
+  // anything hanging off the pre-placed rings above).
+  //
+  // NOTE on a second bug this replaces: the previous version rotated a fixed GEOM_DIRS
+  // template so slot 0 pointed back to the parent, then handed out the *remaining* slots to
+  // unvisited neighbors in whatever order they happened to sit in the bond list — with no
+  // control over the dihedral (twist) around the parent bond at all. For a plain chain like
+  // pentane, that twist ended up turning the same way at every carbon instead of alternating,
+  // so instead of an extended zigzag the chain curled around into an arc (visually reading as
+  // "trying to close into a ring"). The fix: place each neighbor using its actual bond angle
+  // AND an explicit dihedral relative to the grandparent atom (the standard NeRF approach used
+  // by real molecule builders), defaulting the main chain continuation to the anti (180°)
+  // dihedral and other substituents to the remaining staggered slots — i.e. the ordinary
+  // extended, staggered conformation chains are expected to be drawn in.
+  function pickRoot(){
+    return m.atoms.reduce((best,a)=>{
+      if(visited.has(a.id)) return best;
+      const deg = m.bondsOf(a.id).length;
+      const bestDeg = best? m.bondsOf(best.id).length : -1;
+      if(a.el!=='H' && deg>bestDeg) return a;
+      return best;
+    }, null);
+  }
+  function placeNeighbors(id){
+    const atom = m.getAtom(id);
+    const P_pos = positions[id];
+    const parentId = parentOf[id] !== undefined ? parentOf[id] : null;
+    const unvisited = m.bondsOf(id)
+      .map(b=> b.a===id? b.b : b.a)
+      .filter(o=> !visited.has(o));
+    if(unvisited.length===0) return;
+
+    const steric = Math.max(1, m.stericNumber(id));
+
+    if(parentId==null){
+      // root atom: no established direction to be consistent with yet, so a fixed,
+      // unrotated template is as good as any starting orientation.
+      const template = GEOM_DIRS[Math.min(steric,6)].map(d=>normalize(d));
+      unvisited.forEach((nid,k)=>{
+        const dir = template[k] || template[template.length-1];
+        placeOne(id, nid, dir);
+      });
+      return;
     }
+
+    const toParent = normalize(sub(positions[parentId], P_pos));
+    const grandParentId = parentOf[parentId];
+    let refVec = grandParentId!=null
+      ? sub(positions[parentId], positions[grandParentId])
+      : (Math.abs(toParent[2]) < 0.9 ? [0,0,1] : [1,0,0]); // no grandparent: arbitrary fixed reference
+
+    let planeNormal = cross(refVec, toParent);
+    if(Math.hypot(...planeNormal) < 1e-6){
+      const alt = Math.abs(toParent[0]) < 0.9 ? [1,0,0] : [0,1,0];
+      planeNormal = cross(alt, toParent);
+    }
+    planeNormal = normalize(planeNormal);
+    const inPlanePerp = normalize(cross(planeNormal, toParent));
+
+    if(steric>=5){
+      // trigonal-bipyramidal / octahedral chain centers are rare in this context and their
+      // angles aren't uniform, so keep the previous template-rotation approach for them.
+      let dirs = GEOM_DIRS[Math.min(steric,6)].map(d=>[...d]);
+      const R = rotationAligning(dirs[0], toParent);
+      dirs = dirs.map(d=> normalize(matVec(R, d)));
+      let dirIdx = 1;
+      unvisited.forEach(nid=>{
+        const dir = dirs[dirIdx] || dirs[dirs.length-1];
+        dirIdx++;
+        placeOne(id, nid, dir);
+      });
+      return;
+    }
+
+    // steric 2/3/4: place by true bond angle (theta, from the parent bond) and dihedral
+    // (phi, rotation around the parent-bond axis, measured against the grandparent).
+    const theta = steric===4 ? 109.5*Math.PI/180 : steric===3 ? 120*Math.PI/180 : Math.PI;
+    function localDir(phiDeg){
+      const phi = phiDeg*Math.PI/180;
+      const v = add(
+        scale(toParent, Math.cos(theta)),
+        add(scale(inPlanePerp, Math.sin(theta)*Math.cos(phi)),
+            scale(planeNormal, Math.sin(theta)*Math.sin(phi)))
+      );
+      return normalize(v);
+    }
+    // prefer a non-hydrogen neighbor (the "main chain") for the anti/extended slot
+    let mainIdx = unvisited.findIndex(nid=> m.getAtom(nid).el!=='H');
+    const order = [];
+    if(mainIdx>=0){ order.push(mainIdx); unvisited.forEach((_,k)=>{ if(k!==mainIdx) order.push(k); }); }
+    else unvisited.forEach((_,k)=>order.push(k));
+    const phiOptions = steric===4 ? [180,60,-60] : steric===3 ? [180,0] : [180];
+    order.forEach((origIdx,i)=>{
+      const dir = localDir(phiOptions[i] !== undefined ? phiOptions[i] : (i*360/order.length));
+      placeOne(id, unvisited[origIdx], dir);
+    });
+  }
+  function placeOne(id, nid, dir){
+    const atom = m.getAtom(id), other = m.getAtom(nid);
+    const len = BOND_LEN*((elRadius(atom.el)+elRadius(other.el))/1.5);
+    positions[nid] = add(positions[id], scale(dir, Math.max(len,1.0)));
+    visited.add(nid);
+    parentOf[nid] = id;
+    dirAssignment[id+'_'+nid] = dir; dirAssignment[nid+'_'+id] = scale(dir,-1);
+    queue.push(nid);
+  }
+  for(;;){
+    if(queue.length===0){
+      const root = pickRoot() || m.atoms.find(a=>!visited.has(a.id));
+      if(!root) break;
+      positions[root.id] = [0,0,0];
+      visited.add(root.id);
+      parentOf[root.id] = null;
+      queue.push(root.id);
+    }
+    while(queue.length){
+      placeNeighbors(queue.shift());
+    }
+    if(m.atoms.every(a=>visited.has(a.id))) break;
   }
 
-  // any atoms not reached (disconnected fragments) - place in a row
+  // any atoms still unreached (e.g. disconnected ion fragments) - place in a row
   let offset = 0;
   m.atoms.forEach(a=>{
     if(!positions[a.id]){
@@ -2179,15 +2532,32 @@ document.getElementById('btnClear').addEventListener('click', ()=>{
   pushHistory(); render2D(); update3DPlaceholder();
 });
 document.getElementById('btnAutoH').addEventListener('click', ()=>{
-  const heavy = mol.atoms.filter(a=>a.el!=='H').slice();
-  heavy.forEach(a=>{
+  // Remove existing explicit H atoms/bonds so every H - new ones needed to reach full valence,
+  // and any that were already there - gets laid out fresh with no overlap, rather than only
+  // filling in gaps left by whatever positions old H atoms happened to already have.
+  const hIds = new Set(mol.atoms.filter(a=>a.el==='H').map(a=>a.id));
+  mol.atoms = mol.atoms.filter(a=>!hIds.has(a.id));
+  mol.bonds = mol.bonds.filter(b=>!hIds.has(b.a) && !hIds.has(b.b));
+
+  // Re-space the heavy-atom skeleton into a clean, non-overlapping layout (regular polygons for
+  // rings, an alternating zigzag for chains) before adding H, so the H placement below has
+  // well-defined, evenly-spaced bond angles to fan out into.
+  cleanupHeavySkeleton2D(mol);
+
+  mol.atoms.slice().forEach(a=>{
     const need = mol.implicitHNeeded(a.id);
-    for(let i=0;i<need;i++){
-      const ang = Math.random()*2*Math.PI;
+    if(need<=0) return;
+    const existingAngles = mol.bondsOf(a.id).map(b=>{
+      const other = mol.getAtom(b.a===a.id? b.b : b.a);
+      return Math.atan2(other.y-a.y, other.x-a.x);
+    });
+    const hAngles = distributeAnglesInGaps(existingAngles, need);
+    hAngles.forEach(ang=>{
       const h = mol.addAtom('H', a.x+Math.cos(ang)*45, a.y+Math.sin(ang)*45, 0);
       mol.addBond(a.id, h.id, 1);
-    }
+    });
   });
+
   pushHistory(); render2D();
 });
 document.getElementById('btnGroup').addEventListener('click', ()=>{
