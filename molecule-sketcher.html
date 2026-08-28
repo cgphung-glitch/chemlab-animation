@@ -257,6 +257,19 @@
     </div>
     <div class="hint">Runs the structure through RDKit.js (structure sanitization/kekulization) then relaxes it with a real bond/angle/torsion/van der Waals force field written into this app — a UFF/MMFF-style minimizer, not a reproduction of either force field's exact parameters, since those aren't exposed by RDKit.js's browser build. <span id="minimizeEnergy"></span></div>
     <div class="toolbar">
+      <button id="btnVibrate">Compute vibrational modes (IR)</button>
+      <span class="hint" id="vibStatus" style="margin-left:auto;"></span>
+    </div>
+    <div class="hint">Real normal-mode analysis (Hessian → mass-weighted diagonalization, same as real computational chemistry packages) run on the same simplified force field used above, not a calibrated force field or a QM potential energy surface — mode shapes, degeneracies, and which modes are IR-active are chemically meaningful, but exact cm⁻¹ values are schematic and won't match a real experimental spectrum peak-for-peak. If modes come out negative ("imaginary"), the structure isn't at an energy minimum yet — try "Minimize structure" first.</div>
+    <div id="irSpectrumWrap" style="display:none;">
+      <svg id="irSpectrumSvg" viewBox="0 0 800 220" style="width:100%; color:var(--text); background:var(--panel-2); border:1px solid var(--border); border-radius:8px;"></svg>
+      <div id="modeList" style="max-height:150px; overflow-y:auto; margin-top:8px; font-family:var(--mono); font-size:12.5px; border:1px solid var(--border); border-radius:8px;"></div>
+      <div class="toolbar" style="margin-top:6px;">
+        <button id="btnPlayMode" disabled>▶ Animate selected mode</button>
+        <span class="hint" id="modeSelectedLabel" style="margin-left:auto;">No mode selected</span>
+      </div>
+    </div>
+    <div class="toolbar">
       <label class="chk"><input type="checkbox" id="toggleESP"> Show electrostatic potential surface</label>
       <label class="chk"><input type="checkbox" id="toggleDipole"> Show dipole moment vector</label>
       <span class="hint" id="dipoleOut" style="margin-left:auto;">Dipole moment: —</span>
@@ -453,6 +466,10 @@ function elColor(el){
 function elRadius(el){
   if(ELEMENTS[el]) return ELEMENTS[el].radius;
   return fallbackRadius(el);
+}
+function elMass(el){
+  if(ELEMENTS[el] && ELEMENTS[el].mass) return ELEMENTS[el].mass;
+  return 12.011; // reasonable generic fallback for an unlisted element
 }
 
 // ===================== Molecule model =====================
@@ -1793,6 +1810,138 @@ function minimizeStructureFF(m, opts){
   }
   ids.forEach(id=>{ const a=m.getAtom(id); const p=pos[id]; a.x=p[0]; a.y=p[1]; a.z=p[2]; });
   return { startEnergy, endEnergy:E, iterations:iter };
+}
+
+// ===================== Vibrational normal-mode analysis & IR spectrum =====================
+// Real normal-mode analysis: builds the Hessian (second derivatives of ffEnergy - the SAME
+// force field used for minimization - w.r.t. every atom's x/y/z) by finite differences, mass-
+// weights it with real atomic masses, and diagonalizes it (via the Jacobi eigensolver already
+// used elsewhere in this file for Huckel theory) to get vibrational frequencies and mode shapes.
+// This is genuine physics - the same procedure real quantum-chemistry packages use - but run on
+// our own simplified, non-calibrated force field rather than a real potential energy surface, so
+// results are qualitative/schematic: mode SHAPES (which atoms move, stretch vs. bend vs. torsion)
+// and RELATIVE ordering/spacing are meaningful for teaching purposes, but the exact cm⁻¹ values
+// should not be expected to match a real experimental IR spectrum peak-for-peak.
+
+function ffHessian(m){
+  const adj = ffAdjacency(m);
+  const graphDist = ffGraphDistances(m, adj);
+  const aromaticBondIds = ffAromaticBondIds(m);
+  const ids = m.atoms.map(a=>a.id);
+  const n = ids.length;
+  const dof = 3*n;
+  const pos = {}; ids.forEach(id=>{ const a=m.getAtom(id); pos[id]=[a.x,a.y,a.z]; });
+  const E = ()=> ffEnergy(m, pos, graphDist, aromaticBondIds);
+  const coord = k => ({ id: ids[Math.floor(k/3)], comp: k%3 });
+
+  const h = 0.01; // Å - larger than the gradient's finite-difference step, since 2nd derivatives amplify noise
+  const E0 = E();
+  const H = Array.from({length:dof}, ()=> new Array(dof).fill(0));
+
+  for(let i=0;i<dof;i++){
+    const {id,comp} = coord(i);
+    pos[id][comp]+=h; const Ep=E();
+    pos[id][comp]-=2*h; const Em=E();
+    pos[id][comp]+=h;
+    H[i][i] = (Ep - 2*E0 + Em)/(h*h);
+  }
+  for(let i=0;i<dof;i++){
+    const {id:idI,comp:ci} = coord(i);
+    for(let j=i+1;j<dof;j++){
+      const {id:idJ,comp:cj} = coord(j);
+      pos[idI][ci]+=h; pos[idJ][cj]+=h; const Epp=E();
+      pos[idJ][cj]-=2*h; const Epm=E();
+      pos[idI][ci]-=2*h; const Emm=E();
+      pos[idJ][cj]+=2*h; const Emp=E();
+      pos[idI][ci]+=h; pos[idJ][cj]-=h; // restore both to original
+      const v = (Epp - Epm - Emp + Emm)/(4*h*h);
+      H[i][j]=v; H[j][i]=v;
+    }
+  }
+  return { H, ids, dof, n };
+}
+
+// True for an (effectively) linear arrangement of atoms - such molecules have only 5 rotational+
+// translational degrees of freedom to remove (no meaningful rotation about the molecular axis),
+// not 6, so they end up with one more real vibrational mode than a non-linear molecule of the
+// same size (e.g. CO2: 3*3-5=4 modes, not 3*3-6=3).
+function isLinearArrangement(m){
+  if(m.atoms.length<3) return true;
+  const com = m.centerOfMass();
+  let far=null, maxD=-1;
+  m.atoms.forEach(a=>{
+    const d = Math.hypot(a.x-com.x,a.y-com.y,a.z-com.z);
+    if(d>maxD){ maxD=d; far=a; }
+  });
+  if(maxD<1e-6) return false;
+  const axis = [(far.x-com.x)/maxD,(far.y-com.y)/maxD,(far.z-com.z)/maxD];
+  return m.atoms.every(a=>{
+    const v = [a.x-com.x,a.y-com.y,a.z-com.z];
+    const along = v[0]*axis[0]+v[1]*axis[1]+v[2]*axis[2];
+    const perp = Math.hypot(v[0]-along*axis[0], v[1]-along*axis[1], v[2]-along*axis[2]);
+    return perp < 0.05;
+  });
+}
+
+function computeNormalModes(m){
+  const { H, ids, dof, n } = ffHessian(m);
+  const masses = ids.map(id=> elMass(m.getAtom(id).el));
+  const dofMass = []; masses.forEach(mm=>{ dofMass.push(mm,mm,mm); });
+  const Hmw = Array.from({length:dof}, (_,i)=> Array.from({length:dof}, (_,j)=> H[i][j]/Math.sqrt(dofMass[i]*dofMass[j])));
+  const { values, vectors } = jacobiEigen(Hmw);
+
+  // lambda [ (kcal/mol)/(Å^2 * amu) ] -> omega^2 [rad^2/s^2] (SI), then -> wavenumber [cm^-1]
+  const CONV = 6.9477e-21 / (1e-20 * 1.66054e-27);
+  const c = 2.99792458e10; // cm/s
+
+  let modes = values.map((lambda,k)=>{
+    const omega2 = lambda*CONV;
+    const wavenumber = omega2>=0 ? Math.sqrt(omega2)/(2*Math.PI*c) : -Math.sqrt(-omega2)/(2*Math.PI*c);
+    const rawDisp = new Array(dof);
+    for(let i=0;i<dof;i++) rawDisp[i] = vectors[i][k]/Math.sqrt(dofMass[i]);
+    let norm=0; for(let i=0;i<dof;i++) norm += rawDisp[i]*rawDisp[i];
+    norm = Math.sqrt(norm)||1;
+    return { wavenumber, dispByDof: rawDisp.map(x=>x/norm) };
+  });
+
+  const numDiscard = isLinearArrangement(m) ? 5 : 6;
+  modes.sort((a,b)=> Math.abs(a.wavenumber)-Math.abs(b.wavenumber));
+  modes = modes.slice(numDiscard).sort((a,b)=> a.wavenumber-b.wavenumber);
+  return { modes, ids };
+}
+
+// Approximates each mode's IR intensity from how much the (fixed-partial-charge) dipole moment
+// changes when the structure is displaced along that mode - a standard fixed-charge approximation
+// (it omits real "charge flux" effects, where the charges themselves shift during the vibration,
+// but captures the main effect: modes that don't move the charge distribution show up weak/absent
+// in IR, exactly as real symmetric/non-polar vibrations do).
+function estimateIRIntensities(m, modesResult){
+  const { modes, ids } = modesResult;
+  const step = 0.03; // Å
+  const orig = {}; ids.forEach(id=>{ const a=m.getAtom(id); orig[id]=[a.x,a.y,a.z]; });
+  function apply(mode, sign){
+    ids.forEach((id,ai)=>{
+      const a = m.getAtom(id);
+      a.x = orig[id][0] + sign*step*mode.dispByDof[ai*3];
+      a.y = orig[id][1] + sign*step*mode.dispByDof[ai*3+1];
+      a.z = orig[id][2] + sign*step*mode.dispByDof[ai*3+2];
+    });
+  }
+  function restore(){ ids.forEach(id=>{ const a=m.getAtom(id); a.x=orig[id][0]; a.y=orig[id][1]; a.z=orig[id][2]; }); }
+
+  modes.forEach(mode=>{
+    apply(mode, +1); const dPlus = computeDipoleMoment(m);
+    apply(mode, -1); const dMinus = computeDipoleMoment(m);
+    restore();
+    const dmu = [
+      (dPlus.vector[0]-dMinus.vector[0])/(2*step),
+      (dPlus.vector[1]-dMinus.vector[1])/(2*step),
+      (dPlus.vector[2]-dMinus.vector[2])/(2*step),
+    ];
+    mode.intensity = dmu[0]*dmu[0]+dmu[1]*dmu[1]+dmu[2]*dmu[2];
+  });
+  const maxI = Math.max(...modes.map(mm=>mm.intensity), 1e-12);
+  modes.forEach(mode=> mode.relIntensity = 100*mode.intensity/maxI);
 }
 
 // (browser build: no CommonJS export needed)
@@ -3392,6 +3541,7 @@ function renderMolecule3D(m){
     const mat = new THREE.MeshStandardMaterial({ color: elColor(a.el), roughness:0.5, metalness:0.05 });
     const sph = new THREE.Mesh(geo, mat);
     sph.position.set((a.x-com.x)*scale, (a.y-com.y)*scale, (a.z-com.z)*scale);
+    sph.userData.atomId = a.id;
     molGroup3d.add(sph);
   });
   m.bonds.forEach(b=>{
@@ -3410,6 +3560,7 @@ function renderMolecule3D(m){
       const cyl = new THREE.Mesh(geo, mat);
       cyl.position.copy(mid).addScaledVector(perp, off);
       cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+      cyl.userData = { bondA:b.a, bondB:b.b, offset:off, baseLen:len||0.001 };
       molGroup3d.add(cyl);
     });
   });
@@ -3499,6 +3650,7 @@ function generateAndShow3D(){
   if(mol.atoms.length===0){ alert('Draw a molecule in the 2D editor first.'); return; }
   const m3 = generate3DFromVSEPR(mol);
   document.getElementById('three-status').textContent = 'Generated by VSEPR rules (steric-number based geometry).';
+  if(typeof clearVibrationResults==='function') clearVibrationResults(); // stale relative to the new geometry
   renderMolecule3D(m3);
 }
 document.getElementById('btnVSEPR').addEventListener('click', generateAndShow3D);
@@ -3517,8 +3669,202 @@ document.getElementById('btnMinimize').addEventListener('click', ()=>{
     + result.iterations + ' steps).';
   if(energyEl) energyEl.textContent = 'Last run: ' + result.startEnergy.toFixed(2) + ' → ' + result.endEnergy.toFixed(2) + ' (relative units, ' + result.iterations + ' steps).';
   if(rdkitReady) setMinimizeStatus('Ready.'); else setMinimizeStatus('Ready (RDKit.js unavailable — minimized without RDKit sanitization).');
+  clearVibrationResults(); // stale relative to the just-changed geometry
   renderMolecule3D(mol3d);
 });
+
+// ============================================================
+// Vibrational modes / IR spectrum UI
+// ============================================================
+let vibrationModesResult = null;
+let selectedModeIndex = null;
+let vibAnim = null; // { raf } while a mode animation is running
+
+function clearVibrationResults(){
+  vibrationModesResult = null;
+  selectedModeIndex = null;
+  stopModeAnimation();
+  document.getElementById('irSpectrumWrap').style.display = 'none';
+  document.getElementById('vibStatus').textContent = '';
+}
+
+document.getElementById('btnVibrate').addEventListener('click', ()=>{
+  if(!mol3d){ alert('Generate a 3D structure first (or look one up in PubChem).'); return; }
+  stopModeAnimation();
+  const statusEl = document.getElementById('vibStatus');
+  statusEl.textContent = 'Computing vibrational modes… (a moment for larger molecules)';
+  document.getElementById('irSpectrumWrap').style.display = 'none';
+  setTimeout(()=>{
+    try{
+      const result = computeNormalModes(mol3d);
+      estimateIRIntensities(mol3d, result);
+      vibrationModesResult = result;
+      renderIRSpectrum(result);
+      renderModeList(result);
+      document.getElementById('irSpectrumWrap').style.display = '';
+      const hasImaginary = result.modes.some(mo=>mo.wavenumber<0);
+      statusEl.textContent = hasImaginary
+        ? 'Done — some modes show a negative ("imaginary") frequency, meaning this structure isn\'t at a true energy minimum yet. Try "Minimize structure" first for a cleaner result.'
+        : 'Done. Click a peak or a mode in the list below to see (and animate) how the atoms move.';
+    } catch(err){
+      statusEl.textContent = 'Could not compute vibrational modes: ' + (err && err.message ? err.message : err);
+    }
+  }, 20);
+});
+
+function renderIRSpectrum(result){
+  const svg = document.getElementById('irSpectrumSvg');
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const ns = 'http://www.w3.org/2000/svg';
+  const W=800, H=220, padL=54, padR=20, padT=15, padB=35;
+  const freqs = result.modes.map(mo=>mo.wavenumber);
+  let maxF = Math.max(4000, ...freqs), minF = Math.min(400, ...freqs);
+  const span = (maxF-minF)||1;
+  maxF += span*0.03; minF -= span*0.03;
+  const xOf = freq => padL + (maxF-freq)/(maxF-minF) * (W-padL-padR); // decreasing left->right, standard IR convention
+
+  const axis = document.createElementNS(ns,'line');
+  axis.setAttribute('x1',padL); axis.setAttribute('x2',W-padR);
+  axis.setAttribute('y1',H-padB); axis.setAttribute('y2',H-padB);
+  axis.setAttribute('stroke','currentColor'); axis.setAttribute('stroke-opacity','0.4');
+  svg.appendChild(axis);
+
+  const tickStart = Math.ceil(minF/500)*500;
+  for(let t=tickStart; t<=maxF; t+=500){
+    const x = xOf(t);
+    const tick = document.createElementNS(ns,'line');
+    tick.setAttribute('x1',x); tick.setAttribute('x2',x);
+    tick.setAttribute('y1',H-padB); tick.setAttribute('y2',H-padB+5);
+    tick.setAttribute('stroke','currentColor'); tick.setAttribute('stroke-opacity','0.4');
+    svg.appendChild(tick);
+    const label = document.createElementNS(ns,'text');
+    label.setAttribute('x',x); label.setAttribute('y',H-padB+18);
+    label.setAttribute('text-anchor','middle'); label.setAttribute('font-size','11');
+    label.setAttribute('fill','currentColor'); label.setAttribute('opacity','0.7');
+    label.textContent = t;
+    svg.appendChild(label);
+  }
+  const xlabel = document.createElementNS(ns,'text');
+  xlabel.setAttribute('x',(padL+W-padR)/2); xlabel.setAttribute('y',H-4);
+  xlabel.setAttribute('text-anchor','middle'); xlabel.setAttribute('font-size','12');
+  xlabel.setAttribute('fill','currentColor'); xlabel.setAttribute('opacity','0.8');
+  xlabel.textContent = 'Wavenumber (cm⁻¹)';
+  svg.appendChild(xlabel);
+  const ylabel = document.createElementNS(ns,'text');
+  ylabel.setAttribute('x',14); ylabel.setAttribute('y',padT+8);
+  ylabel.setAttribute('font-size','11'); ylabel.setAttribute('fill','currentColor'); ylabel.setAttribute('opacity','0.7');
+  ylabel.textContent = 'rel. int.';
+  svg.appendChild(ylabel);
+
+  result.modes.forEach((mode,i)=>{
+    const x = xOf(mode.wavenumber);
+    const h = Math.max((mode.relIntensity/100) * (H-padT-padB), 2);
+    const line = document.createElementNS(ns,'line');
+    line.setAttribute('x1',x); line.setAttribute('x2',x);
+    line.setAttribute('y1',H-padB); line.setAttribute('y2', H-padB-h);
+    line.setAttribute('stroke', mode.wavenumber<0 ? '#e0687a' : (state.theme==='light'? '#c23a0a' : '#ffb454'));
+    line.setAttribute('stroke-width', 2.4);
+    line.setAttribute('data-mode-index', i);
+    line.style.cursor = 'pointer';
+    line.addEventListener('click', ()=> selectMode(i));
+    svg.appendChild(line);
+  });
+}
+
+function renderModeList(result){
+  const wrap = document.getElementById('modeList');
+  wrap.innerHTML = '';
+  result.modes.forEach((mode,i)=>{
+    const row = document.createElement('div');
+    row.className = 'mode-row';
+    row.dataset.modeIndex = i;
+    row.style.cssText = 'padding:4px 8px; cursor:pointer; display:flex; justify-content:space-between; border-bottom:1px solid var(--border);';
+    const left = document.createElement('span');
+    left.textContent = mode.wavenumber.toFixed(1) + ' cm⁻¹' + (mode.wavenumber<0? ' (imaginary)':'');
+    const right = document.createElement('span');
+    right.style.opacity = '0.6';
+    right.textContent = mode.relIntensity.toFixed(0) + '%';
+    row.appendChild(left); row.appendChild(right);
+    row.addEventListener('click', ()=> selectMode(i));
+    wrap.appendChild(row);
+  });
+}
+
+function selectMode(i){
+  selectedModeIndex = i;
+  document.querySelectorAll('#modeList .mode-row').forEach(r=>{
+    r.style.background = (+r.dataset.modeIndex===i) ? 'var(--panel)' : 'transparent';
+  });
+  document.querySelectorAll('#irSpectrumSvg line[data-mode-index]').forEach(l=>{
+    l.setAttribute('stroke-width', (+l.getAttribute('data-mode-index')===i) ? 4 : 2.4);
+  });
+  const mode = vibrationModesResult.modes[i];
+  document.getElementById('modeSelectedLabel').textContent =
+    'Selected: ' + mode.wavenumber.toFixed(1) + ' cm⁻¹ (' + mode.relIntensity.toFixed(0) + '% rel. intensity)';
+  document.getElementById('btnPlayMode').disabled = false;
+  startModeAnimation(mode);
+}
+
+function startModeAnimation(mode){
+  stopModeAnimation();
+  if(!mol3d || !threeReady || !vibrationModesResult) return;
+  renderMolecule3D(mol3d); // clean static render so mesh references below are current
+  const com = mol3d.centerOfMass();
+  const atomMeshes = molGroup3d.children.filter(c=> c.userData && c.userData.atomId!=null);
+  const bondMeshes = molGroup3d.children.filter(c=> c.userData && c.userData.bondA!=null);
+  const basePos = {}; mol3d.atoms.forEach(a=> basePos[a.id] = [a.x-com.x, a.y-com.y, a.z-com.z]);
+  const dispByAtom = {};
+  vibrationModesResult.ids.forEach((id,ai)=>{
+    dispByAtom[id] = [mode.dispByDof[ai*3], mode.dispByDof[ai*3+1], mode.dispByDof[ai*3+2]];
+  });
+  const amplitude = 0.6; // Å - visually exaggerated; real vibrational amplitudes (~0.05-0.1 Å)
+                          // would be imperceptible on screen
+  const visualHz = 1.3;  // fixed playback rate for every mode - real frequencies (~10^13 Hz) are
+                          // far too fast to animate or usefully compare by eye
+  const t0 = performance.now();
+  vibAnim = { raf: null };
+  function frame(){
+    const t = (performance.now()-t0)/1000;
+    const s = Math.sin(2*Math.PI*visualHz*t);
+    atomMeshes.forEach(mesh=>{
+      const id = mesh.userData.atomId;
+      const b = basePos[id], d = dispByAtom[id]||[0,0,0];
+      mesh.position.set(b[0]+amplitude*s*d[0], b[1]+amplitude*s*d[1], b[2]+amplitude*s*d[2]);
+    });
+    bondMeshes.forEach(mesh=>{
+      const { bondA, bondB, offset, baseLen } = mesh.userData;
+      const bA=basePos[bondA], dA=dispByAtom[bondA]||[0,0,0];
+      const bB=basePos[bondB], dB=dispByAtom[bondB]||[0,0,0];
+      const p1 = new THREE.Vector3(bA[0]+amplitude*s*dA[0], bA[1]+amplitude*s*dA[1], bA[2]+amplitude*s*dA[2]);
+      const p2 = new THREE.Vector3(bB[0]+amplitude*s*dB[0], bB[1]+amplitude*s*dB[1], bB[2]+amplitude*s*dB[2]);
+      const dir = new THREE.Vector3().subVectors(p2,p1);
+      const len = dir.length()||0.001;
+      const mid = new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5);
+      const up = Math.abs(dir.y)>0.99*len ? new THREE.Vector3(1,0,0) : new THREE.Vector3(0,1,0);
+      const perp = new THREE.Vector3().crossVectors(dir, up).normalize();
+      mesh.position.copy(mid).addScaledVector(perp, offset);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+      mesh.scale.set(1, len/(baseLen||len), 1);
+    });
+    vibAnim.raf = requestAnimationFrame(frame);
+  }
+  frame();
+  document.getElementById('btnPlayMode').textContent = '■ Stop animation';
+}
+
+function stopModeAnimation(){
+  if(vibAnim && vibAnim.raf) cancelAnimationFrame(vibAnim.raf);
+  vibAnim = null;
+  const btn = document.getElementById('btnPlayMode');
+  if(btn) btn.textContent = '▶ Animate selected mode';
+  if(mol3d && threeReady) renderMolecule3D(mol3d); // restore the true (un-animated) structure
+}
+
+document.getElementById('btnPlayMode').addEventListener('click', ()=>{
+  if(vibAnim){ stopModeAnimation(); }
+  else if(selectedModeIndex!=null && vibrationModesResult){ startModeAnimation(vibrationModesResult.modes[selectedModeIndex]); }
+});
+
 document.getElementById('btnSendTo3D').addEventListener('click', ()=>{
   generateAndShow3D();
   document.getElementById('canvas3d-wrap').scrollIntoView({ behavior:'smooth', block:'center' });
