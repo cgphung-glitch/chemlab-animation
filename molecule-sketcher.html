@@ -253,6 +253,7 @@
     <div class="hint">Drag to rotate · scroll to zoom. If the drawn molecule isn't a recognized compound, PubChem lookup falls back to the VSEPR generator automatically.</div>
     <div class="toolbar">
       <label class="chk"><input type="checkbox" id="toggleESP"> Show electrostatic potential surface</label>
+      <label class="chk"><input type="checkbox" id="toggleDipole"> Show dipole moment vector</label>
       <span class="hint" id="dipoleOut" style="margin-left:auto;">Dipole moment: —</span>
     </div>
     <div class="toolbar">
@@ -2085,7 +2086,7 @@ const state = {
   lpDrag: null,          // { atomId, index } while dragging a lone pair
   hasCoords3D: false,
   history: [],
-  theme: 'dark',
+  theme: 'light',
 };
 
 const CANVAS_THEMES = {
@@ -2669,17 +2670,21 @@ render2D = function(...args){ _origRender2D(...args); updateInfo(); };
 // ============================================================
 const themeSwitchEl = document.getElementById('themeSwitch');
 const themeLabelEl = document.getElementById('themeLabel');
-themeSwitchEl.addEventListener('click', ()=>{
-  state.theme = state.theme==='dark' ? 'light' : 'dark';
+function applyTheme(){
   themeSwitchEl.classList.toggle('on', state.theme==='light');
   themeLabelEl.textContent = state.theme==='dark' ? 'Dark canvas' : 'Light canvas';
   document.documentElement.style.setProperty('--canvas-bg', theme().bg);
-  render2D();
   if(typeof renderer3d !== 'undefined' && renderer3d){
     renderer3d.setClearColor(hexToInt(theme().bg), 1);
     renderer3d.render(scene3d, camera3d);
   }
+}
+themeSwitchEl.addEventListener('click', ()=>{
+  state.theme = state.theme==='dark' ? 'light' : 'dark';
+  applyTheme();
+  render2D();
 });
+applyTheme(); // sync the switch UI, label, and canvas background to the default theme on load
 
 // ============================================================
 // Full periodic table picker
@@ -2960,7 +2965,7 @@ render2D();
 // ============================================================
 // 3D viewer (vanilla Three.js, custom orbit controls)
 // ============================================================
-let renderer3d, scene3d, camera3d, molGroup3d;
+let renderer3d, scene3d, camera3d, molGroup3d, dipoleGroup3d;
 let cam = { theta: 0.6, phi: 1.1, dist: 12, target: [0,0,0] };
 let threeReady = false;
 let mol3d = null; // Molecule with 3D coords currently displayed
@@ -2981,6 +2986,8 @@ function init3D(){
   camera3d = new THREE.PerspectiveCamera(45, canvas.clientWidth/canvas.clientHeight, 0.1, 500);
   molGroup3d = new THREE.Group();
   scene3d.add(molGroup3d);
+  dipoleGroup3d = new THREE.Group();
+  scene3d.add(dipoleGroup3d);
 
   const amb = new THREE.AmbientLight(0xffffff, 0.55);
   scene3d.add(amb);
@@ -3216,12 +3223,36 @@ function computeDipoleMoment(m){
 function updateDipoleDisplay(){
   const el = document.getElementById('dipoleOut');
   if(!el) return;
-  if(!mol3d){ el.textContent = 'Dipole moment: — (generate a 3D structure first)'; return; }
+  if(!mol3d){ el.textContent = 'Dipole moment: — (generate a 3D structure first)'; if(dipoleGroup3d) clearGroup(dipoleGroup3d); return; }
   const d = computeDipoleMoment(mol3d);
-  if(!d){ el.textContent = 'Dipole moment: —'; return; }
+  if(!d){ el.textContent = 'Dipole moment: —'; if(dipoleGroup3d) clearGroup(dipoleGroup3d); return; }
   const approx = Math.abs(d.totalCharge) > 0.05; // net-charged species: origin-dependent, flag it
   el.textContent = 'Dipole moment: ' + d.magnitudeDebye.toFixed(2) + ' D' + (approx? ' (approx. — net-charged species)' : '');
+  updateDipoleVector3D(d);
 }
+
+// Draws the dipole moment as an arrow anchored at the molecule's center of mass - the same
+// reference point computeDipoleMoment uses, and the point every atom/bond mesh in
+// renderMolecule3D/renderESPSurface is already centered on, so no extra coordinate translation
+// is needed here. The arrow's literal length (mux,muy,muz are in e·Å, typically a small
+// fraction of an Angstrom) would be imperceptible next to the atoms, so it's rescaled for
+// visibility - length still grows with magnitude, so relative comparisons between molecules
+// stay meaningful even though the absolute length isn't to the same scale as the bonds.
+function updateDipoleVector3D(d){
+  if(!dipoleGroup3d) return;
+  clearGroup(dipoleGroup3d);
+  const toggle = document.getElementById('toggleDipole');
+  if(!toggle || !toggle.checked || !d) return;
+  const magEA = Math.hypot(d.vector[0], d.vector[1], d.vector[2]);
+  if(magEA < 1e-4) return; // no meaningful dipole (e.g. a perfectly symmetric molecule)
+  const dir = new THREE.Vector3(d.vector[0], d.vector[1], d.vector[2]).normalize();
+  const length = Math.min(Math.max(magEA*2.2, 1.2), 4.5);
+  const color = state.theme==='light' ? 0xc23a0a : 0xffb454;
+  const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), length, color, length*0.22, length*0.12);
+  dipoleGroup3d.add(arrow);
+}
+
+document.getElementById('toggleDipole').addEventListener('change', updateDipoleDisplay);
 
 document.getElementById('toggleESP').addEventListener('change', ()=>{
   if(mol3d) renderMolecule3D(mol3d);
