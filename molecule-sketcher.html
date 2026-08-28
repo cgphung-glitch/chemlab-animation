@@ -252,6 +252,11 @@
     </div>
     <div class="hint">Drag to rotate · scroll to zoom. If the drawn molecule isn't a recognized compound, PubChem lookup falls back to the VSEPR generator automatically.</div>
     <div class="toolbar">
+      <button id="btnMinimize">Minimize structure (force field)</button>
+      <span class="hint" id="minimizeStatus" style="margin-left:auto;">Loading RDKit.js…</span>
+    </div>
+    <div class="hint">Runs the structure through RDKit.js (structure sanitization/kekulization) then relaxes it with a real bond/angle/torsion/van der Waals force field written into this app — a UFF/MMFF-style minimizer, not a reproduction of either force field's exact parameters, since those aren't exposed by RDKit.js's browser build. <span id="minimizeEnergy"></span></div>
+    <div class="toolbar">
       <label class="chk"><input type="checkbox" id="toggleESP"> Show electrostatic potential surface</label>
       <label class="chk"><input type="checkbox" id="toggleDipole"> Show dipole moment vector</label>
       <span class="hint" id="dipoleOut" style="margin-left:auto;">Dipole moment: —</span>
@@ -1567,6 +1572,227 @@ function relax3D(m, iterations, dirAssignment){
       a.x += f[0]*0.35; a.y += f[1]*0.35; a.z += f[2]*0.35;
     });
   }
+}
+
+// ===================== Force-field structure minimization =====================
+// A real molecular-mechanics force field - bond stretch + angle bend + torsion + non-bonded
+// van der Waals terms - minimized by gradient descent (numerical gradients, evaluated by finite
+// differences, so every term below only has to be right in the energy function itself). This is
+// the same class of energy terms UFF/MMFF use, and genuinely minimizes the structure; it is NOT
+// a reproduction of either force field's actual calibrated parameters (those come from large,
+// separately-published atom-typed parameter tables), so energies are reported in generic relative
+// units, not literal kcal/mol. Its job is to relax the VSEPR-generated starting geometry - fixing
+// small strain, and letting sterically crowded groups (e.g. adjacent branches, ring substituents)
+// push apart - not to reproduce a specific force field's absolute numbers.
+const FF_PARAMS = {
+  bondK: 350,   // relative units per Å² - bond stretch stiffness
+  angleK: 60,   // relative units per rad² - angle bend stiffness
+  torsionV: 2.0,// relative units - torsional barrier height
+  vdwEps: 0.10, // relative units - van der Waals well depth
+};
+
+function ffAdjacency(m){
+  const adj = {};
+  m.atoms.forEach(a=> adj[a.id] = []);
+  m.bonds.forEach(b=>{ adj[b.a].push(b.b); adj[b.b].push(b.a); });
+  return adj;
+}
+
+// Graph distance (in bonds) up to 3, used to exclude directly-bonded (1-2) and shared-neighbor
+// (1-3) pairs from the van der Waals term, as any force field does - those pairs are already
+// governed by the bond/angle terms, and including them in a vdW term would fight those terms.
+function ffGraphDistances(m, adj){
+  const dist = {};
+  m.atoms.forEach(a=>{
+    const d = {}; d[a.id]=0;
+    let frontier=[a.id], depth=0;
+    while(frontier.length && depth<3){
+      depth++;
+      const next=[];
+      frontier.forEach(id=> adj[id].forEach(nb=>{ if(d[nb]===undefined){ d[nb]=depth; next.push(nb); } }));
+      frontier=next;
+    }
+    dist[a.id]=d;
+  });
+  return dist;
+}
+
+function ffIdealBondLength(a, b, order, isAromatic){
+  const base = 1.5*((elRadius(a.el)+elRadius(b.el))/1.5);
+  if(isAromatic) return base*0.935; // resonance-averaged, between single (1.0x) and double (0.87x)
+  return base * (order===3? 0.78 : order===2? 0.87 : 1);
+}
+
+// Rings whose bonds strictly alternate single/double all the way around (a Kekulized aromatic
+// or otherwise fully-conjugated ring, e.g. benzene) are geometrically uniform in reality -
+// delocalization averages every ring bond to the same intermediate length, not literal
+// alternating short/long bonds. Since this app stores an explicit Kekulé structure (alternating
+// bond orders) rather than a separate "aromatic" bond order, the force field needs to recognize
+// that pattern itself so it targets a uniform bond length here instead of fighting the (correct)
+// uniform ring geometry that generate3DFromVSEPR already produced.
+function ffAromaticBondIds(m){
+  const ids = new Set();
+  findRings(m).forEach(ring=>{
+    const N = ring.length;
+    if(N<3) return;
+    const bonds = ring.map((id,i)=> m.bondBetween(id, ring[(i+1)%N]));
+    if(bonds.some(b=>!b)) return;
+    const orders = bonds.map(b=>b.order);
+    const alternates = orders.every(o=> o===1||o===2) && orders.every((o,i)=> o!==orders[(i+1)%N]);
+    if(alternates) bonds.forEach(b=> ids.add(b.id));
+  });
+  return ids;
+}
+
+function ffIdealAngle(m, id){
+  const steric = Math.max(1, m.stericNumber(id));
+  if(steric<=2) return Math.PI;
+  if(steric===3) return 120*Math.PI/180;
+  if(steric===4) return 109.5*Math.PI/180;
+  if(steric===5) return 100*Math.PI/180;
+  return 90*Math.PI/180;
+}
+
+function ffDihedral(p1,p2,p3,p4){
+  const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+  const cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+  const dt=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const nm=a=>Math.hypot(a[0],a[1],a[2])||1e-9;
+  const b1=sub(p2,p1), b2=sub(p3,p2), b3=sub(p4,p3);
+  const n1=cr(b1,b2), n2=cr(b2,b3);
+  const b2n=[b2[0]/nm(b2), b2[1]/nm(b2), b2[2]/nm(b2)];
+  const m1=cr(n1,b2n);
+  return Math.atan2(dt(m1,n2), dt(n1,n2));
+}
+
+function ffEnergy(m, pos, graphDist, aromaticBondIds){
+  let E = 0;
+  // bond stretch
+  m.bonds.forEach(b=>{
+    const A=pos[b.a], B=pos[b.b];
+    const r = Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);
+    const r0 = ffIdealBondLength(m.getAtom(b.a), m.getAtom(b.b), b.order, aromaticBondIds && aromaticBondIds.has(b.id));
+    const d = r-r0;
+    E += FF_PARAMS.bondK*d*d;
+  });
+  // angle bend (every pair of bonds sharing a center atom)
+  m.atoms.forEach(a=>{
+    const nbrs = m.bondsOf(a.id).map(b=> b.a===a.id? b.b : b.a);
+    if(nbrs.length<2) return;
+    const theta0 = ffIdealAngle(m, a.id);
+    const P = pos[a.id];
+    for(let i=0;i<nbrs.length;i++){
+      for(let j=i+1;j<nbrs.length;j++){
+        const Bp=pos[nbrs[i]], Cp=pos[nbrs[j]];
+        const v1=[Bp[0]-P[0],Bp[1]-P[1],Bp[2]-P[2]], v2=[Cp[0]-P[0],Cp[1]-P[1],Cp[2]-P[2]];
+        const n1=Math.hypot(...v1), n2=Math.hypot(...v2);
+        let cosT = (v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2])/((n1*n2)||1e-9);
+        cosT = Math.max(-1,Math.min(1,cosT));
+        const d = Math.acos(cosT)-theta0;
+        E += FF_PARAMS.angleK*d*d;
+      }
+    }
+  });
+  // torsion (proper dihedrals A-B-C-D around every real bond B-C)
+  m.bonds.forEach(bond=>{
+    const Bid=bond.a, Cid=bond.b;
+    const Aids = m.bondsOf(Bid).map(bb=> bb.a===Bid? bb.b : bb.a).filter(x=>x!==Cid);
+    const Dids = m.bondsOf(Cid).map(bb=> bb.a===Cid? bb.b : bb.a).filter(x=>x!==Bid);
+    if(Aids.length===0 || Dids.length===0) return;
+    const sB = Math.max(1,m.stericNumber(Bid)), sC = Math.max(1,m.stericNumber(Cid));
+    // sp3-sp3 bonds prefer staggered (3-fold, minima at 60/180/300 via (1+cos3φ), which is
+    // zero at those angles); anything involving an sp2 or sp center prefers a planar
+    // arrangement (2-fold, minima at 0/180) - that needs (1-cos2φ) instead, since (1+cos2φ)
+    // would put minima at 90°/270° and maxima at the planar 0°/180° positions, backwards from
+    // what's wanted here.
+    const n = (sB===4 && sC===4) ? 3 : 2;
+    Aids.forEach(Aid=>{
+      Dids.forEach(Did=>{
+        const phi = ffDihedral(pos[Aid],pos[Bid],pos[Cid],pos[Did]);
+        E += n===3
+          ? (FF_PARAMS.torsionV/2)*(1+Math.cos(3*phi))
+          : (FF_PARAMS.torsionV/2)*(1-Math.cos(2*phi));
+      });
+    });
+  });
+  // van der Waals (non-bonded pairs only)
+  const ids = m.atoms.map(a=>a.id);
+  for(let i=0;i<ids.length;i++){
+    for(let j=i+1;j<ids.length;j++){
+      const idA=ids[i], idB=ids[j];
+      const gd = graphDist[idA][idB];
+      if(gd!==undefined && gd<3) continue;
+      const A=pos[idA], B=pos[idB];
+      const r = Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]) || 0.01;
+      const sigma = (elRadius(m.getAtom(idA).el)+elRadius(m.getAtom(idB).el))*0.9;
+      const t = sigma/r, t6 = t*t*t*t*t*t;
+      E += FF_PARAMS.vdwEps*(t6*t6 - 2*t6);
+    }
+  }
+  return E;
+}
+
+// Minimizes m's current 3D coordinates in place by gradient descent on ffEnergy, using a
+// numerical (central-difference) gradient and an adaptive step size (grows on a successful step,
+// shrinks and retries on an unsuccessful one - a simple, robust way to avoid needing a line
+// search). Returns {startEnergy, endEnergy, iterations}.
+function minimizeStructureFF(m, opts){
+  opts = opts || {};
+  const maxIters = opts.maxIters || 200;
+  const adj = ffAdjacency(m);
+  const graphDist = ffGraphDistances(m, adj);
+  const aromaticBondIds = ffAromaticBondIds(m);
+  const ids = m.atoms.map(a=>a.id);
+  let pos = {};
+  // A tiny random jitter breaks any exact symmetry in the starting geometry (e.g. a perfectly
+  // eclipsed or perfectly planar arrangement sits exactly on a stationary point of the energy
+  // surface - zero gradient - even though it isn't a real minimum; local optimizers, including
+  // real UFF/MMFF implementations, can get stuck there without this kind of nudge). It's far
+  // smaller than any real structural feature, so it doesn't change where the structure starts
+  // from in any chemically meaningful way.
+  ids.forEach(id=>{
+    const a=m.getAtom(id);
+    pos[id]=[a.x+(Math.random()-0.5)*0.01, a.y+(Math.random()-0.5)*0.01, a.z+(Math.random()-0.5)*0.01];
+  });
+
+  const h = 1e-4;
+  let stepSize = 0.02;
+  const startEnergy = ffEnergy(m, pos, graphDist, aromaticBondIds);
+  let E = startEnergy;
+  let iter = 0;
+  for(; iter<maxIters; iter++){
+    const grad = {};
+    let maxComp = 0;
+    ids.forEach(id=>{
+      grad[id] = [0,0,0];
+      for(let k=0;k<3;k++){
+        const orig = pos[id][k];
+        pos[id][k] = orig + h; const Ep = ffEnergy(m, pos, graphDist, aromaticBondIds);
+        pos[id][k] = orig - h; const Em = ffEnergy(m, pos, graphDist, aromaticBondIds);
+        pos[id][k] = orig;
+        const g = (Ep-Em)/(2*h);
+        grad[id][k] = g;
+        if(Math.abs(g)>maxComp) maxComp = Math.abs(g);
+      }
+    });
+    if(maxComp < 1e-3) break; // converged
+    const trial = {};
+    ids.forEach(id=> trial[id] = [
+      pos[id][0]-stepSize*grad[id][0],
+      pos[id][1]-stepSize*grad[id][1],
+      pos[id][2]-stepSize*grad[id][2]
+    ]);
+    const trialE = ffEnergy(m, trial, graphDist, aromaticBondIds);
+    if(trialE < E){
+      pos = trial; E = trialE;
+      stepSize *= 1.2;
+    } else {
+      stepSize *= 0.5;
+      if(stepSize < 1e-6) break;
+    }
+  }
+  ids.forEach(id=>{ const a=m.getAtom(id); const p=pos[id]; a.x=p[0]; a.y=p[1]; a.z=p[2]; });
+  return { startEnergy, endEnergy:E, iterations:iter };
 }
 
 // (browser build: no CommonJS export needed)
@@ -3276,6 +3502,23 @@ function generateAndShow3D(){
   renderMolecule3D(m3);
 }
 document.getElementById('btnVSEPR').addEventListener('click', generateAndShow3D);
+document.getElementById('btnMinimize').addEventListener('click', ()=>{
+  if(!mol3d){
+    alert('Generate a 3D structure first (or look one up in PubChem) before minimizing.');
+    return;
+  }
+  const statusEl = document.getElementById('three-status');
+  const energyEl = document.getElementById('minimizeEnergy');
+  setMinimizeStatus('Minimizing…');
+  sanitizeWithRDKit(mol3d); // sync: RDKit_minimal's get_mol/get_kekule_form calls are synchronous
+  const result = minimizeStructureFF(mol3d);
+  statusEl.textContent = 'Minimized with the force field (relative energy '
+    + result.startEnergy.toFixed(2) + ' → ' + result.endEnergy.toFixed(2) + ', '
+    + result.iterations + ' steps).';
+  if(energyEl) energyEl.textContent = 'Last run: ' + result.startEnergy.toFixed(2) + ' → ' + result.endEnergy.toFixed(2) + ' (relative units, ' + result.iterations + ' steps).';
+  if(rdkitReady) setMinimizeStatus('Ready.'); else setMinimizeStatus('Ready (RDKit.js unavailable — minimized without RDKit sanitization).');
+  renderMolecule3D(mol3d);
+});
 document.getElementById('btnSendTo3D').addEventListener('click', ()=>{
   generateAndShow3D();
   document.getElementById('canvas3d-wrap').scrollIntoView({ behavior:'smooth', block:'center' });
@@ -3602,6 +3845,83 @@ function loadScript(src, onload, onerror){
 }
 loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', init3D,
   ()=>{ document.getElementById('three-status').textContent='Could not load three.js from the CDN — 3D view unavailable offline.'; });
+
+// ===================== RDKit.js: structure loading/sanitization for the force-field minimizer =====================
+// RDKit.js (the browser/WASM build of RDKit, aka "MinimalLib") is used here purely to load and
+// sanitize the structure - checking valences, perceiving aromaticity/rings, and kekulizing to an
+// explicit alternating single/double bond pattern. Its public JS API does not expose MMFF or UFF
+// energy minimization (that functionality exists in full RDKit but was not carried over to the
+// WASM/MinimalLib build), so the actual 3D geometry optimization below is a separate, real force
+// field written directly in JavaScript - see the "Force-field structure minimization" section.
+let RDKitModule = null, rdkitReady = false;
+function setMinimizeStatus(msg){
+  const el = document.getElementById('minimizeStatus');
+  if(el) el.textContent = msg;
+}
+window.initRDKitModule ? window.initRDKitModule().then(function(RDKit){
+  RDKitModule = RDKit; rdkitReady = true;
+  setMinimizeStatus('Ready.');
+}).catch(function(){
+  setMinimizeStatus('Could not initialize RDKit.js — structure will be minimized without RDKit sanitization.');
+}) : loadScript('https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js', ()=>{
+  if(typeof window.initRDKitModule !== 'function'){
+    setMinimizeStatus('Could not load RDKit.js from the CDN — structure will be minimized without RDKit sanitization.');
+    return;
+  }
+  window.initRDKitModule().then(function(RDKit){
+    RDKitModule = RDKit; rdkitReady = true;
+    setMinimizeStatus('Ready.');
+  }).catch(function(){
+    setMinimizeStatus('Could not initialize RDKit.js — structure will be minimized without RDKit sanitization.');
+  });
+}, ()=>{ setMinimizeStatus('Could not load RDKit.js from the CDN — structure will be minimized without RDKit sanitization.'); });
+
+// Runs the current 3D structure through RDKit for sanitization + kekulization, updating this
+// app's own bond orders from RDKit's kekulized form (catches things like an unbalanced valence,
+// and makes sure ring bonds are an explicit, consistent single/double pattern before the force
+// field - which reads bond orders directly - runs on them). Returns true if it's safe to proceed.
+function sanitizeWithRDKit(m){
+  if(!rdkitReady || !RDKitModule) return true; // RDKit unavailable - proceed with the structure as-is
+  let rdmol = null;
+  try{
+    const molBlock = moleculeToMolBlock(m, 'molecule');
+    rdmol = RDKitModule.get_mol(molBlock, JSON.stringify({ sanitize:true, removeHs:false }));
+    if(!rdmol || !rdmol.is_valid()){
+      setMinimizeStatus('RDKit could not validate this structure (check valences/charges) — minimizing without RDKit sanitization.');
+      return true;
+    }
+    const kekuleBlock = rdmol.get_kekule_form();
+    applyKekulizedBondOrders(m, kekuleBlock);
+    return true;
+  } catch(err){
+    setMinimizeStatus('RDKit could not parse this structure — minimizing without RDKit sanitization.');
+    return true;
+  } finally {
+    if(rdmol) rdmol.delete();
+  }
+}
+
+// Reads bond orders (and only bond orders - atom positions/elements are left as this app's own,
+// since it's the source of truth for the geometry the force field will minimize) from an
+// RDKit-produced V2000 molblock back into this app's Molecule. Atom N in the molblock corresponds
+// to mol.atoms[N-1], since moleculeToMolBlock writes atoms in that exact order.
+function applyKekulizedBondOrders(m, molBlockText){
+  const lines = molBlockText.split(/\r?\n/);
+  const counts = lines[3] || '';
+  const nAtoms = parseInt(counts.substring(0,3))||0;
+  const nBonds = parseInt(counts.substring(3,6))||0;
+  for(let i=0;i<nBonds;i++){
+    const line = lines[4+nAtoms+i];
+    if(!line) continue;
+    const a1 = parseInt(line.substring(0,3));
+    const a2 = parseInt(line.substring(3,6));
+    const order = parseInt(line.substring(6,9));
+    const atomA = m.atoms[a1-1], atomB = m.atoms[a2-1];
+    if(!atomA || !atomB) continue;
+    const bd = m.bondBetween(atomA.id, atomB.id);
+    if(bd && order>=1 && order<=3) bd.order = order;
+  }
+}
 
 </script>
 </body>
