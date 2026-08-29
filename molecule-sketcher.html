@@ -265,6 +265,11 @@
     </div>
     <div class="hint">Drag to rotate · scroll to zoom. If the drawn molecule isn't a recognized compound, PubChem lookup falls back to the VSEPR generator automatically.</div>
     <div class="toolbar">
+      <button id="btnTo2D">Convert 3D structure to 2D</button>
+      <span class="hint" id="to2DStatus" style="margin-left:auto;"></span>
+    </div>
+    <div class="hint">Replaces the 2D canvas with a fresh skeletal depiction built from this 3D structure's connectivity — handy after a PubChem lookup, which only loads a 3D structure and leaves the 2D canvas untouched. This replaces whatever is currently drawn in 2D.</div>
+    <div class="toolbar">
       <button id="btnMinimize">Minimize structure (force field)</button>
       <span class="hint" id="minimizeStatus" style="margin-left:auto;">Loading RDKit.js…</span>
     </div>
@@ -287,7 +292,7 @@
       </div>
     </div>
     <div class="toolbar">
-      <label class="chk"><input type="checkbox" id="toggleESP"> Show electrostatic potential surface</label>
+      <label class="chk"><input type="checkbox" id="toggleStrain"> Show force field strain</label>
       <label class="chk"><input type="checkbox" id="toggleDipole"> Show dipole moment vector</label>
       <span class="hint" id="dipoleOut" style="margin-left:auto;">Dipole moment: —</span>
     </div>
@@ -2587,7 +2592,7 @@ function buildMOIsosurfaceGroup(res, moIdx, m3d, opts){
 }
 
 // ============================================================
-// Simple electronegativity-based partial charges (for the approximate ESP surface)
+// Simple electronegativity-based partial charges (used by the dipole moment calculation)
 // ============================================================
 const PAULING_EN = {
   H:2.20, Li:0.98, Be:1.57, B:2.04, C:2.55, N:3.04, O:3.44, F:3.98,
@@ -2599,7 +2604,7 @@ function electronegativityOf(el){ return PAULING_EN[el] || 2.2; }
 // Very simplified single-pass bond-dipole partial charge estimate: each bond shifts a small
 // amount of charge from the less electronegative atom to the more electronegative one,
 // scaled by the electronegativity difference and bond order. Meant to give a qualitative
-// (not quantitative) picture of charge distribution for the ESP visualization — not a
+// (not quantitative) picture of charge distribution for the dipole moment calculation — not a
 // substitute for a real Gasteiger/QM charge model.
 function estimateSigmaCharges(mol){
   const q = {};
@@ -2616,7 +2621,7 @@ function estimateSigmaCharges(mol){
 }
 
 // Combines the sigma-framework electronegativity estimate with a Hückel result (if provided)
-// into one final per-atom partial charge, used to color the ESP surface.
+// into one final per-atom partial charge, used by the dipole moment calculation.
 function estimateAtomCharges(mol, huckelResult){
   const q = estimateSigmaCharges(mol);
   if(huckelResult){
@@ -3396,38 +3401,39 @@ document.getElementById('btnClear').addEventListener('click', ()=>{
   mol.atoms=[]; mol.bonds=[]; mol.groups=[]; mol._id=1;
   pushHistory(); render2D(); update3DPlaceholder();
 });
-document.getElementById('btnAutoH').addEventListener('click', ()=>{
-  // Remove existing explicit H atoms/bonds so every H - new ones needed to reach full valence,
-  // and any that were already there - gets laid out fresh with no overlap, rather than only
-  // filling in gaps left by whatever positions old H atoms happened to already have.
-  const hIds = new Set(mol.atoms.filter(a=>a.el==='H').map(a=>a.id));
-  mol.atoms = mol.atoms.filter(a=>!hIds.has(a.id));
-  mol.bonds = mol.bonds.filter(b=>!hIds.has(b.a) && !hIds.has(b.b));
+// Removes any existing explicit H atoms, re-spaces the heavy-atom skeleton into a clean,
+// non-overlapping 2D layout (regular polygons for rings, an alternating zigzag for chains),
+// then adds back exactly the H atoms needed for full valence, fanned into whatever angular
+// gaps are open at each atom. Shared by "Auto-fill H to valence" and "Convert 3D to 2D".
+function cleanupSkeletonAndHydrogens2D(m){
+  const hIds = new Set(m.atoms.filter(a=>a.el==='H').map(a=>a.id));
+  m.atoms = m.atoms.filter(a=>!hIds.has(a.id));
+  m.bonds = m.bonds.filter(b=>!hIds.has(b.a) && !hIds.has(b.b));
 
-  // Re-space the heavy-atom skeleton into a clean, non-overlapping layout (regular polygons for
-  // rings, an alternating zigzag for chains) before adding H, so the H placement below has
-  // well-defined, evenly-spaced bond angles to fan out into.
-  cleanupHeavySkeleton2D(mol);
+  cleanupHeavySkeleton2D(m);
 
-  mol.atoms.slice().forEach(a=>{
-    const need = mol.implicitHNeeded(a.id);
+  m.atoms.slice().forEach(a=>{
+    const need = m.implicitHNeeded(a.id);
     if(need<=0) return;
-    const existingAngles = mol.bondsOf(a.id).map(b=>{
-      const other = mol.getAtom(b.a===a.id? b.b : b.a);
+    const existingAngles = m.bondsOf(a.id).map(b=>{
+      const other = m.getAtom(b.a===a.id? b.b : b.a);
       return Math.atan2(other.y-a.y, other.x-a.x);
     });
     const hAngles = distributeAnglesInGaps(existingAngles, need);
     hAngles.forEach(ang=>{
-      const h = mol.addAtom('H', a.x+Math.cos(ang)*45, a.y+Math.sin(ang)*45, 0);
-      mol.addBond(a.id, h.id, 1);
+      const h = m.addAtom('H', a.x+Math.cos(ang)*45, a.y+Math.sin(ang)*45, 0);
+      m.addBond(a.id, h.id, 1);
     });
   });
 
   // cleanupHeavySkeleton2D lays the skeleton out starting from the origin, which sits at the
   // canvas's top-left corner - recenter (and gently rescale) the whole result into the visible
   // viewBox, same as file imports already do.
-  fitToCanvas2D(mol);
+  fitToCanvas2D(m);
+}
 
+document.getElementById('btnAutoH').addEventListener('click', ()=>{
+  cleanupSkeletonAndHydrogens2D(mol);
   pushHistory(); render2D();
 });
 document.getElementById('btnGroup').addEventListener('click', ()=>{
@@ -3561,7 +3567,7 @@ document.getElementById('ptableSearch').addEventListener('input', (e)=>{
 // ============================================================
 // Simple Hückel MO analysis
 // ============================================================
-let lastHuckelResult = null; // exposed so the 3D panel can use it for the ESP surface overlay
+let lastHuckelResult = null; // exposed so the dipole moment calculation can use Huckel-derived pi charges
 
 function currentPiAtomIds(){
   return mol.atoms.filter(a=>a.piSel).map(a=>a.id);
@@ -3593,7 +3599,6 @@ document.getElementById('btnRunHuckel').addEventListener('click', ()=>{
   const result = computeHuckel(mol, ids, override===''? undefined : Number(override));
   lastHuckelResult = result;
   renderHuckelResults(result);
-  if(document.getElementById('toggleESP').checked && typeof refreshESPSurface==='function') refreshESPSurface();
   if(typeof updateDipoleDisplay==='function') updateDipoleDisplay();
 });
 
@@ -4060,27 +4065,105 @@ function clearGroup(g){
   while(g.children.length) g.remove(g.children[0]);
 }
 
-// Diverging red(negative)-white(neutral)-blue(positive) colormap, the standard ESP convention.
-function espColor(charge, maxAbs){
-  const t = Math.max(-1, Math.min(1, charge/(maxAbs||0.05)));
-  const lerp=(a,b,f)=> a+(b-a)*f;
-  if(t<0){
-    const f=-t;
-    return [lerp(1,0.85,f), lerp(1,0.15,f), lerp(1,0.15,f)];
+// Computes each atom's share of the total force-field energy - the same bond/angle/torsion/van
+// der Waals terms used by the minimizer (see FF_PARAMS and the ff* helpers above), just
+// attributed per-atom instead of summed to one global total: each bond's energy splits evenly
+// between its two atoms, each angle-bend term's energy goes to the atom at that angle's vertex
+// (it's that atom's local geometry that's strained), each torsion's energy splits four ways
+// across the atoms defining it, and each non-bonded (van der Waals) pair splits evenly between
+// the two atoms involved. This is real strain, not a schematic - it's the literal per-term
+// energy from the same force field "Minimize structure" uses, just broken down spatially so a
+// crowded methyl group or a stretched/compressed bond visibly lights up.
+function computeAtomStrainEnergies(m){
+  const adj = ffAdjacency(m);
+  const graphDist = ffGraphDistances(m, adj);
+  const aromaticBondIds = ffAromaticBondIds(m);
+  const pos = {}; m.atoms.forEach(a=> pos[a.id]=[a.x,a.y,a.z]);
+  const E = {}; m.atoms.forEach(a=> E[a.id]=0);
+
+  m.bonds.forEach(b=>{
+    const A=pos[b.a], B=pos[b.b];
+    const r = Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);
+    const r0 = ffIdealBondLength(m.getAtom(b.a), m.getAtom(b.b), b.order, aromaticBondIds.has(b.id));
+    const d = r-r0;
+    const e = FF_PARAMS.bondK*d*d;
+    E[b.a] += e/2; E[b.b] += e/2;
+  });
+  m.atoms.forEach(a=>{
+    const nbrs = m.bondsOf(a.id).map(b=> b.a===a.id? b.b : b.a);
+    if(nbrs.length<2) return;
+    const theta0 = ffIdealAngle(m, a.id);
+    const P = pos[a.id];
+    for(let i=0;i<nbrs.length;i++){
+      for(let j=i+1;j<nbrs.length;j++){
+        const Bp=pos[nbrs[i]], Cp=pos[nbrs[j]];
+        const v1=[Bp[0]-P[0],Bp[1]-P[1],Bp[2]-P[2]], v2=[Cp[0]-P[0],Cp[1]-P[1],Cp[2]-P[2]];
+        const n1=Math.hypot(...v1), n2=Math.hypot(...v2);
+        let cosT = (v1[0]*v2[0]+v1[1]*v2[1]+v1[2]*v2[2])/((n1*n2)||1e-9);
+        cosT = Math.max(-1,Math.min(1,cosT));
+        const d = Math.acos(cosT)-theta0;
+        E[a.id] += FF_PARAMS.angleK*d*d;
+      }
+    }
+  });
+  m.bonds.forEach(bond=>{
+    const Bid=bond.a, Cid=bond.b;
+    const Aids = m.bondsOf(Bid).map(bb=> bb.a===Bid? bb.b : bb.a).filter(x=>x!==Cid);
+    const Dids = m.bondsOf(Cid).map(bb=> bb.a===Cid? bb.b : bb.a).filter(x=>x!==Bid);
+    if(Aids.length===0 || Dids.length===0) return;
+    const sB = Math.max(1,m.stericNumber(Bid)), sC = Math.max(1,m.stericNumber(Cid));
+    const n = (sB===4 && sC===4) ? 3 : 2;
+    Aids.forEach(Aid=>{
+      Dids.forEach(Did=>{
+        const phi = ffDihedral(pos[Aid],pos[Bid],pos[Cid],pos[Did]);
+        const e = n===3
+          ? (FF_PARAMS.torsionV/2)*(1+Math.cos(3*phi))
+          : (FF_PARAMS.torsionV/2)*(1-Math.cos(2*phi));
+        const share = e/4;
+        E[Aid]+=share; E[Bid]+=share; E[Cid]+=share; E[Did]+=share;
+      });
+    });
+  });
+  const ids = m.atoms.map(a=>a.id);
+  for(let i=0;i<ids.length;i++){
+    for(let j=i+1;j<ids.length;j++){
+      const idA=ids[i], idB=ids[j];
+      const gd = graphDist[idA][idB];
+      if(gd!==undefined && gd<3) continue;
+      const A=pos[idA], B=pos[idB];
+      const r = Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]) || 0.01;
+      const sigma = (elRadius(m.getAtom(idA).el)+elRadius(m.getAtom(idB).el))*0.9;
+      const t = sigma/r, t6 = t*t*t*t*t*t;
+      const e = FF_PARAMS.vdwEps*(t6*t6 - 2*t6);
+      E[idA] += e/2; E[idB] += e/2;
+    }
   }
-  const f=t;
-  return [lerp(1,0.15,f), lerp(1,0.35,f), lerp(1,0.9,f)];
+  return E;
 }
 
-function renderESPSurface(m){
+// Sequential blue (relaxed) -> yellow -> red (most strained) colormap. Negative contributions
+// (e.g. a stabilizing van der Waals attraction) are clamped to 0 for display - they aren't
+// "strain" in the chemically interesting sense this view is meant to highlight.
+function strainColor(e, maxAbs){
+  const t = Math.max(0, Math.min(1, e/(maxAbs||0.05)));
+  const lerp=(a,b,f)=> a+(b-a)*f;
+  if(t<0.5){
+    const f=t/0.5;
+    return [lerp(0.15,1,f), lerp(0.35,0.95,f), lerp(0.9,0.2,f)];
+  }
+  const f=(t-0.5)/0.5;
+  return [lerp(1,0.85,f), lerp(0.95,0.15,f), lerp(0.2,0.15,f)];
+}
+
+function renderStrainSurface(m){
   clearGroup(molGroup3d);
   const com = m.centerOfMass();
-  const charges = (typeof estimateAtomCharges==='function') ? estimateAtomCharges(m, (typeof lastHuckelResult!=='undefined'? lastHuckelResult : null)) : {};
-  const vals = m.atoms.map(a=> charges[a.id]||0);
-  const maxAbs = Math.max(0.05, ...vals.map(Math.abs));
+  const strain = computeAtomStrainEnergies(m);
+  const vals = m.atoms.map(a=> Math.max(0, strain[a.id]||0));
+  const maxAbs = Math.max(0.05, ...vals);
   m.atoms.forEach(a=>{
-    const q = charges[a.id]||0;
-    const col = espColor(q, maxAbs);
+    const e = Math.max(0, strain[a.id]||0);
+    const col = strainColor(e, maxAbs);
     const geo = new THREE.SphereGeometry(elRadius(a.el)*0.95, 24, 18);
     const mat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(col[0],col[1],col[2]),
@@ -4097,27 +4180,27 @@ function renderESPSurface(m){
   });
   cam.dist = maxR*2.6+3;
   updateCamera();
-  updateESPLegend(maxAbs);
+  updateStrainLegend(maxAbs);
 }
 
-function updateESPLegend(maxAbs){
-  let legend = document.getElementById('espLegend');
+function updateStrainLegend(maxAbs){
+  let legend = document.getElementById('strainLegend');
   if(!legend){
     legend = document.createElement('div');
-    legend.id = 'espLegend';
+    legend.id = 'strainLegend';
     legend.style.cssText = 'position:absolute; top:8px; right:8px; font-size:11px; font-family:var(--mono); color:var(--text-dim); text-align:right; pointer-events:none;';
     document.getElementById('canvas3d-wrap').appendChild(legend);
   }
-  legend.innerHTML = `<div style="background:linear-gradient(90deg,#d92626,#ffffff,#2659e6); width:120px; height:10px; border-radius:3px; margin-bottom:2px;"></div>`+
-    `<div>−${maxAbs.toFixed(2)}e &nbsp; 0 &nbsp; +${maxAbs.toFixed(2)}e</div>`+
-    `<div>red = electron-rich · blue = electron-poor</div>`;
+  legend.innerHTML = `<div style="background:linear-gradient(90deg,#2659e6,#ffe600,#d92626); width:120px; height:10px; border-radius:3px; margin-bottom:2px;"></div>`+
+    `<div>0 &nbsp; strain (relative units) &nbsp; ${maxAbs.toFixed(2)}</div>`+
+    `<div>blue = relaxed · red = most strained</div>`;
 }
-function removeESPLegend(){
-  const legend = document.getElementById('espLegend');
+function removeStrainLegend(){
+  const legend = document.getElementById('strainLegend');
   if(legend) legend.remove();
 }
 
-function refreshESPSurface(){
+function refreshStrainSurface(){
   if(!mol3d) return;
   renderMolecule3D(mol3d);
 }
@@ -4125,13 +4208,13 @@ function refreshESPSurface(){
 function renderMolecule3D(m){
   if(!threeReady) return;
   mol3d = m;
-  const espToggle = document.getElementById('toggleESP');
-  if(espToggle && espToggle.checked){
-    renderESPSurface(m);
+  const strainToggle = document.getElementById('toggleStrain');
+  if(strainToggle && strainToggle.checked){
+    renderStrainSurface(m);
     updateDipoleDisplay();
     return;
   }
-  removeESPLegend();
+  removeStrainLegend();
   clearGroup(molGroup3d);
   const com = m.centerOfMass();
   const scale = 1;
@@ -4209,7 +4292,7 @@ function updateDipoleDisplay(){
 
 // Draws the dipole moment as an arrow anchored at the molecule's center of mass - the same
 // reference point computeDipoleMoment uses, and the point every atom/bond mesh in
-// renderMolecule3D/renderESPSurface is already centered on, so no extra coordinate translation
+// renderMolecule3D/renderStrainSurface is already centered on, so no extra coordinate translation
 // is needed here. The arrow's literal length (mux,muy,muz are in e·Å, typically a small
 // fraction of an Angstrom) would be imperceptible next to the atoms, so it's rescaled for
 // visibility - length still grows with magnitude, so relative comparisons between molecules
@@ -4230,15 +4313,15 @@ function updateDipoleVector3D(d){
 
 document.getElementById('toggleDipole').addEventListener('change', updateDipoleDisplay);
 
-document.getElementById('toggleESP').addEventListener('change', ()=>{
+document.getElementById('toggleStrain').addEventListener('change', ()=>{
   if(mol3d) renderMolecule3D(mol3d);
-  else if(document.getElementById('toggleESP').checked) alert('Generate or load a 3D structure first.');
+  else if(document.getElementById('toggleStrain').checked) alert('Generate or load a 3D structure first.');
   updateDipoleDisplay();
 });
 
 function update3DPlaceholder(){
   if(molGroup3d) clearGroup(molGroup3d);
-  removeESPLegend();
+  removeStrainLegend();
   mol3d = null;
 }
 
@@ -4502,6 +4585,29 @@ document.getElementById('btnPubchem').addEventListener('click', async ()=>{
       renderMolecule3D(m3);
     }
   }
+});
+
+document.getElementById('btnTo2D').addEventListener('click', ()=>{
+  if(!mol3d || mol3d.atoms.length===0){
+    alert('Generate or load a 3D structure first (VSEPR or PubChem lookup).');
+    return;
+  }
+  const statusEl = document.getElementById('to2DStatus');
+  // Rebuild the 2D canvas's molecule from the 3D structure's connectivity (atoms, bonds, bond
+  // orders, formal charges) - the 3D coordinates themselves aren't reused directly (a raw x/y
+  // projection of a 3D shape produces a poor, overlapping 2D drawing), so the skeleton is laid
+  // out fresh the same way "Auto-fill H to valence" already does.
+  mol.atoms = mol3d.atoms.map(a=> ({ ...a }));
+  mol.bonds = mol3d.bonds.map(b=> ({ ...b }));
+  mol.groups = [];
+  mol._id = mol3d._id;
+  mol.atoms.forEach(a=>{ a.x=0; a.y=0; a.z=0; a.sel=false; });
+
+  cleanupSkeletonAndHydrogens2D(mol);
+  pushHistory(); render2D();
+  statusEl.textContent = 'Done — 2D canvas rebuilt from the 3D structure.';
+  const svgEl = document.getElementById('canvas2d');
+  if(svgEl && svgEl.scrollIntoView) svgEl.scrollIntoView({behavior:'smooth', block:'center'});
 });
 
 // ============================================================
