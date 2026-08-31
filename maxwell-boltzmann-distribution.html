@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Maxwell–Boltzmann Speed Distribution</title>
+<style>
+  :root{
+    --bg:#f7f8fa;
+    --panel:#ffffff;
+    --border:#dde2e8;
+    --text:#1b2129;
+    --text-dim:#6b7480;
+    --accent:#1f7a6c;
+    --accent-2:#c9660a;
+    --track:#e6e9ed;
+    --radius:12px;
+    --c1:#e63946;
+    --c2:#457b9d;
+    --c3:#2a9d8f;
+    --c4:#e08c1f;
+  }
+  html[data-theme="dark"]{
+    --bg:#0d1117;
+    --panel:#141b23;
+    --border:#263142;
+    --text:#e7ecef;
+    --text-dim:#8b9bab;
+    --accent:#7dd3c8;
+    --track:#1c2530;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  header{
+    padding:16px 16px 8px;
+    max-width:720px; margin:0 auto;
+    display:flex; align-items:flex-start; gap:12px;
+  }
+  header .header-text{ flex:1; min-width:0; }
+  header h1{ font-size:20px; margin:0 0 4px; }
+  header p{ margin:0; font-size:13px; color:var(--text-dim); line-height:1.45; }
+  main{ max-width:720px; margin:0 auto; padding:8px 16px 40px; }
+
+  .theme-switch{
+    flex-shrink:0; width:52px; height:30px; border-radius:999px; border:1px solid var(--border);
+    background:var(--track); position:relative; cursor:pointer; padding:0; margin-top:2px;
+  }
+  .theme-switch .knob{
+    position:absolute; top:2px; left:2px; width:24px; height:24px; border-radius:50%;
+    background:var(--panel); box-shadow:0 1px 3px rgba(0,0,0,0.25);
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+    transition:left 0.15s ease;
+  }
+  html[data-theme="dark"] .theme-switch .knob{ left:24px; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; margin-bottom:14px;
+  }
+  .card h2{ font-size:14px; margin:0 0 10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em; }
+
+  /* segmented mode toggle */
+  .segmented{
+    display:flex; background:var(--track); border-radius:10px; padding:3px; gap:3px;
+  }
+  .segmented button{
+    flex:1; border:none; background:transparent; padding:10px 8px; font-size:14px; font-weight:600;
+    color:var(--text-dim); border-radius:8px; cursor:pointer; font-family:inherit;
+  }
+  .segmented button.active{ background:var(--panel); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.12); }
+
+  label{ display:block; font-size:12.5px; color:var(--text-dim); margin-bottom:4px; }
+  input[type="number"], select{
+    width:100%; font-size:16px; padding:10px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text); font-family:inherit;
+  }
+  input[type="number"]:focus, select:focus{ outline:2px solid var(--accent); outline-offset:-1px; }
+
+  .shared-input{ margin-bottom:14px; }
+
+  .curve-row{
+    display:grid; grid-template-columns:14px 1fr; gap:10px; align-items:end;
+    padding:8px 0; border-bottom:1px solid var(--border);
+  }
+  .curve-row:last-child{ border-bottom:none; }
+  .swatch{ width:14px; height:14px; border-radius:50%; margin-bottom:11px; }
+
+  .chart-wrap{ position:relative; }
+  svg#chart{ width:100%; height:auto; display:block; touch-action:none; }
+  .axis-label{ font-size:10.5px; fill:var(--text-dim); font-family:inherit; }
+  .grid-line{ stroke:var(--border); stroke-width:1; }
+  .curve-path{ fill:none; stroke-width:2.4; }
+  .curve-fill{ opacity:0.08; }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:10px 16px; margin-top:10px; font-size:12.5px; }
+  .legend-item{ display:flex; align-items:center; gap:6px; }
+  .legend-swatch{ width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .legend-item .val{ color:var(--text-dim); }
+
+  table.stats{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.stats th, table.stats td{ text-align:left; padding:6px 6px; border-bottom:1px solid var(--border); }
+  table.stats th{ color:var(--text-dim); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; }
+  table.stats td.num{ font-variant-numeric:tabular-nums; }
+  .row-swatch{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+
+  .hint{ font-size:11.5px; color:var(--text-dim); line-height:1.5; margin-top:8px; }
+  .gas-quickpick{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .gas-chip{
+    font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text-dim); cursor:pointer; font-family:inherit;
+  }
+  .gas-chip:active{ background:var(--track); }
+
+  .toolbar-row{ margin-top:12px; }
+  .secondary-btn{
+    width:100%; font-size:14px; font-weight:600; padding:11px 10px; border-radius:8px;
+    border:1px solid var(--border); background:var(--panel); color:var(--text);
+    cursor:pointer; font-family:inherit;
+  }
+  .secondary-btn:active{ background:var(--track); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-text">
+    <h1>Maxwell–Boltzmann Speed Distribution</h1>
+    <p>Compares how molecular speed is distributed across a gas sample. Pick whether to compare four different <b>molar masses</b> at one temperature, or four different <b>temperatures</b> for one gas.</p>
+  </div>
+  <button class="theme-switch" id="themeSwitch" type="button" aria-label="Toggle dark mode">
+    <span class="knob" id="themeKnob">☀️</span>
+  </button>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Comparison mode</h2>
+    <div class="segmented">
+      <button id="modeMassBtn" class="active">Compare molar masses</button>
+      <button id="modeTempBtn">Compare temperatures</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="sharedLabel">Fixed temperature</h2>
+    <div class="shared-input">
+      <label id="sharedInputLabel" for="sharedValue">Temperature (K)</label>
+      <input type="number" id="sharedValue" value="298" min="1" step="1">
+    </div>
+
+    <h2 id="curvesLabel">Molar masses to compare (g/mol)</h2>
+    <div id="curveRows"></div>
+
+    <div class="gas-quickpick" id="gasQuickpick"></div>
+    <div class="hint" id="modeHint"></div>
+  </div>
+
+  <div class="card">
+    <h2>Speed distribution</h2>
+    <div class="chart-wrap">
+      <svg id="chart" viewBox="0 0 640 380" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="toolbar-row">
+      <button id="exportBtn" class="secondary-btn" type="button">⬇ Export graph (PNG)</button>
+    </div>
+    <div class="hint">Exports the chart as a light-mode image with a legend, regardless of which mode you're viewing in — easier to read once printed or pasted into a document.</div>
+  </div>
+
+  <div class="card">
+    <h2>Characteristic speeds</h2>
+    <table class="stats">
+      <thead>
+        <tr><th></th><th>Most probable, v<sub>p</sub></th><th>Mean, v&#772;</th><th>RMS, v<sub>rms</sub></th></tr>
+      </thead>
+      <tbody id="statsBody"></tbody>
+    </table>
+    <div class="hint">v<sub>p</sub> = &radic;(2RT/M) &nbsp;·&nbsp; v&#772; = &radic;(8RT/&pi;M) &nbsp;·&nbsp; v<sub>rms</sub> = &radic;(3RT/M), with R = 8.314 J/(mol·K). All speeds in m/s.</div>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  const R = 8.314; // J/(mol*K)
+  const COLORS = ['#e63946','#457b9d','#2a9d8f','#e08c1f'];
+  const COMMON_GASES = [
+    {name:'H\u2082', M:2.016},
+    {name:'He', M:4.003},
+    {name:'N\u2082', M:28.014},
+    {name:'O\u2082', M:31.998},
+    {name:'Ar', M:39.948},
+    {name:'CO\u2082', M:44.01},
+  ];
+
+  let mode = 'mass'; // 'mass' = compare 4 molar masses at one T; 'temp' = compare 4 temps at one M
+
+  // default values
+  let sharedT = 298;      // K, used in 'mass' mode
+  let sharedM = 28.014;   // g/mol, used in 'temp' mode
+  let massValues = [2.016, 4.003, 28.014, 44.01];   // g/mol, used in 'mass' mode
+  let tempValues = [200, 300, 500, 1000];            // K, used in 'temp' mode
+
+  const sharedValueEl = document.getElementById('sharedValue');
+  const sharedLabelEl = document.getElementById('sharedLabel');
+  const sharedInputLabelEl = document.getElementById('sharedInputLabel');
+  const curvesLabelEl = document.getElementById('curvesLabel');
+  const curveRowsEl = document.getElementById('curveRows');
+  const gasQuickpickEl = document.getElementById('gasQuickpick');
+  const modeHintEl = document.getElementById('modeHint');
+  const modeMassBtn = document.getElementById('modeMassBtn');
+  const modeTempBtn = document.getElementById('modeTempBtn');
+  const svg = document.getElementById('chart');
+  const legendEl = document.getElementById('legend');
+  const statsBodyEl = document.getElementById('statsBody');
+
+  const NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    if(attrs) for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // f(v) = 4*pi*(M/(2*pi*R*T))^1.5 * v^2 * exp(-M*v^2/(2*R*T))  [M in kg/mol, T in K, v in m/s]
+  function speedDensity(v, M_kg, T){
+    const a = M_kg/(2*Math.PI*R*T);
+    return 4*Math.PI*Math.pow(a,1.5)*v*v*Math.exp(-M_kg*v*v/(2*R*T));
+  }
+  function charSpeeds(M_kg, T){
+    return {
+      vp: Math.sqrt(2*R*T/M_kg),
+      vavg: Math.sqrt(8*R*T/(Math.PI*M_kg)),
+      vrms: Math.sqrt(3*R*T/M_kg),
+    };
+  }
+
+  function buildCurveRows(){
+    curveRowsEl.innerHTML = '';
+    for(let i=0;i<4;i++){
+      const row = document.createElement('div');
+      row.className = 'curve-row';
+      const swatch = document.createElement('div');
+      swatch.className = 'swatch';
+      swatch.style.background = COLORS[i];
+      row.appendChild(swatch);
+
+      const wrap = document.createElement('div');
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.dataset.idx = i;
+
+      if(mode === 'mass'){
+        label.textContent = 'Gas '+(i+1)+' molar mass (g/mol)';
+        input.min='0.1'; input.step='0.1'; input.value = massValues[i];
+        input.addEventListener('input', ()=>{
+          const v = parseFloat(input.value);
+          massValues[i] = (v>0) ? v : massValues[i];
+          update();
+        });
+      } else {
+        label.textContent = 'Temperature '+(i+1)+' (K)';
+        input.min='1'; input.step='1'; input.value = tempValues[i];
+        input.addEventListener('input', ()=>{
+          const v = parseFloat(input.value);
+          tempValues[i] = (v>0) ? v : tempValues[i];
+          update();
+        });
+      }
+      wrap.appendChild(label); wrap.appendChild(input);
+      row.appendChild(wrap);
+      curveRowsEl.appendChild(row);
+    }
+  }
+
+  function buildGasQuickpicks(){
+    gasQuickpickEl.innerHTML = '';
+    if(mode !== 'mass'){
+      // in temp mode, quick-picks set the single shared molar mass
+      COMMON_GASES.forEach(g=>{
+        const chip = document.createElement('button');
+        chip.className = 'gas-chip'; chip.type='button';
+        chip.textContent = g.name;
+        chip.addEventListener('click', ()=>{
+          sharedM = g.M;
+          sharedValueEl.value = g.M;
+          update();
+        });
+        gasQuickpickEl.appendChild(chip);
+      });
+      return;
+    }
+    // in mass mode, tapping a chip fills whichever of the 4 mass fields was last focused,
+    // defaulting to the first one - simplest reliable behavior on mobile
+    let targetIdx = 0;
+    const inputs = curveRowsEl.querySelectorAll('input');
+    inputs.forEach((inp,i)=> inp.addEventListener('focus', ()=> targetIdx = i));
+    COMMON_GASES.forEach(g=>{
+      const chip = document.createElement('button');
+      chip.className = 'gas-chip'; chip.type='button';
+      chip.textContent = g.name;
+      chip.addEventListener('click', ()=>{
+        massValues[targetIdx] = g.M;
+        const inp = curveRowsEl.querySelector('input[data-idx="'+targetIdx+'"]');
+        if(inp) inp.value = g.M;
+        update();
+      });
+      gasQuickpickEl.appendChild(chip);
+    });
+  }
+
+  function setMode(newMode){
+    mode = newMode;
+    modeMassBtn.classList.toggle('active', mode==='mass');
+    modeTempBtn.classList.toggle('active', mode==='temp');
+    if(mode === 'mass'){
+      sharedLabelEl.textContent = 'Fixed temperature';
+      sharedInputLabelEl.textContent = 'Temperature (K)';
+      sharedValueEl.value = sharedT;
+      sharedValueEl.min = '1';
+      curvesLabelEl.textContent = 'Molar masses to compare (g/mol)';
+      modeHintEl.textContent = 'At a fixed temperature, lighter molecules move faster on average — their curve peaks further right, but shorter and broader (the area under every curve is the same, 1).';
+    } else {
+      sharedLabelEl.textContent = 'Fixed molar mass';
+      sharedInputLabelEl.textContent = 'Molar mass (g/mol)';
+      sharedValueEl.value = sharedM;
+      sharedValueEl.min = '0.1';
+      curvesLabelEl.textContent = 'Temperatures to compare (K)';
+      modeHintEl.textContent = 'For a fixed gas, raising the temperature shifts the curve to higher speeds and flattens/broadens it — more molecules reach high speeds, but the peak gets shorter since the area under every curve is still 1.';
+    }
+    buildCurveRows();
+    buildGasQuickpicks();
+    update();
+  }
+
+  sharedValueEl.addEventListener('input', ()=>{
+    const v = parseFloat(sharedValueEl.value);
+    if(!(v>0)) return;
+    if(mode==='mass') sharedT = v; else sharedM = v;
+    update();
+  });
+  modeMassBtn.addEventListener('click', ()=> setMode('mass'));
+  modeTempBtn.addEventListener('click', ()=> setMode('temp'));
+
+  function getActiveCurves(){
+    // returns [{M_kg, T, label, color}] for the 4 curves under the current mode
+    const curves = [];
+    for(let i=0;i<4;i++){
+      let M_g, T;
+      if(mode==='mass'){ M_g = massValues[i]; T = sharedT; }
+      else { M_g = sharedM; T = tempValues[i]; }
+      if(!(M_g>0) || !(T>0)) continue;
+      const label = mode==='mass' ? (M_g.toFixed(2)+' g/mol') : (T.toFixed(0)+' K');
+      curves.push({ M_kg: M_g/1000, T, label, color: COLORS[i] });
+    }
+    return curves;
+  }
+
+  function fmt(v){
+    if(v>=1000) return v.toFixed(0);
+    if(v>=100) return v.toFixed(0);
+    if(v>=10) return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  function update(){
+    const curves = getActiveCurves();
+    renderChart(curves);
+    renderLegendAndStats(curves);
+  }
+
+  function renderChart(curves){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    const W=640, H=380, padL=52, padR=16, padT=16, padB=40;
+    const plotW = W-padL-padR, plotH = H-padT-padB;
+
+    if(curves.length===0){
+      const msg = el('text', {x:W/2, y:H/2, 'text-anchor':'middle', fill:'var(--text-dim)', 'font-size':13});
+      msg.textContent = 'Enter at least one valid value to see a curve.';
+      svg.appendChild(msg);
+      return;
+    }
+
+    const vps = curves.map(c=> Math.sqrt(2*R*c.T/c.M_kg));
+    const vMax = Math.max(...vps) * 3.2;
+    const N = 220;
+    const sampled = curves.map(c=>{
+      const pts = [];
+      for(let i=0;i<=N;i++){
+        const v = vMax*i/N;
+        pts.push([v, speedDensity(v, c.M_kg, c.T)]);
+      }
+      return pts;
+    });
+    const fMax = Math.max(...sampled.map(pts=> Math.max(...pts.map(p=>p[1]))));
+    const yMax = fMax*1.12;
+
+    const xOf = v => padL + (v/vMax)*plotW;
+    const yOf = f => padT + plotH - (f/yMax)*plotH;
+
+    // gridlines + axis ticks (x: speed in m/s, y: probability density)
+    const xTicks = 6;
+    for(let i=0;i<=xTicks;i++){
+      const v = vMax*i/xTicks;
+      const x = xOf(v);
+      svg.appendChild(el('line', {class:'grid-line', x1:x, x2:x, y1:padT, y2:padT+plotH}));
+      const t = el('text', {class:'axis-label', x, y:H-padB+16, 'text-anchor':'middle'});
+      t.textContent = Math.round(v);
+      svg.appendChild(t);
+    }
+    const yTicks = 4;
+    for(let i=0;i<=yTicks;i++){
+      const f = yMax*i/yTicks;
+      const y = yOf(f);
+      svg.appendChild(el('line', {class:'grid-line', x1:padL, x2:padL+plotW, y1:y, y2:y}));
+      const t = el('text', {class:'axis-label', x:padL-6, y:y+3, 'text-anchor':'end'});
+      t.textContent = f.toExponential(1);
+      svg.appendChild(t);
+    }
+    const xlabel = el('text', {class:'axis-label', x:padL+plotW/2, y:H-6, 'text-anchor':'middle', 'font-size':11.5});
+    xlabel.textContent = 'Speed, v (m/s)';
+    svg.appendChild(xlabel);
+    const ylabel = el('text', {class:'axis-label', x:14, y:padT+8, 'font-size':11});
+    ylabel.textContent = 'f(v)';
+    svg.appendChild(ylabel);
+
+    // axes box
+    svg.appendChild(el('line', {x1:padL, x2:padL, y1:padT, y2:padT+plotH, stroke:'var(--text-dim)', 'stroke-width':1}));
+    svg.appendChild(el('line', {x1:padL, x2:padL+plotW, y1:padT+plotH, y2:padT+plotH, stroke:'var(--text-dim)', 'stroke-width':1}));
+
+    curves.forEach((c,i)=>{
+      const pts = sampled[i];
+      let d = 'M '+xOf(pts[0][0])+' '+yOf(pts[0][1]);
+      for(let k=1;k<pts.length;k++) d += ' L '+xOf(pts[k][0])+' '+yOf(pts[k][1]);
+      const fillD = d + ' L '+xOf(pts[pts.length-1][0])+' '+yOf(0)+' L '+xOf(pts[0][0])+' '+yOf(0)+' Z';
+      svg.appendChild(el('path', {d:fillD, class:'curve-fill', fill:c.color}));
+      svg.appendChild(el('path', {d, class:'curve-path', stroke:c.color}));
+    });
+  }
+
+  function renderLegendAndStats(curves){
+    legendEl.innerHTML = '';
+    statsBodyEl.innerHTML = '';
+    curves.forEach(c=>{
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      const sw = document.createElement('span');
+      sw.className = 'legend-swatch'; sw.style.background = c.color;
+      const label = document.createElement('span');
+      label.textContent = mode==='mass' ? c.label : (c.label);
+      item.appendChild(sw); item.appendChild(label);
+      legendEl.appendChild(item);
+
+      const s = charSpeeds(c.M_kg, c.T);
+      const tr = document.createElement('tr');
+      const nameCell = mode==='mass'
+        ? '<span class="row-swatch" style="background:'+c.color+'"></span>'+c.label
+        : '<span class="row-swatch" style="background:'+c.color+'"></span>'+c.label;
+      tr.innerHTML = '<td>'+nameCell+'</td>'+
+        '<td class="num">'+fmt(s.vp)+'</td>'+
+        '<td class="num">'+fmt(s.vavg)+'</td>'+
+        '<td class="num">'+fmt(s.vrms)+'</td>';
+      statsBodyEl.appendChild(tr);
+    });
+  }
+
+  // ---- Dark / light mode toggle ----
+  const themeSwitchEl = document.getElementById('themeSwitch');
+  const themeKnobEl = document.getElementById('themeKnob');
+  function applyTheme(t){
+    document.documentElement.dataset.theme = t;
+    themeKnobEl.textContent = t==='dark' ? '🌙' : '☀️';
+  }
+  themeSwitchEl.addEventListener('click', ()=>{
+    const next = document.documentElement.dataset.theme==='dark' ? 'light' : 'dark';
+    applyTheme(next);
+  });
+  applyTheme('light');
+
+  // ---- Export graph as a light-mode PNG, regardless of the current display theme ----
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function buildExportSVG(){
+    const original = document.getElementById('chart');
+    const clone = original.cloneNode(true);
+    clone.setAttribute('xmlns', SVG_NS);
+    const vb = clone.viewBox.baseVal;
+    const legendH = 34;
+    const fullH = vb.height + legendH;
+    clone.setAttribute('viewBox', vb.x+' '+vb.y+' '+vb.width+' '+fullH);
+
+    // Embed plain (non-variable) light-theme colors so this renders correctly as a fully
+    // standalone SVG document (an exported <img>/canvas copy has no access to the page's own
+    // stylesheet or its dark-mode CSS custom properties) - and always light, regardless of
+    // whichever mode the page itself is currently displayed in.
+    const style = document.createElementNS(SVG_NS, 'style');
+    style.textContent =
+      '.grid-line{ stroke:#c9d0d8; stroke-width:1; }' +
+      '.axis-label{ font-size:10.5px; fill:#4a525c; font-family:-apple-system,Arial,sans-serif; }' +
+      '.curve-path{ fill:none; stroke-width:2.6; }' +
+      '.curve-fill{ opacity:0.10; }' +
+      'line{ stroke:#4a525c; }' +
+      'text{ fill:#1b2129; font-family:-apple-system,Arial,sans-serif; }';
+    clone.insertBefore(style, clone.firstChild);
+
+    const bgRect = document.createElementNS(SVG_NS, 'rect');
+    bgRect.setAttribute('x', vb.x); bgRect.setAttribute('y', vb.y);
+    bgRect.setAttribute('width', vb.width); bgRect.setAttribute('height', fullH);
+    bgRect.setAttribute('fill', '#ffffff');
+    clone.insertBefore(bgRect, style.nextSibling);
+
+    // self-contained legend (the on-screen legend lives in HTML below the chart, so it needs
+    // to be redrawn directly into the exported image for the PNG to be usable on its own)
+    const curves = getActiveCurves();
+    const legendY = vb.y + vb.height + 20;
+    const usableW = vb.width - 32;
+    curves.forEach((c,i)=>{
+      const cx = vb.x + 16 + (usableW/curves.length)*i;
+      const dot = document.createElementNS(SVG_NS,'circle');
+      dot.setAttribute('cx', cx); dot.setAttribute('cy', legendY); dot.setAttribute('r', 5);
+      dot.setAttribute('fill', c.color);
+      clone.appendChild(dot);
+      const label = document.createElementNS(SVG_NS,'text');
+      label.setAttribute('x', cx+10); label.setAttribute('y', legendY+4);
+      label.setAttribute('font-size', 12);
+      label.textContent = c.label;
+      clone.appendChild(label);
+    });
+
+    return { clone, width: vb.width, height: fullH };
+  }
+
+  function exportGraphPNG(){
+    const { clone, width, height } = buildExportSVG();
+    const svgString = new XMLSerializer().serializeToString(clone);
+    const svgBlob = new Blob([svgString], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = function(){
+      const scale = 2; // export at 2x for a crisper image than the on-screen viewBox size
+      const canvas = document.createElement('canvas');
+      canvas.width = width*scale; canvas.height = height*scale;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob){
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'maxwell-boltzmann-distribution.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, 'image/png');
+    };
+    img.onerror = function(){
+      alert('Could not export the graph image.');
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+  document.getElementById('exportBtn').addEventListener('click', exportGraphPNG);
+
+  setMode('mass');
+})();
+</script>
+</body>
+</html>
