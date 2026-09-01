@@ -227,6 +227,7 @@
       <label class="chk"><input type="checkbox" id="toggleH" checked> Show H symbols</label>
       <div class="divider"></div>
       <button id="btnAutoH">Auto-fill H to valence</button>
+      <button id="btnCleanStructure">Clean structure</button>
       <button id="btnUndo">Undo</button>
       <button id="btnClear" class="danger">Clear canvas</button>
     </div>
@@ -3401,6 +3402,67 @@ document.getElementById('btnClear').addEventListener('click', ()=>{
   mol.atoms=[]; mol.bonds=[]; mol.groups=[]; mol._id=1;
   pushHistory(); render2D(); update3DPlaceholder();
 });
+
+// Nudges apart any atoms whose 2D positions are stacked on top of (or very close to) each
+// other - e.g. from pasting, importing, or careless freehand drawing - while disturbing the
+// rest of the layout as little as possible. Unlike "Auto-fill H to valence"'s full skeleton
+// rebuild, this keeps the existing layout intact wherever nothing is actually overlapping: a
+// pairwise repulsion only kicks in for atoms closer than a genuine-overlap threshold (well
+// under the standard bond length, so normally-bonded neighbors are untouched), and the
+// existing bonds act as springs so the rest of the structure reflows sensibly - and back to a
+// correct bond length - as a byproduct of separating whatever was actually stacked.
+function resolveOverlappingAtoms2D(m){
+  const n = m.atoms.length;
+  if(n<2) return { hadOverlap:false };
+  const OVERLAP_DIST = 25; // px - comfortably less than the standard 55px bond length
+  const BOND_LEN = 55;
+  let hadOverlap = false;
+
+  for(let iter=0; iter<250; iter++){
+    const forces = m.atoms.map(()=>({fx:0,fy:0}));
+    let overlapThisIter = false;
+    for(let i=0;i<n;i++){
+      for(let j=i+1;j<n;j++){
+        const a=m.atoms[i], b=m.atoms[j];
+        let dx=a.x-b.x, dy=a.y-b.y;
+        let d = Math.hypot(dx,dy);
+        if(d>=OVERLAP_DIST) continue;
+        overlapThisIter = true;
+        if(d<0.5){ // exactly (or nearly) coincident - direction is undefined, so pick one
+          const ang = Math.random()*2*Math.PI;
+          dx = Math.cos(ang); dy = Math.sin(ang); d = 1;
+        }
+        const f = (OVERLAP_DIST-d)*0.5;
+        forces[i].fx += f*dx/d; forces[i].fy += f*dy/d;
+        forces[j].fx -= f*dx/d; forces[j].fy -= f*dy/d;
+      }
+    }
+    if(iter===0) hadOverlap = overlapThisIter;
+    m.bonds.forEach(b=>{
+      const A=m.getAtom(b.a), B=m.getAtom(b.b);
+      if(!A||!B) return;
+      let dx=B.x-A.x, dy=B.y-A.y;
+      let d = Math.hypot(dx,dy) || 0.01;
+      const f = (d-BOND_LEN)*0.08;
+      const ia = m.atoms.indexOf(A), ib = m.atoms.indexOf(B);
+      forces[ia].fx += f*dx/d; forces[ia].fy += f*dy/d;
+      forces[ib].fx -= f*dx/d; forces[ib].fy -= f*dy/d;
+    });
+    m.atoms.forEach((a,i)=>{
+      a.x += forces[i].fx*0.3;
+      a.y += forces[i].fy*0.3;
+    });
+  }
+  return { hadOverlap };
+}
+document.getElementById('btnCleanStructure').addEventListener('click', ()=>{
+  if(mol.atoms.length<2){ alert('Draw a molecule with at least two atoms first.'); return; }
+  const { hadOverlap } = resolveOverlappingAtoms2D(mol);
+  fitToCanvas2D(mol);
+  pushHistory(); render2D();
+  if(!hadOverlap) alert('No overlapping atoms found — the structure already looked clean.');
+});
+
 // Removes any existing explicit H atoms, re-spaces the heavy-atom skeleton into a clean,
 // non-overlapping 2D layout (regular polygons for rings, an alternating zigzag for chains),
 // then adds back exactly the H atoms needed for full valence, fanned into whatever angular
