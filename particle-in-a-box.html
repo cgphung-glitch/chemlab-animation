@@ -37,6 +37,16 @@
                 </div>
 
                 <div>
+                    <label class="flex items-center gap-2 text-sm font-medium mb-2 text-gray-300 cursor-pointer">
+                        <input id="staticModeCheckbox" type="checkbox" onchange="toggleStaticMode()" class="accent-teal-400 w-4 h-4 cursor-pointer">
+                        Time-Independent Plot (static, t = 0)
+                    </label>
+                    <p id="staticModeHint" class="text-xs text-gray-500 -mt-1 mb-2 hidden">
+                        Showing the stationary spatial profile Ψ(x) = Σ cₙψₙ(x) with no time evolution. For a single eigenstate this is exact; for a superposition it's a snapshot at t = 0, since a true superposition is not stationary.
+                    </p>
+                </div>
+
+                <div id="speedControl">
                     <label class="block text-sm font-medium mb-1 text-gray-300">Time Evolution Speed</label>
                     <div class="flex items-center gap-4">
                         <input id="speedSlider" type="range" min="0" max="5" step="0.1" value="0.5" class="w-full accent-teal-400 bg-gray-700 h-2 rounded-lg appearance-none cursor-pointer">
@@ -102,6 +112,7 @@
         // Visualization Toggles
         let showWave = true;
         let showProb = true;
+        let isStaticMode = false;
 
         // Dynamic Slider Generation
         const slidersContainer = document.getElementById('slidersContainer');
@@ -208,6 +219,19 @@
             }
         }
 
+        // Toggle between time-dependent animation and a static (t=0) plot
+        function toggleStaticMode() {
+            isStaticMode = document.getElementById('staticModeCheckbox').checked;
+            document.getElementById('speedSlider').disabled = isStaticMode;
+            document.getElementById('speedControl').style.opacity = isStaticMode ? '0.4' : '1';
+            document.getElementById('staticModeHint').classList.toggle('hidden', !isStaticMode);
+            if (isStaticMode) {
+                t = 0;
+            } else {
+                lastTime = performance.now();
+            }
+        }
+
         // Calculate normalized weights so total probability = 1.0
         function updateCoefficients() {
             for (let i = 0; i < totalStates; i++) {
@@ -255,8 +279,10 @@
             const speed = parseFloat(document.getElementById('speedSlider').value);
             document.getElementById('speedVal').innerText = speed.toFixed(1) + 'x';
             
-            // Advance physical phase
-            t += dt * speed * 3.0; 
+            // Advance physical phase (frozen at t=0 in static/time-independent mode)
+            if (!isStaticMode) {
+                t += dt * speed * 3.0;
+            }
 
             const psiData = [];
             const probData = [];
@@ -305,6 +331,9 @@
             t = 0;
             updateCoefficients();
         }
+
+        // Initialize static-mode UI state
+        toggleStaticMode();
 
         // Start App
         updateCoefficients();
