@@ -1026,6 +1026,7 @@ async function runExperiment() {
 function resetAll() {
   state.phase = 'idle';
   state.visualVolumeML = 0;
+  tInitInput.value = randRange(20, 25).toFixed(1);
   state.displayTemp = clampTinit(parseFloat(tInitInput.value)) || 22.0;
   state.result = null;
   lockSetup(false);
