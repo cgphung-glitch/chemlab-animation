@@ -277,6 +277,15 @@
         {mz:82, intensity:97.0, assignment:"H⁸¹Br⁺ (M)", series:"molecular"}
       ]
     },
+    HI: {
+      formula:"HI", name:"Hydrogen iodide", kind:"molecular", domain:[0,134],
+      note:"EI mass spectrum: (H–I)⁺ molecular ion at m/z 128, and I⁺ fragment from loss of H at m/z 127. Iodine is monoisotopic (¹²⁷I, 100%), so each cluster is a single peak. The weak H–I bond makes the I⁺ fragment the base peak — larger, relative to M⁺, than in HCl or HBr.",
+      peaks:[
+        {mz:1,   intensity:3.0,  assignment:"H⁺ (fragment, –I)", series:"fragment"},
+        {mz:127, intensity:100.0,assignment:"¹²⁷I⁺ (fragment, –H)", series:"fragment"},
+        {mz:128, intensity:78.0, assignment:"H¹²⁷I⁺ (M)", series:"molecular"}
+      ]
+    },
     Br2: {
       formula:"Br₂", name:"Bromine", kind:"molecular", domain:[76,164],
       note:"EI mass spectrum: Br₂⁺ molecular-ion cluster (three combinations of ⁷⁹Br/⁸¹Br, ≈1:2:1) near m/z 158–162, plus a Br⁺ fragment cluster near m/z 79/81 from homolytic cleavage.",
@@ -302,7 +311,7 @@
       ]
     }
   };
-  const SPECIES_ORDER = ["Ne","Si","Hg","HCl","HBr","Br2","ClBr"];
+  const SPECIES_ORDER = ["Ne","Si","Hg","HCl","HBr","HI","Br2","ClBr"];
 
   const THEME_COLORS = {
     dark:  { panel:"#161e24", grid:"#2a3138", axis:"#7f8f99", ink:"#eae6da", muted:"#8fa0ab",
@@ -742,29 +751,106 @@
   }
 
   /* ---------------------------------------------------------------------
-     8. EXPORT (always rendered in light mode, regardless of current theme)
+     8. EXPORT (chart + peak-assignment table, always rendered in light mode)
   --------------------------------------------------------------------- */
+  const TABLE_GAP_BEFORE = 16;
+  const TABLE_TITLE_H = 24;
+  const TABLE_HEADER_H = 22;
+  const TABLE_ROW_H = 20;
+  const TABLE_BOTTOM_PAD = 16;
+
+  function measureTableBlockHeight(sp){
+    return TABLE_TITLE_H + TABLE_HEADER_H + sp.peaks.length * TABLE_ROW_H + TABLE_BOTTOM_PAD;
+  }
+
+  function drawPeakTableOnCanvas(ctx, sp, x, yTop, width, theme){
+    const C = THEME_COLORS[theme];
+    const rows = [...sp.peaks].sort((a,b)=>a.mz-b.mz);
+    const colMz = x + 8;
+    const colInten = x + 78;
+    const colAssign = x + 200;
+    const monoFont = '"JetBrains Mono",Consolas,monospace';
+    const serifFont = '"Fraunces","Palatino Linotype",Georgia,serif';
+
+    // separating rule + title
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, yTop); ctx.lineTo(x+width, yTop); ctx.stroke();
+
+    ctx.fillStyle = C.ink;
+    ctx.font = "600 14px " + serifFont;
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("Peak assignments", x, yTop + 18);
+
+    let cy = yTop + TABLE_TITLE_H;
+
+    // header row
+    ctx.fillStyle = theme === "light" ? "rgba(20,15,5,.045)" : "rgba(255,255,255,.045)";
+    ctx.fillRect(x, cy, width, TABLE_HEADER_H);
+    ctx.fillStyle = C.muted;
+    ctx.font = "700 10px " + monoFont;
+    ctx.textBaseline = "middle";
+    ctx.fillText("m/z", colMz, cy + TABLE_HEADER_H/2);
+    ctx.fillText("REL. INTENSITY", colInten, cy + TABLE_HEADER_H/2);
+    ctx.fillText("ASSIGNMENT", colAssign, cy + TABLE_HEADER_H/2);
+    cy += TABLE_HEADER_H;
+    ctx.strokeStyle = C.grid;
+    ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x+width, cy); ctx.stroke();
+
+    // data rows
+    rows.forEach((p,i)=>{
+      if(i % 2 === 1){
+        ctx.fillStyle = theme === "light" ? "rgba(20,15,5,.028)" : "rgba(255,255,255,.028)";
+        ctx.fillRect(x, cy, width, TABLE_ROW_H);
+      }
+      const seriesColor = p.series === "fragment" ? C.teal : C.amber;
+      const midY = cy + TABLE_ROW_H/2;
+
+      ctx.font = "700 11px " + monoFont;
+      ctx.fillStyle = C.ink;
+      ctx.fillText(String(p.mz), colMz, midY);
+
+      ctx.fillStyle = seriesColor;
+      ctx.fillText(p.intensity.toFixed(1) + "%", colInten, midY);
+
+      ctx.font = "11px " + monoFont;
+      ctx.fillStyle = C.ink;
+      ctx.fillText(p.assignment, colAssign, midY);
+
+      cy += TABLE_ROW_H;
+    });
+
+    // bottom rule
+    ctx.strokeStyle = C.grid;
+    ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x+width, cy); ctx.stroke();
+  }
+
   document.getElementById("exportBtn").addEventListener("click", ()=>{
     const sp = SPECTRA[currentSpecies];
     const domain = getDomain(sp);
     const isZoomed = !!state.viewDomain;
-    const cssW = 860, cssH = 520, scale = 2;
+    const cssW = 860, chartCssH = 460, scale = 2;
+    const tableBlockH = measureTableBlockHeight(sp);
+    const totalCssH = chartCssH + TABLE_GAP_BEFORE + tableBlockH;
+
     const off = document.createElement("canvas");
-    off.width = cssW * scale; off.height = cssH * scale;
+    off.width = cssW * scale; off.height = totalCssH * scale;
     const ctx = off.getContext("2d");
     ctx.setTransform(scale,0,0,scale,0,0);
 
-    // paper background for the whole export image
+    // panel backdrop for the whole exported card (the chart draws its own
+    // background for the plot rect; this shows through around it and behind the table)
     ctx.fillStyle = THEME_COLORS.light.panel;
-    ctx.fillRect(0,0,cssW,cssH);
+    ctx.fillRect(0,0,cssW,totalCssH);
 
-    drawChart(ctx, cssW, cssH, "light", sp, -1, {
+    drawChart(ctx, cssW, chartCssH, "light", sp, -1, {
       padLeft: 50,
       domain: domain,
       title: "Mass Spectrum — " + sp.name + " (" + sp.formula + ")",
       subtitle: "m/z vs. relative intensity · General Chemistry demonstration" +
         (isZoomed ? "  ·  zoomed to m/z " + Math.round(domain[0]) + "–" + Math.round(domain[1]) : "")
     });
+
+    drawPeakTableOnCanvas(ctx, sp, 50, chartCssH + TABLE_GAP_BEFORE, cssW - 100, "light");
 
     off.toBlob(function(blob){
       const a = document.createElement("a");
