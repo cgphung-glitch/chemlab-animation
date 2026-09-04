@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Mass Spectrometry Explorer — General Chemistry</title>
+<style>
+  :root{
+    --font-serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Mono", Consolas, monospace;
+    --radius: 10px;
+  }
+  html[data-theme="dark"]{
+    --bg:#10161b; --bg-page-grid: rgba(255,255,255,.035);
+    --panel:#161e24; --panel-2:#1b242b;
+    --ink:#eae6da; --muted:#8fa0ab; --faint:#5c6b74;
+    --border:#28333c; --border-soft: rgba(255,255,255,.08);
+    --amber:#e2a63c; --amber-soft: rgba(226,166,60,.16);
+    --teal:#4fd1c5; --teal-soft: rgba(79,209,197,.16);
+    --grid:#2a3138; --axis:#7f8f99;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  html[data-theme="light"]{
+    --bg:#f6f2e9; --bg-page-grid: rgba(20,18,14,.05);
+    --panel:#fffdf8; --panel-2:#fbf6ec;
+    --ink:#221f1a; --muted:#6b6255; --faint:#9b9184;
+    --border:#ddd2ba; --border-soft: rgba(20,15,5,.08);
+    --amber:#a86a1c; --amber-soft: rgba(168,106,28,.14);
+    --teal:#0e847a; --teal-soft: rgba(14,132,122,.14);
+    --grid:#e4d9c2; --axis:#7a705f;
+    --shadow: 0 10px 24px rgba(60,45,20,.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(0deg, var(--bg-page-grid) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, var(--bg-page-grid) 0 1px, transparent 1px 28px),
+      var(--bg);
+    color:var(--ink);
+    font-family: var(--font-mono);
+    min-height:100vh;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color .25s ease, color .25s ease;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .wrap{ max-width: 880px; margin: 0 auto; padding: clamp(14px,4vw,28px) clamp(14px,4vw,24px) 48px; }
+
+  header.top{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .title-block h1{
+    font-family: var(--font-serif); font-weight:600; font-size: clamp(20px,4.4vw,28px);
+    margin:0 0 4px; letter-spacing:.2px;
+  }
+  .title-block p{ margin:0; color:var(--muted); font-size: clamp(11px,2.6vw,13px); }
+
+  /* theme toggle */
+  .theme-switch{ display:flex; align-items:center; gap:8px; flex-shrink:0; padding-top:2px;}
+  .theme-switch button{
+    all:unset; cursor:pointer;
+    width:52px; height:28px; border-radius:999px;
+    background: var(--panel-2); border:1px solid var(--border);
+    position:relative; flex-shrink:0;
+    transition: background-color .2s ease;
+  }
+  .theme-switch button .knob{
+    position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
+    background: var(--amber); color:var(--bg);
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+    transition: transform .22s cubic-bezier(.4,0,.2,1), background-color .2s ease;
+  }
+  html[data-theme="light"] .theme-switch button .knob{ transform: translateX(24px); }
+  .theme-switch label{ font-size:11px; color:var(--muted); user-select:none; }
+
+  /* species tabs */
+  nav.species{
+    display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px;
+    scrollbar-width: thin;
+  }
+  nav.species::-webkit-scrollbar{ height:5px; }
+  nav.species::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+  nav.species button{
+    all:unset; cursor:pointer; flex-shrink:0;
+    font-family: var(--font-mono); font-size:13px; font-weight:600;
+    padding: 9px 16px; border-radius:999px; border:1px solid var(--border);
+    color:var(--muted); background:var(--panel);
+    min-height:40px; display:flex; align-items:center;
+    transition: all .15s ease;
+  }
+  nav.species button.active{
+    color: var(--bg); background: var(--amber); border-color: var(--amber);
+  }
+  nav.species button:not(.active):hover{ border-color:var(--amber); color:var(--ink); }
+
+  .info-bar{ margin-bottom:14px; }
+  .info-bar .formula{ font-family:var(--font-serif); font-size:clamp(19px,4vw,24px); font-weight:600; }
+  .info-bar .kind-badge{
+    font-size:10px; letter-spacing:.03em; color:var(--muted); border:1px solid var(--border);
+    padding:2px 8px; border-radius:999px; margin-left:8px; vertical-align:2px;
+  }
+  .info-bar .note{ color:var(--muted); font-size:12.5px; margin-top:6px; line-height:1.5; max-width:62ch; }
+
+  .chart-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow: var(--shadow); padding: 12px 12px 8px; margin-bottom:14px; position:relative;
+  }
+  .chart-canvas-wrap{ position:relative; width:100%; aspect-ratio: 16/11; }
+  canvas#chart{ position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; touch-action: none; }
+
+  .tooltip{
+    position:absolute; pointer-events:none; z-index:5;
+    background:var(--panel-2); border:1px solid var(--amber); border-radius:8px;
+    padding:7px 10px; font-size:12px; line-height:1.45; color:var(--ink);
+    box-shadow: var(--shadow); white-space:nowrap; opacity:0; transform: translate(-50%,-100%);
+    transition: opacity .08s ease;
+  }
+  .tooltip.show{ opacity:1; }
+  .tooltip b{ color:var(--amber); }
+
+  .chart-footer-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    padding: 8px 2px 4px; font-size:11.5px; color:var(--muted);
+  }
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .legend .item{ display:flex; align-items:center; gap:5px; }
+  .legend .swatch{ width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .legend .swatch.molecular{ background:var(--amber); }
+  .legend .swatch.fragment{ background:var(--teal); border-radius:0; transform:rotate(45deg); }
+  .legend .swatch.isotope{ background:var(--amber); }
+
+  .hint{ font-style:italic; }
+
+  button.export-btn{
+    all:unset; cursor:pointer; font-family:var(--font-mono); font-size:12px; font-weight:600;
+    color:var(--teal); border:1px solid var(--teal); padding:7px 12px; border-radius:7px;
+    display:inline-flex; align-items:center; gap:6px; min-height:34px;
+    transition: background-color .15s ease;
+  }
+  button.export-btn:hover{ background: var(--teal-soft); }
+  button.export-btn:active{ transform: translateY(1px); }
+
+  table.peaks{
+    width:100%; border-collapse:collapse; font-size:12.5px; margin-top:2px;
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;
+  }
+  table.peaks caption{ text-align:left; font-family:var(--font-serif); font-size:14px; padding:10px 12px 4px; color:var(--ink); }
+  table.peaks th, table.peaks td{ padding:7px 10px; text-align:left; border-top:1px solid var(--border-soft); }
+  table.peaks thead th{ color:var(--muted); font-weight:600; font-size:11px; letter-spacing:.02em; border-top:none; }
+  table.peaks tbody tr{ cursor:pointer; transition: background-color .12s ease; }
+  table.peaks tbody tr:hover, table.peaks tbody tr.active{ background: var(--amber-soft); }
+  table.peaks td.mz{ font-weight:700; }
+  table.peaks td.series-molecular{ color:var(--amber); }
+  table.peaks td.series-fragment{ color:var(--teal); }
+  table.peaks td.series-isotope{ color:var(--amber); }
+
+  footer.foot{ margin-top:22px; color:var(--faint); font-size:11px; line-height:1.6; text-align:center; }
+
+  @media (min-width: 620px){
+    .chart-canvas-wrap{ aspect-ratio: 16/8; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title-block">
+      <h1>Mass Spectrometry Explorer</h1>
+      <p>Mass number (m/z) vs. relative intensity — isotope &amp; fragmentation patterns</p>
+    </div>
+    <div class="theme-switch">
+      <button id="themeToggle" aria-label="Toggle light and dark mode" aria-pressed="false">
+        <span class="knob" id="themeKnob">☾</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="species" id="speciesNav" role="tablist" aria-label="Choose a chemical species"></nav>
+
+  <div class="info-bar" id="infoBar"></div>
+
+  <div class="chart-card">
+    <div class="chart-canvas-wrap" id="chartWrap">
+      <canvas id="chart" role="img" aria-label="Mass spectrum plot"></canvas>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="chart-footer-row">
+      <div class="legend" id="legend"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="export-btn" id="resetZoomBtn" style="display:none;" title="Return to the full m/z range">↺ Reset zoom</button>
+        <button class="export-btn" id="exportBtn" title="Exports the current spectrum as a PNG rendered in light mode">⬇ Export PNG (light mode)</button>
+      </div>
+    </div>
+    <p class="hint" style="margin:2px 2px 8px;">Hover (or tap) a peak to read its exact mass and intensity. Drag across the x-axis to zoom in; double-click or Reset zoom to zoom back out.</p>
+  </div>
+
+  <table class="peaks" id="peakTable">
+    <caption>Peak assignments</caption>
+    <thead>
+      <tr><th>m/z</th><th>Rel. intensity</th><th>Assignment</th></tr>
+    </thead>
+    <tbody id="peakTableBody"></tbody>
+  </table>
+
+  <footer class="foot">
+    Isotope ratios for Ne, Si, Hg and all Cl/Br clusters use natural terrestrial abundances.
+    HCl, HBr and Br₂ fragment/molecular-ion ratios follow typical EI mass spectra; BrCl fragment
+    heights are illustrative. Built for General Chemistry instruction.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------------
+     1. DATA
+     Peak "series": 'isotope' (atomic species), 'molecular' (M+ cluster),
+     'fragment' (fragment ion cluster from bond cleavage)
+  --------------------------------------------------------------------- */
+  const SPECTRA = {
+    Ne: {
+      formula:"Ne", name:"Neon", kind:"atomic", domain:[18,24],
+      note:"Natural-abundance isotope pattern of atomic neon (electron-impact ionization). Three stable isotopes: ²⁰Ne, ²¹Ne, ²²Ne.",
+      peaks:[
+        {mz:20, intensity:100.0, assignment:"²⁰Ne⁺", series:"isotope"},
+        {mz:21, intensity:0.3,   assignment:"²¹Ne⁺", series:"isotope"},
+        {mz:22, intensity:10.2, assignment:"²²Ne⁺", series:"isotope"}
+      ]
+    },
+    Si: {
+      formula:"Si", name:"Silicon", kind:"atomic", domain:[26,32],
+      note:"Natural-abundance isotope pattern of atomic silicon. Three stable isotopes: ²⁸Si, ²⁹Si, ³⁰Si.",
+      peaks:[
+        {mz:28, intensity:100.0, assignment:"²⁸Si⁺", series:"isotope"},
+        {mz:29, intensity:5.1,   assignment:"²⁹Si⁺", series:"isotope"},
+        {mz:30, intensity:3.4,   assignment:"³⁰Si⁺", series:"isotope"}
+      ]
+    },
+    Hg: {
+      formula:"Hg", name:"Mercury", kind:"atomic", domain:[194,206],
+      note:"Natural-abundance isotope pattern of atomic mercury — seven stable isotopes span m/z 196–204.",
+      peaks:[
+        {mz:196, intensity:0.5,  assignment:"¹⁹⁶Hg⁺", series:"isotope"},
+        {mz:198, intensity:33.4, assignment:"¹⁹⁸Hg⁺", series:"isotope"},
+        {mz:199, intensity:56.5, assignment:"¹⁹⁹Hg⁺", series:"isotope"},
+        {mz:200, intensity:77.4, assignment:"²⁰⁰Hg⁺", series:"isotope"},
+        {mz:201, intensity:44.1, assignment:"²⁰¹Hg⁺", series:"isotope"},
+        {mz:202, intensity:100.0,assignment:"²⁰²Hg⁺", series:"isotope"},
+        {mz:204, intensity:23.0, assignment:"²⁰⁴Hg⁺", series:"isotope"}
+      ]
+    },
+    HCl: {
+      formula:"HCl", name:"Hydrogen chloride", kind:"molecular", domain:[0,42],
+      note:"EI mass spectrum: (H–Cl)⁺ molecular-ion cluster at m/z 36/38, plus Cl⁺ fragment ions from loss of H at m/z 35/37 (both clusters follow the 35Cl:37Cl ≈ 3:1 ratio).",
+      peaks:[
+        {mz:1,  intensity:2.0,  assignment:"H⁺ (fragment, –Cl)", series:"fragment"},
+        {mz:35, intensity:73.0, assignment:"³⁵Cl⁺ (fragment, –H)", series:"fragment"},
+        {mz:36, intensity:100.0,assignment:"H³⁵Cl⁺ (M)", series:"molecular"},
+        {mz:37, intensity:23.0, assignment:"³⁷Cl⁺ (fragment, –H)", series:"fragment"},
+        {mz:38, intensity:32.0, assignment:"H³⁷Cl⁺ (M)", series:"molecular"}
+      ]
+    },
+    HBr: {
+      formula:"HBr", name:"Hydrogen bromide", kind:"molecular", domain:[0,84],
+      note:"EI mass spectrum: (H–Br)⁺ molecular-ion cluster at m/z 80/82, plus Br⁺ fragment ions from loss of H at m/z 79/81. Br isotopes are almost 1:1 (79Br 50.7%, 81Br 49.3%).",
+      peaks:[
+        {mz:79, intensity:58.0, assignment:"⁷⁹Br⁺ (fragment, –H)", series:"fragment"},
+        {mz:80, intensity:100.0,assignment:"H⁷⁹Br⁺ (M)", series:"molecular"},
+        {mz:81, intensity:56.0, assignment:"⁸¹Br⁺ (fragment, –H)", series:"fragment"},
+        {mz:82, intensity:97.0, assignment:"H⁸¹Br⁺ (M)", series:"molecular"}
+      ]
+    },
+    Br2: {
+      formula:"Br₂", name:"Bromine", kind:"molecular", domain:[76,164],
+      note:"EI mass spectrum: Br₂⁺ molecular-ion cluster (three combinations of ⁷⁹Br/⁸¹Br, ≈1:2:1) near m/z 158–162, plus a Br⁺ fragment cluster near m/z 79/81 from homolytic cleavage.",
+      peaks:[
+        {mz:79,  intensity:66.0, assignment:"⁷⁹Br⁺ (fragment)", series:"fragment"},
+        {mz:81,  intensity:64.0, assignment:"⁸¹Br⁺ (fragment)", series:"fragment"},
+        {mz:158, intensity:51.0, assignment:"⁷⁹Br–⁷⁹Br⁺ (M)", series:"molecular"},
+        {mz:160, intensity:100.0,assignment:"⁷⁹Br–⁸¹Br⁺ (M)", series:"molecular"},
+        {mz:162, intensity:49.0, assignment:"⁸¹Br–⁸¹Br⁺ (M)", series:"molecular"}
+      ]
+    },
+    ClBr: {
+      formula:"BrCl", name:"Bromine monochloride", kind:"molecular", domain:[30,122],
+      note:"EI mass spectrum: BrCl⁺ molecular-ion cluster near m/z 114–118 from Cl/Br isotope combinations, plus Cl⁺ (m/z 35/37) and Br⁺ (m/z 79/81) fragment ions from bond cleavage.",
+      peaks:[
+        {mz:35,  intensity:33.0, assignment:"³⁵Cl⁺ (fragment, –Br)", series:"fragment"},
+        {mz:37,  intensity:11.0, assignment:"³⁷Cl⁺ (fragment, –Br)", series:"fragment"},
+        {mz:79,  intensity:45.0, assignment:"⁷⁹Br⁺ (fragment, –Cl)", series:"fragment"},
+        {mz:81,  intensity:44.0, assignment:"⁸¹Br⁺ (fragment, –Cl)", series:"fragment"},
+        {mz:114, intensity:77.0, assignment:"³⁵Cl–⁷⁹Br⁺ (M)", series:"molecular"},
+        {mz:116, intensity:100.0,assignment:"³⁷Cl–⁷⁹Br⁺ / ³⁵Cl–⁸¹Br⁺ (M)", series:"molecular"},
+        {mz:118, intensity:24.0, assignment:"³⁷Cl–⁸¹Br⁺ (M)", series:"molecular"}
+      ]
+    }
+  };
+  const SPECIES_ORDER = ["Ne","Si","Hg","HCl","HBr","Br2","ClBr"];
+
+  const THEME_COLORS = {
+    dark:  { panel:"#161e24", grid:"#2a3138", axis:"#7f8f99", ink:"#eae6da", muted:"#8fa0ab",
+              amber:"#e2a63c", teal:"#4fd1c5", baseline:"#4a5560" },
+    light: { panel:"#fffdf8", grid:"#e4d9c2", axis:"#7a705f", ink:"#221f1a", muted:"#6b6255",
+              amber:"#a86a1c", teal:"#0e847a", baseline:"#4a4238" }
+  };
+
+  /* ---------------------------------------------------------------------
+     2. THEME TOGGLE
+  --------------------------------------------------------------------- */
+  const root = document.documentElement;
+  const themeToggle = document.getElementById("themeToggle");
+  const themeKnob = document.getElementById("themeKnob");
+
+  function applyTheme(theme){
+    root.setAttribute("data-theme", theme);
+    themeToggle.setAttribute("aria-pressed", theme === "light" ? "true" : "false");
+    themeKnob.textContent = theme === "light" ? "☀" : "☾";
+    localStorage.setItem("msx-theme", theme);
+    render();
+  }
+  themeToggle.addEventListener("click", ()=>{
+    applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+  (function initTheme(){
+    let saved = null;
+    try{ saved = localStorage.getItem("msx-theme"); }catch(e){}
+    root.setAttribute("data-theme", saved === "light" ? "light" : "dark");
+    themeToggle.setAttribute("aria-pressed", saved === "light" ? "true" : "false");
+    themeKnob.textContent = saved === "light" ? "☀" : "☾";
+  })();
+
+  /* ---------------------------------------------------------------------
+     3. SPECIES TABS + INFO BAR
+  --------------------------------------------------------------------- */
+  let currentSpecies = "HCl";
+  const speciesNav = document.getElementById("speciesNav");
+  const infoBar = document.getElementById("infoBar");
+
+  function labelFor(key){
+    if(key === "Br2") return "Br₂";
+    if(key === "ClBr") return "BrCl";
+    return key;
+  }
+
+  SPECIES_ORDER.forEach(key=>{
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = labelFor(key);
+    btn.setAttribute("role","tab");
+    btn.dataset.key = key;
+    btn.addEventListener("click", ()=> selectSpecies(key));
+    speciesNav.appendChild(btn);
+  });
+
+  function selectSpecies(key){
+    currentSpecies = key;
+    state.hover = -1;
+    state.viewDomain = null;
+    state.dragging = null;
+    dragStart = null;
+    hideTooltip();
+    updateResetZoomVisibility();
+    Array.from(speciesNav.children).forEach(b=>{
+      b.classList.toggle("active", b.dataset.key === key);
+      b.setAttribute("aria-selected", b.dataset.key === key ? "true" : "false");
+    });
+    const sp = SPECTRA[key];
+    infoBar.innerHTML =
+      '<span class="formula">'+ sp.formula +'</span>'+
+      '<span class="kind-badge">'+ (sp.kind === "atomic" ? "atomic isotopes" : "molecular ion + fragments") +'</span>'+
+      '<div class="note">'+ sp.note +'</div>';
+    buildLegend(sp);
+    buildTable(sp);
+    render();
+  }
+
+  /* ---------------------------------------------------------------------
+     4. LEGEND
+  --------------------------------------------------------------------- */
+  const legendEl = document.getElementById("legend");
+  function buildLegend(sp){
+    let html = "";
+    if(sp.kind === "atomic"){
+      html += '<span class="item"><span class="swatch isotope"></span>Isotope peak</span>';
+    } else {
+      html += '<span class="item"><span class="swatch molecular"></span>Molecular ion (M⁺)</span>';
+      html += '<span class="item"><span class="swatch fragment"></span>Fragment ion</span>';
+    }
+    legendEl.innerHTML = html;
+  }
+
+  /* ---------------------------------------------------------------------
+     5. PEAK TABLE
+  --------------------------------------------------------------------- */
+  const tableBody = document.getElementById("peakTableBody");
+  function buildTable(sp){
+    const rows = [...sp.peaks].sort((a,b)=>a.mz-b.mz);
+    tableBody.innerHTML = rows.map((p, i)=>{
+      const origIndex = sp.peaks.indexOf(p);
+      return '<tr data-index="'+origIndex+'">'+
+        '<td class="mz">'+p.mz+'</td>'+
+        '<td class="series-'+p.series+'">'+p.intensity.toFixed(1)+'%</td>'+
+        '<td>'+p.assignment+'</td>'+
+      '</tr>';
+    }).join("");
+    Array.from(tableBody.children).forEach(tr=>{
+      tr.addEventListener("mouseenter", ()=>{ state.hover = parseInt(tr.dataset.index,10); render(); });
+      tr.addEventListener("mouseleave", ()=>{ state.hover = -1; render(); });
+      tr.addEventListener("click", ()=>{ state.hover = parseInt(tr.dataset.index,10); render(); });
+    });
+  }
+
+  function syncTableHighlight(){
+    Array.from(tableBody.children).forEach(tr=>{
+      tr.classList.toggle("active", parseInt(tr.dataset.index,10) === state.hover);
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     6. CHART RENDERING (shared by live canvas + PNG export)
+  --------------------------------------------------------------------- */
+  const canvas = document.getElementById("chart");
+  const chartWrap = document.getElementById("chartWrap");
+  const tooltip = document.getElementById("tooltip");
+  const resetZoomBtn = document.getElementById("resetZoomBtn");
+  const state = { hover: -1, viewDomain: null, dragging: null };
+  let dragStart = null;
+  const DRAG_PX_THRESHOLD = 6;
+
+  function getDomain(sp){ return state.viewDomain || sp.domain; }
+
+  function updateResetZoomVisibility(){
+    resetZoomBtn.style.display = state.viewDomain ? "inline-flex" : "none";
+  }
+
+  resetZoomBtn.addEventListener("click", ()=>{
+    state.viewDomain = null;
+    state.hover = -1;
+    hideTooltip();
+    updateResetZoomVisibility();
+    render();
+  });
+
+  function niceStep(range, targetTicks){
+    const rough = range / targetTicks;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough || 1)));
+    const norm = rough / mag;
+    let step;
+    if(norm < 1.5) step = 1;
+    else if(norm < 3) step = 2;
+    else if(norm < 7) step = 5;
+    else step = 10;
+    return Math.max(1, step * mag);
+  }
+
+  // Core drawing routine. ctx must already be scaled so 1 unit == 1 CSS px.
+  function drawChart(ctx, W, H, theme, sp, hoverIndex, opts){
+    opts = opts || {};
+    const C = THEME_COLORS[theme];
+    ctx.clearRect(0,0,W,H);
+
+    const domain = opts.domain || sp.domain;
+    const pad = { l: opts.padLeft || 46, r: 14, t: opts.title ? 40 : 18, b: 40 };
+    const plotW = W - pad.l - pad.r;
+    const plotH = H - pad.t - pad.b;
+    const yMax = 112; // headroom above 100% for labels
+
+    const xScale = mz => pad.l + (mz - domain[0]) / (domain[1]-domain[0]) * plotW;
+    const yScale = inten => pad.t + (1 - inten/yMax) * plotH;
+    const invX = px => domain[0] + (px - pad.l) / plotW * (domain[1]-domain[0]);
+
+    // panel background
+    ctx.fillStyle = C.panel;
+    ctx.fillRect(pad.l, pad.t, plotW, plotH);
+
+    // optional export title
+    if(opts.title){
+      ctx.fillStyle = C.ink;
+      ctx.font = "600 17px " + '"Fraunces","Palatino Linotype",Georgia,serif';
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      ctx.fillText(opts.title, pad.l, 24);
+      if(opts.subtitle){
+        ctx.fillStyle = C.muted;
+        ctx.font = "12px " + '"JetBrains Mono",Consolas,monospace';
+        ctx.fillText(opts.subtitle, pad.l, 40);
+      }
+    }
+
+    // horizontal gridlines (0,20,...100) + y labels
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    ctx.fillStyle = C.axis; ctx.font = "11px " + '"JetBrains Mono",Consolas,monospace';
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for(let v=0; v<=100; v+=20){
+      const y = yScale(v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+plotW, y); ctx.stroke();
+      ctx.fillText(String(v), pad.l - 8, y);
+    }
+    // y-axis title
+    ctx.save();
+    ctx.translate(14, pad.t + plotH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.textAlign = "center"; ctx.fillStyle = C.muted;
+    ctx.font = "10.5px " + '"JetBrains Mono",Consolas,monospace';
+    ctx.fillText("Relative Intensity (%)", 0, 0);
+    ctx.restore();
+
+    // vertical gridlines (m/z ticks) + x labels
+    const step = niceStep(domain[1]-domain[0], 7);
+    const startTick = Math.ceil(domain[0]/step)*step;
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for(let v=startTick; v<=domain[1]; v+=step){
+      const x = xScale(v);
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t+plotH); ctx.stroke();
+      ctx.fillStyle = C.axis;
+      ctx.fillText(String(Math.round(v)), x, pad.t + plotH + 6);
+    }
+    ctx.font = "10.5px " + '"JetBrains Mono",Consolas,monospace';
+    ctx.fillStyle = C.muted;
+    ctx.fillText("m/z (mass number)", pad.l + plotW/2, pad.t + plotH + 20);
+
+    // baseline
+    ctx.strokeStyle = C.axis; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t+plotH); ctx.lineTo(pad.l+plotW, pad.t+plotH); ctx.stroke();
+
+    // peaks (only those visible within the current domain)
+    const sorted = sp.peaks
+      .filter(p=> p.mz >= domain[0] && p.mz <= domain[1])
+      .sort((a,b)=>a.mz-b.mz);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(pad.l, pad.t, plotW, plotH);
+    ctx.clip();
+    let lastLabelX = -Infinity;
+    let stagger = 0;
+    sorted.forEach(p=>{
+      const origIndex = sp.peaks.indexOf(p);
+      const isHover = origIndex === hoverIndex;
+      const color = p.series === "fragment" ? C.teal : C.amber;
+      const x = xScale(p.mz);
+      const y0 = pad.t + plotH;
+      const y1 = yScale(p.intensity);
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isHover ? 3.2 : 2;
+      ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+
+      // marker: circle for molecular/isotope, diamond for fragment
+      ctx.fillStyle = color;
+      const r = isHover ? 4.6 : 3.2;
+      if(p.series === "fragment"){
+        ctx.save();
+        ctx.translate(x,y1); ctx.rotate(Math.PI/4);
+        ctx.fillRect(-r, -r, r*2, r*2);
+        ctx.restore();
+      } else {
+        ctx.beginPath(); ctx.arc(x, y1, r, 0, Math.PI*2); ctx.fill();
+      }
+
+      // mz label above marker, with simple stagger to reduce collisions
+      const labelWidth = 20;
+      if(x - lastLabelX < 26){ stagger = stagger === 0 ? 13 : 0; } else { stagger = 0; }
+      lastLabelX = x;
+      ctx.fillStyle = isHover ? color : C.axis;
+      ctx.font = (isHover ? "700 " : "500 ") + "10.5px " + '"JetBrains Mono",Consolas,monospace';
+      ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(String(p.mz), x, y1 - 6 - stagger);
+    });
+    ctx.restore();
+
+    // hover guide lines + intensity readout on y-axis
+    if(hoverIndex >= 0 && sp.peaks[hoverIndex] && sp.peaks[hoverIndex].mz >= domain[0] && sp.peaks[hoverIndex].mz <= domain[1]){
+      const p = sp.peaks[hoverIndex];
+      const x = xScale(p.mz);
+      const y1 = yScale(p.intensity);
+      const color = p.series === "fragment" ? C.teal : C.amber;
+      ctx.save();
+      ctx.setLineDash([4,4]);
+      ctx.strokeStyle = color; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(pad.l, y1); ctx.lineTo(x, y1); ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = color;
+      ctx.font = "700 11px " + '"JetBrains Mono",Consolas,monospace';
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      ctx.fillText(p.intensity.toFixed(1), pad.l - 8, y1);
+    }
+
+    return { pad, plotW, plotH, xScale, yScale, invX, domain };
+  }
+
+  let lastLayout = null;
+
+  function render(){
+    const sp = SPECTRA[currentSpecies];
+    const rect = chartWrap.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const theme = root.getAttribute("data-theme") === "light" ? "light" : "dark";
+    lastLayout = drawChart(ctx, rect.width, rect.height, theme, sp, state.hover, { domain: getDomain(sp) });
+
+    // active drag-to-zoom selection overlay
+    if(state.dragging && lastLayout){
+      const loPx = Math.max(lastLayout.pad.l, Math.min(state.dragging.startPx, state.dragging.currentPx));
+      const hiPx = Math.min(lastLayout.pad.l + lastLayout.plotW, Math.max(state.dragging.startPx, state.dragging.currentPx));
+      const w = Math.max(0, hiPx - loPx);
+      ctx.save();
+      ctx.fillStyle = theme === "light" ? "rgba(168,106,28,0.16)" : "rgba(226,166,60,0.18)";
+      ctx.fillRect(loPx, lastLayout.pad.t, w, lastLayout.plotH);
+      ctx.strokeStyle = theme === "light" ? "#a86a1c" : "#e2a63c";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(loPx + 0.5, lastLayout.pad.t + 0.5, Math.max(0, w - 1), lastLayout.plotH - 1);
+      ctx.restore();
+    }
+
+    syncTableHighlight();
+  }
+
+  /* ---------------------------------------------------------------------
+     7. POINTER INTERACTION (hover shows peak height)
+  --------------------------------------------------------------------- */
+  function hideTooltip(){ tooltip.classList.remove("show"); }
+
+  function handlePointer(evt){
+    if(!lastLayout) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = evt.clientX - rect.left;
+    const sp = SPECTRA[currentSpecies];
+    const domain = getDomain(sp);
+
+    let best = -1, bestDist = 18; // hit radius in CSS px
+    sp.peaks.forEach((p, i)=>{
+      if(p.mz < domain[0] || p.mz > domain[1]) return; // only peaks currently visible
+      const x = lastLayout.xScale(p.mz);
+      const d = Math.abs(x - px);
+      if(d < bestDist){ bestDist = d; best = i; }
+    });
+
+    if(best === -1){
+      state.hover = -1; hideTooltip(); render();
+      return;
+    }
+    state.hover = best;
+    render();
+
+    const p = sp.peaks[best];
+    const x = lastLayout.xScale(p.mz);
+    const y = lastLayout.yScale(p.intensity);
+    tooltip.innerHTML = "<b>m/z "+p.mz+"</b><br>"+p.assignment+"<br>Intensity: "+p.intensity.toFixed(1)+"%";
+    tooltip.style.left = x + "px";
+    tooltip.style.top = Math.max(28, y - 10) + "px";
+    tooltip.classList.add("show");
+  }
+
+  function pxToMz(px){
+    // invert the current (possibly zoomed) x-scale using the last render's layout
+    return lastLayout ? lastLayout.invX(px) : null;
+  }
+
+  function finishDragZoom(){
+    if(!lastLayout || !state.dragging) return;
+    const sp = SPECTRA[currentSpecies];
+    const fullDomain = sp.domain;
+    let loPx = Math.min(state.dragging.startPx, state.dragging.currentPx);
+    let hiPx = Math.max(state.dragging.startPx, state.dragging.currentPx);
+    loPx = Math.max(lastLayout.pad.l, loPx);
+    hiPx = Math.min(lastLayout.pad.l + lastLayout.plotW, hiPx);
+
+    if(hiPx - loPx < 10) return; // too small a drag — ignore, treat as a click instead
+
+    let mzLo = pxToMz(loPx);
+    let mzHi = pxToMz(hiPx);
+    mzLo = Math.max(fullDomain[0], mzLo);
+    mzHi = Math.min(fullDomain[1], mzHi);
+
+    const MIN_WIDTH = Math.max(1.2, (fullDomain[1]-fullDomain[0]) * 0.03);
+    if(mzHi - mzLo < MIN_WIDTH){
+      const mid = (mzHi + mzLo) / 2;
+      mzLo = mid - MIN_WIDTH/2; mzHi = mid + MIN_WIDTH/2;
+      if(mzLo < fullDomain[0]){ mzLo = fullDomain[0]; mzHi = mzLo + MIN_WIDTH; }
+      if(mzHi > fullDomain[1]){ mzHi = fullDomain[1]; mzLo = mzHi - MIN_WIDTH; }
+    }
+    state.viewDomain = [mzLo, mzHi];
+    updateResetZoomVisibility();
+  }
+
+  canvas.addEventListener("pointerdown", (evt)=>{
+    const rect = canvas.getBoundingClientRect();
+    dragStart = { x: evt.clientX - rect.left };
+    state.dragging = null;
+    try{ canvas.setPointerCapture(evt.pointerId); }catch(e){}
+    handlePointer(evt);
+  });
+
+  canvas.addEventListener("pointermove", (evt)=>{
+    if(dragStart){
+      const rect = canvas.getBoundingClientRect();
+      const px = evt.clientX - rect.left;
+      if(state.dragging || Math.abs(px - dragStart.x) > DRAG_PX_THRESHOLD){
+        state.dragging = { startPx: dragStart.x, currentPx: px };
+        hideTooltip();
+        render();
+        return;
+      }
+    }
+    handlePointer(evt);
+  });
+
+  function endDrag(){
+    if(state.dragging){ finishDragZoom(); }
+    dragStart = null;
+    state.dragging = null;
+    render();
+  }
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+
+  canvas.addEventListener("dblclick", ()=>{
+    state.viewDomain = null;
+    state.hover = -1;
+    hideTooltip();
+    updateResetZoomVisibility();
+    render();
+  });
+
+  canvas.addEventListener("pointerleave", (evt)=>{
+    if(evt.pointerType === "mouse" && !state.dragging){ state.hover = -1; hideTooltip(); render(); }
+  });
+
+  window.addEventListener("resize", render);
+  if(window.ResizeObserver){
+    new ResizeObserver(render).observe(chartWrap);
+  }
+
+  /* ---------------------------------------------------------------------
+     8. EXPORT (always rendered in light mode, regardless of current theme)
+  --------------------------------------------------------------------- */
+  document.getElementById("exportBtn").addEventListener("click", ()=>{
+    const sp = SPECTRA[currentSpecies];
+    const domain = getDomain(sp);
+    const isZoomed = !!state.viewDomain;
+    const cssW = 860, cssH = 520, scale = 2;
+    const off = document.createElement("canvas");
+    off.width = cssW * scale; off.height = cssH * scale;
+    const ctx = off.getContext("2d");
+    ctx.setTransform(scale,0,0,scale,0,0);
+
+    // paper background for the whole export image
+    ctx.fillStyle = THEME_COLORS.light.panel;
+    ctx.fillRect(0,0,cssW,cssH);
+
+    drawChart(ctx, cssW, cssH, "light", sp, -1, {
+      padLeft: 50,
+      domain: domain,
+      title: "Mass Spectrum — " + sp.name + " (" + sp.formula + ")",
+      subtitle: "m/z vs. relative intensity · General Chemistry demonstration" +
+        (isZoomed ? "  ·  zoomed to m/z " + Math.round(domain[0]) + "–" + Math.round(domain[1]) : "")
+    });
+
+    off.toBlob(function(blob){
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "mass-spectrum-" + currentSpecies.toLowerCase() + ".png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  });
+
+  /* ---------------------------------------------------------------------
+     9. INIT
+  --------------------------------------------------------------------- */
+  selectSpecies(currentSpecies);
+
+})();
+</script>
+</body>
+</html>
