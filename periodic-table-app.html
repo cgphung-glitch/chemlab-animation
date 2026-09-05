@@ -117,6 +117,10 @@
     .ms-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3);margin-bottom:var(--space-2)}
     .ms-head h3{margin:0;font-size:var(--text-lg);letter-spacing:-.02em}
     .ms-head p{margin:0.15rem 0 0;color:var(--color-text-muted);font-size:var(--text-sm)}
+    .ms-head-actions{display:flex;align-items:center;gap:var(--space-2);flex:none}
+    .ms-export{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-3);border-radius:var(--radius-md);border:1px solid color-mix(in oklab,var(--color-primary) 45%, var(--color-border));background:var(--color-primary-highlight);color:var(--color-primary-hover);font-weight:700;font-size:var(--text-xs);white-space:nowrap}
+    .ms-export:hover{background:color-mix(in oklab,var(--color-primary) 20%, var(--color-primary-highlight));border-color:var(--color-primary)}
+    .ms-export:disabled{opacity:.6;cursor:default}
     .ms-close{flex:none;width:36px;height:36px;border-radius:var(--radius-full);border:1px solid color-mix(in oklab,var(--color-text) 12%, transparent);background:var(--color-surface-2);display:grid;place-items:center}
     .ms-close:hover{border-color:var(--color-primary);color:var(--color-primary)}
     .ms-chart-wrap{margin-top:var(--space-4);background:var(--color-surface-2);border:1px solid color-mix(in oklab,var(--color-text) 8%, transparent);border-radius:var(--radius-md);padding:var(--space-3)}
@@ -234,9 +238,15 @@
           <h3 id="msTitle">Mass spectrum</h3>
           <p id="msSub"></p>
         </div>
-        <button class="ms-close" id="msCloseBtn" type="button" aria-label="Close mass spectrum">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg>
-        </button>
+        <div class="ms-head-actions">
+          <button class="ms-export" id="msExportBtn" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+            Export
+          </button>
+          <button class="ms-close" id="msCloseBtn" type="button" aria-label="Close mass spectrum">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg>
+          </button>
+        </div>
       </div>
       <div class="ms-chart-wrap">
         <svg id="msChart" viewBox="0 0 640 320" width="100%" role="img" aria-labelledby="msTitle"></svg>
@@ -491,11 +501,20 @@
     const msTableBody = document.getElementById('msTableBody');
     const msNote = document.getElementById('msNote');
     const msCloseBtn = document.getElementById('msCloseBtn');
+    const msExportBtn = document.getElementById('msExportBtn');
     const massSpecBtn = document.getElementById('massSpecBtn');
     let msLastFocused = null;
+    let msCurrentEl = null;
+    let msCurrentIsotopes = null;
+    let msCurrentIsRadioactiveOnly = false;
+    let msCurrentNote = '';
 
     function isotopeSymbolLabel(el, mass){
       return `${mass}${el.symbol}`;
+    }
+
+    function isotopeNameLabel(el, mass){
+      return `${el.name}-${mass}`;
     }
 
     function formatExactMass(m){
@@ -504,7 +523,7 @@
 
     function renderMassSpectrumChart(el, isotopes){
       const W = 640, H = 320;
-      const padL = 50, padR = 24, padT = 18, padB = 62;
+      const padL = 50, padR = 24, padT = 18, padB = 44;
       const chartW = W - padL - padR;
       const chartH = H - padT - padB;
       const maxAbundance = Math.max(...isotopes.map(i => i.abundance), 1);
@@ -546,7 +565,6 @@
         const abundLabel = iso.abundance < 0.01 ? iso.abundance.toExponential(1) : (iso.abundance % 1 === 0 ? iso.abundance.toFixed(0) : iso.abundance.toString());
         svg += `<text class="ms-label" x="${x.toFixed(2)}" y="${(yTop - 8).toFixed(2)}" text-anchor="middle">${abundLabel}%</text>`;
         svg += `<text class="ms-label" x="${x.toFixed(2)}" y="${(padT + chartH + 18).toFixed(2)}" text-anchor="middle" font-weight="700">${el.symbol}-${iso.mass}</text>`;
-        svg += `<text class="ms-label-muted" x="${x.toFixed(2)}" y="${(padT + chartH + 31).toFixed(2)}" text-anchor="middle">${formatExactMass(iso.exactMass)}</text>`;
       });
       svg += `<text class="ms-label-muted" x="${(padL + chartW/2).toFixed(1)}" y="${H - 6}" text-anchor="middle">Isotope mass (u)</text>`;
 
@@ -568,20 +586,198 @@
 
       msTableBody.innerHTML = isotopes.map(iso => `
         <tr>
-          <td>${isotopeSymbolLabel(el, iso.mass)}</td>
+          <td>${isotopeNameLabel(el, iso.mass)}</td>
           <td>${formatExactMass(iso.exactMass)}</td>
           <td>${iso.radioactive ? '—' : iso.abundance + '%'}</td>
         </tr>
       `).join('');
 
-      msNote.textContent = isRadioactiveOnly
+      const noteText = isRadioactiveOnly
         ? `${el.name} has no stable isotopes. The peak shown is the longest-lived known isotope (mass ${isotopes[0].mass}, exact mass ${formatExactMass(isotopes[0].exactMass)} u), matching the standard atomic weight in brackets — it is not a natural-abundance percentage.`
         : `Peak heights are relative abundance (%) by atom count; peak positions are exact isotopic masses (u, 5 decimal places). Together these give the weighted average atomic mass of ${el.mass}.`;
+      msNote.textContent = noteText;
+
+      msCurrentEl = el;
+      msCurrentIsotopes = isotopes;
+      msCurrentIsRadioactiveOnly = isRadioactiveOnly;
+      msCurrentNote = noteText;
 
       msLastFocused = document.activeElement;
       msOverlay.classList.add('open');
       msCloseBtn.focus();
       document.addEventListener('keydown', onMsKeydown);
+    }
+
+    function wrapText(text, maxChars){
+      const words = text.split(' ');
+      const lines = [];
+      let line = '';
+      words.forEach(word => {
+        const candidate = line ? line + ' ' + word : word;
+        if(candidate.length > maxChars && line){
+          lines.push(line);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      });
+      if(line) lines.push(line);
+      return lines;
+    }
+
+    function escapeXml(str){
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Builds a self-contained, light-themed SVG (fixed colors, no CSS variables) combining
+    // the spectrum chart and the isotope table, so exports look consistent regardless of
+    // the app's current light/dark theme.
+    function buildExportSVG(el, isotopes, isRadioactiveOnly, noteText){
+      const ink = '#111827', muted = '#6b7280', axisColor = '#475569',
+            grid = '#e5e7eb', accent = '#2563eb', headBg = '#f3f4f6',
+            rowDivider = '#e5e7eb', bg = '#ffffff';
+
+      const W = 720;
+      const chartH = 300;
+      const padL = 54, padR = 24, padTChart = 12, padBChart = 40;
+      const chartTop = 78;
+      const innerChartH = chartH - padTChart - padBChart;
+      const chartW = W - padL - padR;
+
+      const maxAbundance = Math.max(...isotopes.map(i => i.abundance), 1);
+      const masses = isotopes.map(i => i.exactMass);
+      const minMass = Math.min(...masses);
+      const maxMass = Math.max(...masses);
+      const span = Math.max(maxMass - minMass, 1);
+      const n = isotopes.length;
+      const massPad = n === 1 ? 1.5 : span * 0.18;
+      const axisMin = minMass - massPad;
+      const axisMax = maxMass + massPad;
+      const axisSpan = axisMax - axisMin;
+      const xFor = (mass) => padL + ((mass - axisMin) / axisSpan) * chartW;
+
+      let svg = '';
+      svg += `<rect x="0" y="0" width="${W}" height="9999" fill="${bg}"></rect>`;
+      svg += `<text x="32" y="34" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="700" fill="${ink}">${escapeXml(el.name)} (${escapeXml(el.symbol)}) — mass spectrum</text>`;
+      const subText = isRadioactiveOnly
+        ? 'No stable isotopes exist; the peak shows the isotope tracked here, plotted at its exact mass.'
+        : 'Relative abundance of naturally occurring isotopes, plotted by exact isotopic mass.';
+      svg += `<text x="32" y="56" font-family="Arial,Helvetica,sans-serif" font-size="12.5" fill="${muted}">${escapeXml(subText)}</text>`;
+
+      // chart gridlines + y labels
+      const ticks = 4;
+      for(let t = 0; t <= ticks; t++){
+        const frac = t / ticks;
+        const y = chartTop + padTChart + innerChartH - frac * innerChartH;
+        const val = frac * maxAbundance;
+        svg += `<line x1="${padL}" y1="${y.toFixed(2)}" x2="${W - padR}" y2="${y.toFixed(2)}" stroke="${grid}" stroke-width="1"></line>`;
+        svg += `<text x="${padL - 8}" y="${(y + 3).toFixed(2)}" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="10.5" fill="${muted}">${val.toFixed(val < 1 && val > 0 ? 2 : 0)}%</text>`;
+      }
+      svg += `<line x1="${padL}" y1="${chartTop + padTChart}" x2="${padL}" y2="${chartTop + padTChart + innerChartH}" stroke="${axisColor}" stroke-width="1"></line>`;
+      svg += `<line x1="${padL}" y1="${chartTop + padTChart + innerChartH}" x2="${W - padR}" y2="${chartTop + padTChart + innerChartH}" stroke="${axisColor}" stroke-width="1"></line>`;
+
+      isotopes.forEach(iso => {
+        const peakH = (iso.abundance / maxAbundance) * innerChartH;
+        const x = xFor(iso.exactMass);
+        const yTop = chartTop + padTChart + innerChartH - peakH;
+        const yBase = chartTop + padTChart + innerChartH;
+        svg += `<line x1="${x.toFixed(2)}" y1="${yBase.toFixed(2)}" x2="${x.toFixed(2)}" y2="${yTop.toFixed(2)}" stroke="${accent}" stroke-width="2.5"></line>`;
+        svg += `<circle cx="${x.toFixed(2)}" cy="${yTop.toFixed(2)}" r="3.5" fill="${accent}"></circle>`;
+        const abundLabel = iso.abundance < 0.01 ? iso.abundance.toExponential(1) : (iso.abundance % 1 === 0 ? iso.abundance.toFixed(0) : iso.abundance.toString());
+        svg += `<text x="${x.toFixed(2)}" y="${(yTop - 8).toFixed(2)}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="${ink}">${abundLabel}%</text>`;
+        svg += `<text x="${x.toFixed(2)}" y="${(yBase + 18).toFixed(2)}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="700" fill="${ink}">${el.symbol}-${iso.mass}</text>`;
+      });
+      svg += `<text x="${(padL + chartW/2).toFixed(1)}" y="${chartTop + chartH - 4}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="${muted}">Isotope mass (u)</text>`;
+
+      // table
+      const tableTop = chartTop + chartH + 24;
+      const rowH = 24;
+      const headH = 28;
+      const colX = [32, 260, 460];
+      const tableW = W - 64;
+      svg += `<rect x="32" y="${tableTop}" width="${tableW}" height="${headH}" fill="${headBg}"></rect>`;
+      const headers = ['Isotope', 'Exact mass (u)', 'Relative abundance'];
+      headers.forEach((h, i) => {
+        svg += `<text x="${colX[i] + 8}" y="${tableTop + headH - 9}" font-family="Arial,Helvetica,sans-serif" font-size="10.5" font-weight="700" fill="${muted}">${escapeXml(h.toUpperCase())}</text>`;
+      });
+      isotopes.forEach((iso, idx) => {
+        const rowY = tableTop + headH + idx * rowH;
+        svg += `<line x1="32" y1="${rowY + rowH}" x2="${32 + tableW}" y2="${rowY + rowH}" stroke="${rowDivider}" stroke-width="1"></line>`;
+        const cells = [
+          isotopeNameLabel(el, iso.mass),
+          formatExactMass(iso.exactMass),
+          iso.radioactive ? '—' : iso.abundance + '%'
+        ];
+        cells.forEach((c, i) => {
+          svg += `<text x="${colX[i] + 8}" y="${rowY + rowH - 8}" font-family="Arial,Helvetica,sans-serif" font-size="12.5" fill="${ink}">${escapeXml(c)}</text>`;
+        });
+      });
+
+      const tableBottom = tableTop + headH + isotopes.length * rowH;
+      const noteLines = wrapText(noteText, 100);
+      let noteY = tableBottom + 22;
+      noteLines.forEach(line => {
+        svg += `<text x="32" y="${noteY}" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="${muted}">${escapeXml(line)}</text>`;
+        noteY += 15;
+      });
+
+      const totalHeight = noteY + 12;
+      const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalHeight}" viewBox="0 0 ${W} ${totalHeight}">${svg}</svg>`;
+      return { svg: fullSvg, width: W, height: totalHeight };
+    }
+
+    function downloadPngFromSvg(svgString, width, height, filename){
+      const scale = 2;
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(width * scale);
+        canvas.height = Math.ceil(height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function(blob){
+          if(!blob) return;
+          const dlUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = dlUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(dlUrl);
+        }, 'image/png');
+      };
+      img.onerror = function(){
+        URL.revokeObjectURL(url);
+        // Fallback: download the raw SVG if rasterizing fails for any reason.
+        const a = document.createElement('a');
+        a.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+        a.download = filename.replace(/\.png$/, '.svg');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+      img.src = url;
+    }
+
+    function exportMassSpectrum(){
+      if(!msCurrentEl || !msCurrentIsotopes) return;
+      msExportBtn.disabled = true;
+      const originalLabel = msExportBtn.innerHTML;
+      msExportBtn.innerHTML = 'Exporting…';
+      try {
+        const { svg, width, height } = buildExportSVG(msCurrentEl, msCurrentIsotopes, msCurrentIsRadioactiveOnly, msCurrentNote);
+        const filename = `${msCurrentEl.symbol.toLowerCase()}-mass-spectrum.png`;
+        downloadPngFromSvg(svg, width, height, filename);
+      } finally {
+        setTimeout(() => { msExportBtn.disabled = false; msExportBtn.innerHTML = originalLabel; }, 300);
+      }
     }
 
     function closeMassSpectrum(){
@@ -596,6 +792,7 @@
 
     massSpecBtn.addEventListener('click', () => openMassSpectrum(activeElement));
     msCloseBtn.addEventListener('click', closeMassSpectrum);
+    msExportBtn.addEventListener('click', exportMassSpectrum);
     msOverlay.addEventListener('click', (e) => { if(e.target === msOverlay) closeMassSpectrum(); });
 
     function applyTheme(next){
