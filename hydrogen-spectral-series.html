@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hydrogen Spectral Series Explorer</title>
+<style>
+  :root{
+    --bg-page:#0f141a;
+    --bg-panel:#1a222b;
+    --bg-panel-alt:#151c23;
+    --border:#2b3542;
+    --grid-line:rgba(255,255,255,0.045);
+    --text-primary:#e9e6dc;
+    --text-secondary:#9aa7b3;
+    --text-dim:#5c6773;
+    --accent:#e8a34c;
+    --accent-teal:#5fc9be;
+    --danger:#e07a5f;
+    --radius:10px;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg-page);
+    color:var(--text-primary);
+    font-family:var(--mono);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:60px;
+  }
+
+  a{color:var(--accent-teal);}
+
+  .wrap{
+    max-width:1040px;
+    margin:0 auto;
+    padding:22px 16px 40px;
+  }
+
+  header.app-header{
+    margin-bottom:22px;
+  }
+  header.app-header h1{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:clamp(1.5rem, 1.1rem + 2vw, 2.15rem);
+    margin:0 0 6px;
+    letter-spacing:0.2px;
+  }
+  header.app-header p{
+    margin:0;
+    color:var(--text-secondary);
+    font-size:0.92rem;
+    max-width:62ch;
+  }
+
+  /* Series tabs */
+  .tabs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:20px 0 18px;
+  }
+  .tab-btn{
+    font-family:var(--mono);
+    font-size:0.82rem;
+    background:var(--bg-panel);
+    color:var(--text-secondary);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:8px 14px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+    min-height:38px;
+  }
+  .tab-btn .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--dot-color, var(--text-dim));
+    flex:none;
+  }
+  .tab-btn:hover{ color:var(--text-primary); border-color:var(--text-dim); }
+  .tab-btn.active{
+    color:var(--bg-page);
+    background:var(--dot-color, var(--accent));
+    border-color:var(--dot-color, var(--accent));
+    font-weight:600;
+  }
+  .tab-btn.active .dot{ background:var(--bg-page); }
+
+  .series-meta{
+    color:var(--text-secondary);
+    font-size:0.85rem;
+    margin-bottom:16px;
+  }
+  .series-meta b{ color:var(--text-primary); }
+
+  /* Panels grid */
+  .viz-panels{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin-bottom:16px;
+  }
+  @media (max-width:760px){
+    .viz-panels{ grid-template-columns:1fr; }
+  }
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 14px 10px;
+  }
+  .panel h2{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:1.02rem;
+    margin:0 0 4px;
+  }
+  .panel .cap{
+    color:var(--text-dim);
+    font-size:0.74rem;
+    margin:6px 0 0;
+  }
+  .panel svg{ width:100%; height:auto; display:block; }
+
+  /* theming vars used inside svgs — overridden on export */
+  .viz-panels{
+    --svg-line:var(--text-secondary);
+    --svg-line-dim:var(--text-dim);
+    --svg-text:var(--text-secondary);
+    --svg-text-strong:var(--text-primary);
+    --svg-bg:transparent;
+  }
+  .viz-panels[data-export="light"]{
+    --svg-line:#4c5561;
+    --svg-line-dim:#a7a093;
+    --svg-text:#4c5561;
+    --svg-text-strong:#20242a;
+    --border:#d9d3c5;
+  }
+  .viz-panels[data-export="light"] .panel{
+    background:#ffffff;
+    border-color:#d9d3c5;
+  }
+  .viz-panels[data-export="light"] .panel h2,
+  .viz-panels[data-export="light"] .panel .cap{
+    color:#20242a;
+  }
+
+  .lvl-line{ stroke:var(--svg-line); stroke-width:1.5; }
+  .lvl-line.dim{ stroke:var(--svg-line-dim); stroke-dasharray:2 3; }
+  .lvl-line.floor{ stroke-width:2.5; }
+  .lvl-label{ fill:var(--svg-text); font-family:monospace; font-size:12px; }
+  .lvl-label.dim{ fill:var(--svg-line-dim); }
+  .lvl-label.floor{ fill:var(--svg-text-strong); font-weight:700; }
+  .limit-line{ stroke:var(--svg-line-dim); stroke-width:1; stroke-dasharray:4 4; }
+  .limit-label{ fill:var(--svg-line-dim); font-family:monospace; font-size:11px; }
+  .arrow-line{ stroke-width:2.4; cursor:pointer; }
+  .arrow-line.dim{ opacity:0.35; }
+  .arrow-label{ font-family:monospace; font-size:13px; font-weight:700; cursor:pointer; text-anchor:middle; }
+
+  .axis-line{ stroke:var(--svg-line); stroke-width:1.4; }
+  .tick-line{ stroke:var(--svg-line-dim); stroke-width:1; }
+  .tick-label{ fill:var(--svg-text); font-family:monospace; font-size:10.5px; text-anchor:middle; }
+  .axis-title{ fill:var(--svg-text); font-family:monospace; font-size:12px; text-anchor:middle; }
+  .stem-line{ stroke-width:3; stroke-linecap:round; cursor:pointer; }
+  .stem-line.dim{ opacity:0.35; }
+  .stem-label{ font-family:monospace; font-size:13px; font-weight:700; text-anchor:middle; cursor:pointer; }
+
+  /* Equation + readout */
+  .info-row{
+    display:grid;
+    grid-template-columns:1.15fr 0.85fr;
+    gap:16px;
+    margin-bottom:18px;
+  }
+  @media (max-width:760px){
+    .info-row{ grid-template-columns:1fr; }
+  }
+  .eq-panel, .readout-panel{
+    background:var(--bg-panel-alt);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+  }
+  .eq-panel h3, .readout-panel h3{
+    font-family:var(--serif);
+    font-size:0.95rem;
+    margin:0 0 10px;
+    font-weight:600;
+    color:var(--text-primary);
+  }
+  .eq-formula{
+    font-size:1.15rem;
+    letter-spacing:0.3px;
+    color:var(--accent-teal);
+    margin:6px 0 10px;
+  }
+  .eq-const{
+    color:var(--text-secondary);
+    font-size:0.86rem;
+    line-height:1.7;
+  }
+  .eq-const b{ color:var(--text-primary); }
+
+  .readout-grid{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:6px 12px;
+    font-size:0.86rem;
+  }
+  .readout-grid dt{ color:var(--text-dim); }
+  .readout-grid dd{ margin:0; color:var(--text-primary); font-weight:600; }
+  .readout-swatch{
+    display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;
+    vertical-align:middle;
+  }
+
+  /* Action buttons */
+  .actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .btn{
+    font-family:var(--mono);
+    font-size:0.86rem;
+    padding:11px 16px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--bg-panel);
+    color:var(--text-primary);
+    cursor:pointer;
+    min-height:44px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .btn:hover{ border-color:var(--text-dim); }
+  .btn.primary{
+    background:var(--accent);
+    color:#1b1206;
+    border-color:var(--accent);
+    font-weight:700;
+  }
+  .btn.primary:hover{ filter:brightness(1.06); }
+  .btn:focus-visible, .tab-btn:focus-visible{
+    outline:2px solid var(--accent-teal);
+    outline-offset:2px;
+  }
+  .btn[disabled]{ opacity:0.6; cursor:progress; }
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(6,9,12,0.72);
+    display:none;
+    align-items:flex-start;
+    justify-content:center;
+    padding:28px 14px;
+    overflow-y:auto;
+    z-index:50;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    max-width:580px;
+    width:100%;
+    padding:22px 22px 24px;
+    position:relative;
+  }
+  .modal h2{
+    font-family:var(--serif);
+    margin:0 0 4px;
+    font-size:1.3rem;
+  }
+  .modal .modal-meta{
+    color:var(--text-dim); font-size:0.8rem; margin-bottom:14px;
+  }
+  .modal p{ color:var(--text-secondary); font-size:0.92rem; line-height:1.65; }
+  .modal h3{
+    font-family:var(--serif);
+    font-size:1.0rem;
+    margin:18px 0 6px;
+    color:var(--text-primary);
+  }
+  .modal .close-btn{
+    position:absolute; top:14px; right:14px;
+    background:transparent; border:none; color:var(--text-secondary);
+    font-size:1.3rem; cursor:pointer; line-height:1; padding:6px;
+  }
+  .modal .close-btn:hover{ color:var(--text-primary); }
+  .letter-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.84rem;
+    margin-top:8px;
+  }
+  .letter-table th, .letter-table td{
+    text-align:left;
+    padding:6px 8px;
+    border-bottom:1px solid var(--border);
+    color:var(--text-secondary);
+  }
+  .letter-table th{ color:var(--text-dim); font-weight:600; font-size:0.76rem; }
+  .letter-table td.gl{ color:var(--text-primary); font-weight:700; }
+
+  footer.note{
+    color:var(--text-dim);
+    font-size:0.74rem;
+    margin-top:22px;
+    max-width:70ch;
+  }
+
+  .sr-only{
+    position:absolute; width:1px;height:1px;overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="app-header">
+    <h1>Hydrogen Spectral Series Explorer</h1>
+    <p>The six traditionally named series of the atomic hydrogen line spectrum, each built from electronic transitions down to a common lower level n₁. Select a series to see its transition diagram and emission spectrum.</p>
+  </header>
+
+  <nav class="tabs" id="tabs" aria-label="Spectral series"></nav>
+  <div class="series-meta" id="seriesMeta"></div>
+
+  <div class="viz-panels" id="vizPanels">
+    <div class="panel">
+      <h2>Electronic transitions</h2>
+      <svg id="diagramSvg" viewBox="0 0 640 440" width="640" height="440" role="img" aria-label="Energy level diagram"></svg>
+      <p class="cap">Level spacing follows −1/n² (true relative energies); levels below n₁ are shown dim for context.</p>
+    </div>
+    <div class="panel">
+      <h2>Emission spectrum</h2>
+      <svg id="spectrumSvg" viewBox="0 0 640 300" width="640" height="300" role="img" aria-label="Emission line spectrum plotted against wavenumber"></svg>
+      <p class="cap">Line heights are schematic (illustrating decreasing intensity toward the series limit), not measured intensities.</p>
+    </div>
+  </div>
+
+  <div class="info-row">
+    <div class="eq-panel">
+      <h3>Equation &amp; constant</h3>
+      <div class="eq-formula">ṽ&nbsp;=&nbsp;1/λ&nbsp;=&nbsp;R<sub>H</sub>(1/n₁²&nbsp;−&nbsp;1/n₂²)</div>
+      <div class="eq-const">
+        <div><b>R<sub>H</sub></b> = 1.096776 × 10⁷ m⁻¹ = 109 677.6 cm⁻¹ &nbsp;(Rydberg constant for hydrogen)</div>
+        <div>ṽ = wavenumber (cm⁻¹) · n₂ &gt; n₁ · n₁ is fixed for a given series, n₂ indexes the line</div>
+      </div>
+    </div>
+    <div class="readout-panel">
+      <h3>Selected line</h3>
+      <dl class="readout-grid" id="readoutGrid"></dl>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn" id="explainBtn" type="button">Explain this series &amp; line names</button>
+    <button class="btn primary" id="exportBtn" type="button">Export diagram + spectrum (PNG, light mode)</button>
+  </div>
+
+  <footer class="note">
+    Diagrams are schematic teaching aids: energy-level spacing follows the correct 1/n² dependence, but spectral line heights are not to scale of true transition intensities.
+  </footer>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="close-btn" id="modalClose" aria-label="Close">✕</button>
+    <h2 id="modalTitle"></h2>
+    <div class="modal-meta" id="modalMeta"></div>
+    <p id="modalDesc"></p>
+    <h3>Naming the lines: α, β, γ …</h3>
+    <p>Within a series, individual lines are traditionally labeled with Greek letters in order of increasing transition energy, starting from the line closest to the series limit's low-energy side: n₁+1 → n₁ is <b>alpha (α)</b>, n₁+2 → n₁ is <b>beta (β)</b>, n₁+3 → n₁ is <b>gamma (γ)</b>, then delta (δ), epsilon (ε), zeta (ζ), and so on. As n₂ increases, successive lines crowd closer together and converge on the series limit as n₂ → ∞.</p>
+    <table class="letter-table" id="letterTable"></table>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var R_H_CM = 109677.583; // cm^-1, Rydberg constant for hydrogen
+
+  var GREEK = ["α","β","γ","δ","ε","ζ"];
+  var GREEK_NAMES = ["alpha","beta","gamma","delta","epsilon","zeta"];
+  var LINES_SHOWN = 5; // alpha..epsilon
+
+  var SERIES = [
+    { name:"Lyman", n1:1, region:"Ultraviolet", color:"#e8a34c",
+      discoverer:"Theodore Lyman", year:"1906\u20131914",
+      desc:"The Lyman series consists of transitions terminating at the ground state, n\u2081 = 1. Because the energy released is large, every line falls in the ultraviolet, and the series limit (n\u2082 \u2192 \u221e) corresponds to hydrogen's ground-state ionization energy." },
+    { name:"Balmer", n1:2, region:"Visible (extends into near UV)", color:"#5fc9be",
+      discoverer:"Johann Balmer", year:"1885",
+      desc:"The Balmer series terminates at n\u2081 = 2 and is the only series with lines in the visible range \u2014 H\u03b1 (red), H\u03b2 (blue-green), H\u03b3 and H\u03b4 (violet). Its regularity in the solar spectrum is what let Balmer find the pattern first." },
+    { name:"Paschen", n1:3, region:"Infrared", color:"#e07a5f",
+      discoverer:"Friedrich Paschen", year:"1908",
+      desc:"The Paschen series terminates at n\u2081 = 3. Its lines fall in the near infrared, just beyond what the eye can see, and were first resolved photographically." },
+    { name:"Brackett", n1:4, region:"Infrared", color:"#81b29a",
+      discoverer:"Frederick Brackett", year:"1922",
+      desc:"The Brackett series terminates at n\u2081 = 4, with every line in the infrared \u2014 a region now routinely probed by infrared spectrometers." },
+    { name:"Pfund", n1:5, region:"Far infrared", color:"#e6c26b",
+      discoverer:"August H. Pfund", year:"1924",
+      desc:"The Pfund series terminates at n\u2081 = 5. Its transitions release comparatively little energy, so the lines sit in the far infrared, closely spaced and harder to resolve." },
+    { name:"Humphreys", n1:6, region:"Far infrared", color:"#a78bd6",
+      discoverer:"Curtis J. Humphreys", year:"1953",
+      desc:"The Humphreys series terminates at n\u2081 = 6 and lies entirely in the far infrared. It was the last of the six traditionally named series to be identified." }
+  ];
+
+  var state = { seriesIndex: 1, selectedK: 1 };
+
+  function wavenumber(n1, n2){ return R_H_CM * (1/(n1*n1) - 1/(n2*n2)); }
+  function wavelengthNm(v){ return 1e7 / v; }
+  function regionFor(nm){
+    if (nm < 10) return "X-ray";
+    if (nm < 400) return "Ultraviolet";
+    if (nm <= 700) return "Visible";
+    return "Infrared";
+  }
+  function fmt(num, digits){
+    return num.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+  }
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, text){
+    var e = document.createElementNS(svgNS, tag);
+    for (var k in attrs){ e.setAttribute(k, attrs[k]); }
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ---------- Tabs ----------
+  var tabsEl = document.getElementById("tabs");
+  SERIES.forEach(function(s, i){
+    var b = document.createElement("button");
+    b.className = "tab-btn";
+    b.type = "button";
+    b.style.setProperty("--dot-color", s.color);
+    b.innerHTML = '<span class="dot"></span>' + s.name;
+    b.addEventListener("click", function(){ selectSeries(i); });
+    b.dataset.index = i;
+    tabsEl.appendChild(b);
+  });
+
+  function updateTabs(){
+    Array.prototype.forEach.call(tabsEl.children, function(b, i){
+      b.classList.toggle("active", i === state.seriesIndex);
+    });
+  }
+
+  function updateSeriesMeta(){
+    var s = SERIES[state.seriesIndex];
+    document.getElementById("seriesMeta").innerHTML =
+      "<b>" + s.name + " series</b> \u00b7 n\u2081 = " + s.n1 + " \u00b7 " + s.region +
+      " \u00b7 discovered by " + s.discoverer + ", " + s.year;
+  }
+
+  // ---------- Diagram ----------
+  function renderDiagram(){
+    var s = SERIES[state.seriesIndex];
+    var n1 = s.n1;
+    var svg = document.getElementById("diagramSvg");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    var W = 640, H = 440;
+    var leftX = 96, rightX = 560;
+    var plotTop = 26, plotBottom = 392;
+    var nMax = Math.max(n1 + LINES_SHOWN, 6);
+
+    function yFor(n){
+      var f = -1/(n*n) + 1; // 0 at n=1, ->1 as n->inf
+      return plotBottom - f * (plotBottom - plotTop);
+    }
+
+    // limit line
+    svg.appendChild(el("line", { x1:leftX, x2:rightX, y1:plotTop, y2:plotTop, class:"limit-line" }));
+    svg.appendChild(el("text", { x:rightX, y:plotTop - 8, class:"limit-label", "text-anchor":"end" }, "n \u2192 \u221e  (ionization limit)"));
+
+    for (var n = 1; n <= nMax; n++){
+      var y = yFor(n);
+      var isFloor = (n === n1);
+      var isDim = (n < n1);
+      var lineCls = "lvl-line" + (isDim ? " dim" : "") + (isFloor ? " floor" : "");
+      var labelCls = "lvl-label" + (isDim ? " dim" : "") + (isFloor ? " floor" : "");
+      var lc = isFloor ? s.color : null;
+      var lineAttrs = { x1:leftX, x2:rightX, y1:y, y2:y, class:lineCls };
+      if (lc) lineAttrs.style = "stroke:" + lc;
+      svg.appendChild(el("line", lineAttrs));
+      var labelAttrs = { x:leftX - 10, y:y + 4, class:labelCls, "text-anchor":"end" };
+      var labelEl = el("text", labelAttrs, "n=" + n);
+      if (lc) labelEl.setAttribute("style", "fill:" + lc);
+      svg.appendChild(labelEl);
+    }
+
+    var arrowStartX = leftX + 54;
+    var arrowGap = (rightX - arrowStartX - 40) / (LINES_SHOWN - 1);
+
+    for (var k = 1; k <= LINES_SHOWN; k++){
+      var n2 = n1 + k;
+      if (n2 > nMax) continue;
+      var x = arrowStartX + (k - 1) * arrowGap;
+      var yTop = yFor(n2), yBot = yFor(n1);
+      var isSel = (k === state.selectedK);
+      var lineClass = "arrow-line" + (isSel ? "" : " dim");
+      var labelClass = "arrow-label" + (isSel ? "" : " dim");
+
+      var group = el("g", { "data-k": k });
+      group.appendChild(el("line", {
+        x1:x, x2:x, y1:yTop, y2:yBot - 8,
+        class:lineClass, style:"stroke:" + s.color
+      }));
+      // arrowhead
+      group.appendChild(el("polygon", {
+        points:(x-5)+","+(yBot-8)+" "+(x+5)+","+(yBot-8)+" "+x+","+yBot,
+        style:"fill:" + s.color, class:(isSel ? "" : "dim")
+      }));
+      group.appendChild(el("text", {
+        x:x, y:yTop - 10, class:labelClass, style:"fill:" + s.color
+      }, GREEK[k-1]));
+      group.style.cursor = "pointer";
+      group.addEventListener("click", (function(kk){ return function(){ selectLine(kk); }; })(k));
+      svg.appendChild(group);
+    }
+  }
+
+  // ---------- Spectrum ----------
+  function renderSpectrum(){
+    var s = SERIES[state.seriesIndex];
+    var n1 = s.n1;
+    var svg = document.getElementById("spectrumSvg");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    var plotLeft = 56, plotRight = 610;
+    var plotTop = 26, baseline = 205;
+    var limitV = R_H_CM / (n1*n1);
+    var maxV = limitV * 1.08;
+
+    function xFor(v){ return plotLeft + (v / maxV) * (plotRight - plotLeft); }
+
+    // axis
+    svg.appendChild(el("line", { x1:plotLeft, x2:plotRight, y1:baseline, y2:baseline, class:"axis-line" }));
+
+    var ticks = 5;
+    for (var t = 0; t <= ticks; t++){
+      var v = (maxV / ticks) * t;
+      var x = xFor(v);
+      svg.appendChild(el("line", { x1:x, x2:x, y1:baseline, y2:baseline+6, class:"tick-line" }));
+      svg.appendChild(el("text", { x:x, y:baseline+20, class:"tick-label" }, fmt(v, 0)));
+    }
+    svg.appendChild(el("text", { x:(plotLeft+plotRight)/2, y:baseline+42, class:"axis-title" }, "Wavenumber \u1e7d (cm\u207b\u00b9)"));
+
+    // series limit marker
+    var xLimit = xFor(limitV);
+    svg.appendChild(el("line", { x1:xLimit, x2:xLimit, y1:plotTop, y2:baseline, class:"limit-line" }));
+    svg.appendChild(el("text", { x:xLimit, y:plotTop-8, class:"limit-label", "text-anchor":"middle" }, "series limit"));
+
+    var maxStem = baseline - plotTop - 30;
+    for (var k = 1; k <= LINES_SHOWN; k++){
+      var n2 = n1 + k;
+      var v = wavenumber(n1, n2);
+      var x = xFor(v);
+      var h = maxStem * Math.pow(1/k, 1.15);
+      var yTop = baseline - h;
+      var isSel = (k === state.selectedK);
+      var group = el("g", { "data-k": k });
+      group.appendChild(el("line", {
+        x1:x, x2:x, y1:baseline, y2:yTop,
+        class:"stem-line" + (isSel ? "" : " dim"), style:"stroke:" + s.color
+      }));
+      group.appendChild(el("text", {
+        x:x, y:yTop - 8, class:"stem-label" + (isSel ? "" : " dim"), style:"fill:" + s.color
+      }, GREEK[k-1]));
+      group.style.cursor = "pointer";
+      group.addEventListener("click", (function(kk){ return function(){ selectLine(kk); }; })(k));
+      svg.appendChild(group);
+    }
+  }
+
+  // ---------- Readout ----------
+  function updateReadout(){
+    var s = SERIES[state.seriesIndex];
+    var n1 = s.n1, k = state.selectedK, n2 = n1 + k;
+    var v = wavenumber(n1, n2);
+    var nm = wavelengthNm(v);
+    var grid = document.getElementById("readoutGrid");
+    grid.innerHTML =
+      "<dt>Line</dt><dd><span class='readout-swatch' style='background:" + s.color + "'></span>" + s.name + " " + GREEK_NAMES[k-1] + " (" + GREEK[k-1] + ")</dd>" +
+      "<dt>Transition</dt><dd>n = " + n2 + " \u2192 n = " + n1 + "</dd>" +
+      "<dt>Wavenumber</dt><dd>\u1e7d = " + fmt(v, 1) + " cm\u207b\u00b9</dd>" +
+      "<dt>Wavelength</dt><dd>\u03bb = " + fmt(nm, 1) + " nm</dd>" +
+      "<dt>Region</dt><dd>" + regionFor(nm) + "</dd>";
+  }
+
+  function selectSeries(i){
+    state.seriesIndex = i;
+    state.selectedK = 1;
+    updateTabs();
+    updateSeriesMeta();
+    renderDiagram();
+    renderSpectrum();
+    updateReadout();
+  }
+
+  function selectLine(k){
+    state.selectedK = k;
+    renderDiagram();
+    renderSpectrum();
+    updateReadout();
+  }
+
+  // ---------- Explain modal ----------
+  var overlay = document.getElementById("modalOverlay");
+  document.getElementById("explainBtn").addEventListener("click", function(){
+    var s = SERIES[state.seriesIndex];
+    document.getElementById("modalTitle").textContent = s.name + " series (n\u2081 = " + s.n1 + ")";
+    document.getElementById("modalMeta").textContent = "Discovered by " + s.discoverer + ", " + s.year + " \u00b7 " + s.region;
+    document.getElementById("modalDesc").textContent = s.desc;
+
+    var table = document.getElementById("letterTable");
+    var rows = "<tr><th>Letter</th><th>Transition</th><th>\u1e7d (cm\u207b\u00b9)</th><th>\u03bb (nm)</th></tr>";
+    for (var k = 1; k <= LINES_SHOWN; k++){
+      var n2 = s.n1 + k;
+      var v = wavenumber(s.n1, n2);
+      rows += "<tr><td class='gl'>" + GREEK[k-1] + " (" + GREEK_NAMES[k-1] + ")</td><td>" + n2 + " \u2192 " + s.n1 + "</td><td>" + fmt(v,1) + "</td><td>" + fmt(wavelengthNm(v),1) + "</td></tr>";
+    }
+    table.innerHTML = rows;
+    overlay.classList.add("open");
+  });
+  document.getElementById("modalClose").addEventListener("click", function(){ overlay.classList.remove("open"); });
+  overlay.addEventListener("click", function(e){ if (e.target === overlay) overlay.classList.remove("open"); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") overlay.classList.remove("open"); });
+
+  // ---------- Export ----------
+  function nextFrame(){ return new Promise(function(res){ requestAnimationFrame(function(){ requestAnimationFrame(res); }); }); }
+
+  function svgToImage(svgEl){
+    return new Promise(function(resolve, reject){
+      var clone = svgEl.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      var css = document.querySelector("style").textContent;
+      var styleEl = document.createElementNS(svgNS, "style");
+      styleEl.textContent = css;
+      clone.insertBefore(styleEl, clone.firstChild);
+      var xml = new XMLSerializer().serializeToString(clone);
+      var blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = function(err){ URL.revokeObjectURL(url); reject(err); };
+      img.src = url;
+    });
+  }
+
+  document.getElementById("exportBtn").addEventListener("click", async function(){
+    var btn = this;
+    var vizPanels = document.getElementById("vizPanels");
+    var s = SERIES[state.seriesIndex];
+    btn.disabled = true;
+    var originalLabel = btn.textContent;
+    btn.textContent = "Exporting\u2026";
+    try {
+      vizPanels.setAttribute("data-export", "light");
+      await nextFrame();
+
+      var diagramImg = await svgToImage(document.getElementById("diagramSvg"));
+      var spectrumImg = await svgToImage(document.getElementById("spectrumSvg"));
+
+      var scale = 2;
+      var cw = 760, pad = 26, titleH = 74, diagH = 460, gapH = 18, specH = 300, footH = 46;
+      var totalH = titleH + diagH + gapH + specH + footH + pad * 2;
+      var canvas = document.createElement("canvas");
+      canvas.width = (cw + pad * 2) * scale;
+      canvas.height = totalH * scale;
+      var ctx = canvas.getContext("2d");
+      ctx.scale(scale, scale);
+
+      ctx.fillStyle = "#faf8f2";
+      ctx.fillRect(0, 0, cw + pad * 2, totalH);
+
+      ctx.fillStyle = "#20242a";
+      ctx.font = "700 22px Georgia, serif";
+      ctx.fillText("Hydrogen Emission Spectrum \u2014 " + s.name + " series (n\u2081 = " + s.n1 + ")", pad, pad + 22);
+      ctx.fillStyle = "#4c5561";
+      ctx.font = "13px monospace";
+      ctx.fillText("Discovered by " + s.discoverer + ", " + s.year + " \u00b7 " + s.region, pad, pad + 42);
+
+      ctx.drawImage(diagramImg, pad, pad + titleH, cw, diagH);
+      ctx.drawImage(spectrumImg, pad, pad + titleH + diagH + gapH, cw, specH);
+
+      ctx.fillStyle = "#20242a";
+      ctx.font = "13px monospace";
+      ctx.fillText(
+        "\u1e7d = 1/\u03bb = R_H(1/n\u2081\u00b2 \u2212 1/n\u2082\u00b2)     R_H = 1.096776\u00d710\u2077 m\u207b\u00b9 = 109677.6 cm\u207b\u00b9",
+        pad, pad + titleH + diagH + gapH + specH + 26
+      );
+
+      await new Promise(function(resolve){
+        canvas.toBlob(function(blob){
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = "hydrogen-" + s.name.toLowerCase() + "-series.png";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+          resolve();
+        }, "image/png");
+      });
+    } catch (err){
+      console.error("Export failed:", err);
+      alert("Sorry, the export didn't work. Please try again.");
+    } finally {
+      vizPanels.removeAttribute("data-export");
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  });
+
+  // ---------- init ----------
+  selectSeries(state.seriesIndex);
+})();
+</script>
+</body>
+</html>
