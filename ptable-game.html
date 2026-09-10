@@ -851,6 +851,7 @@
   let clickTimeRemaining = CLICK_TIME_LIMIT_SECONDS;
   let gameTimerInterval = null;
   let clickTimerInterval = null;
+  let gameUsedElementNumbers = new Set(); // atomic numbers already asked this game, so questions don't repeat
 
   function loadAllNotes() {
     try {
@@ -1277,7 +1278,19 @@
 
   function pickRandomElement() {
     const pool = getPlayableElementsForLevel(gameLevel).filter(e => e && typeof e.name === 'string');
-    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    if (!pool.length) return null;
+
+    let available = pool.filter(e => !gameUsedElementNumbers.has(e.n));
+    if (!available.length) {
+      // Every element in this level's pool has already been asked this game;
+      // start a fresh cycle rather than stalling.
+      gameUsedElementNumbers.clear();
+      available = pool;
+    }
+
+    const picked = available[Math.floor(Math.random() * available.length)];
+    gameUsedElementNumbers.add(picked.n);
+    return picked;
   }
 
   function startClickTimer() {
@@ -1365,6 +1378,7 @@
     gameFirstClickStreak = 0;
     gameTargetElement = null;
     gameLastClickWasFirstCorrect = false;
+    gameUsedElementNumbers.clear();
     clearGameTileStyles();
     updateGameHUD('Press "Start / New game" to begin.');
     updateTimerDisplays();
@@ -1604,6 +1618,7 @@
       gameActive = true;
       gameScore = 0;
       gameFirstClickStreak = 0;
+      gameUsedElementNumbers.clear();
       startGameTimer();
       startNewRound('Game started. Click the correct element.');
     }
