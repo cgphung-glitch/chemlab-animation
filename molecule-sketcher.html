@@ -238,6 +238,14 @@
       <button id="btnGroup">Add bracket</button>
       <button id="btnUngroup">Remove all brackets</button>
     </div>
+    <div class="toolbar">
+      <span class="hint">View:</span>
+      <button id="btnZoomOut" title="Zoom out">&#8722;</button>
+      <span class="hint" id="zoomLabel" style="min-width:3.5em; text-align:center;">100%</span>
+      <button id="btnZoomIn" title="Zoom in">+</button>
+      <button id="btnZoomReset">Reset view</button>
+      <span class="hint">Scroll to zoom · middle-click drag or hold Space and drag to pan</span>
+    </div>
 
     <svg id="canvas2d" viewBox="0 0 800 420" preserveAspectRatio="xMidYMid meet"></svg>
 
@@ -2910,6 +2918,116 @@ const svg = document.getElementById('canvas2d');
 const HIT_R = 15;
 const ATOM_LABEL_R = 11;
 
+// ============================================================
+// 2D canvas zoom / pan
+// ============================================================
+const BASE_VB = { x:0, y:0, w:800, h:420 };
+const viewBox = { x:0, y:0, w:800, h:420 };
+const ZOOM_MIN = 0.25; // zoomed out this far (4x the base area)
+const ZOOM_MAX = 8;    // zoomed in this far
+
+function applyViewBox(){
+  svg.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+}
+function currentZoom(){ return BASE_VB.w / viewBox.w; }
+function updateZoomLabel(){
+  const el = document.getElementById('zoomLabel');
+  if(el) el.textContent = Math.round(currentZoom()*100) + '%';
+}
+
+// Zoom by `factor` (>1 zooms in, <1 zooms out), keeping the SVG-space point
+// (cx, cy) fixed under the cursor/pinch-center.
+function zoomAt(factor, cx, cy){
+  const rawW = viewBox.w / factor;
+  const clampedW = Math.min(BASE_VB.w / ZOOM_MIN, Math.max(BASE_VB.w / ZOOM_MAX, rawW));
+  const scale = clampedW / viewBox.w;
+  if(scale === 1) return;
+  viewBox.x = cx - (cx - viewBox.x) * scale;
+  viewBox.y = cy - (cy - viewBox.y) * scale;
+  viewBox.w = clampedW;
+  viewBox.h = viewBox.h * scale;
+  applyViewBox();
+  updateZoomLabel();
+}
+
+function resetView(){
+  viewBox.x = BASE_VB.x; viewBox.y = BASE_VB.y; viewBox.w = BASE_VB.w; viewBox.h = BASE_VB.h;
+  applyViewBox();
+  updateZoomLabel();
+}
+
+// Converts a screen-pixel delta into a delta in current SVG user-space units,
+// using the SVG's screen transform (so it stays correct at any zoom level).
+function screenDeltaToSvg(dxPx, dyPx){
+  const ctm = svg.getScreenCTM();
+  return { dx: dxPx / ctm.a, dy: dyPx / ctm.d };
+}
+
+svg.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const p = svgPoint(e);
+  const factor = e.deltaY < 0 ? 1.15 : 1/1.15;
+  zoomAt(factor, p.x, p.y);
+}, { passive:false });
+
+document.getElementById('btnZoomIn').addEventListener('click', ()=>{
+  zoomAt(1.25, viewBox.x + viewBox.w/2, viewBox.y + viewBox.h/2);
+});
+document.getElementById('btnZoomOut').addEventListener('click', ()=>{
+  zoomAt(1/1.25, viewBox.x + viewBox.w/2, viewBox.y + viewBox.h/2);
+});
+document.getElementById('btnZoomReset').addEventListener('click', resetView);
+
+// Panning: middle-mouse-button drag, or hold Space + left-drag.
+let spaceHeld = false;
+let isPanning = false;
+let panLastClient = null;
+
+function updatePanCursor(){
+  if(isPanning) svg.style.cursor = 'grabbing';
+  else if(spaceHeld) svg.style.cursor = 'grab';
+  else svg.style.cursor = '';
+}
+window.addEventListener('keydown', e=>{
+  if(e.code === 'Space' && !e.repeat){
+    spaceHeld = true;
+    updatePanCursor();
+  }
+});
+window.addEventListener('keyup', e=>{
+  if(e.code === 'Space'){
+    spaceHeld = false;
+    updatePanCursor();
+  }
+});
+window.addEventListener('blur', ()=>{ spaceHeld = false; updatePanCursor(); });
+
+function startPan(e){
+  isPanning = true;
+  panLastClient = { x:e.clientX, y:e.clientY };
+  updatePanCursor();
+}
+function panTo(clientX, clientY){
+  const dxPx = clientX - panLastClient.x;
+  const dyPx = clientY - panLastClient.y;
+  panLastClient = { x:clientX, y:clientY };
+  const { dx, dy } = screenDeltaToSvg(dxPx, dyPx);
+  viewBox.x -= dx;
+  viewBox.y -= dy;
+  applyViewBox();
+}
+function endPan(){
+  if(!isPanning) return;
+  isPanning = false;
+  updatePanCursor();
+}
+window.addEventListener('mousemove', e=>{
+  if(!isPanning) return;
+  panTo(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', endPan);
+updateZoomLabel();
+
 function pushHistory(){
   state.history.push(JSON.stringify({atoms:mol.atoms, bonds:mol.bonds, groups:mol.groups, _id:mol._id}));
   if(state.history.length>60) state.history.shift();
@@ -2944,6 +3062,11 @@ function findAtomNear(x,y){
 // 2D interaction
 // ============================================================
 function handleSvgDown(e){
+  if(e.button === 1 || (e.button === 0 && spaceHeld)){
+    e.preventDefault();
+    startPan(e);
+    return;
+  }
   const p = svgPoint(e);
   const atom = findAtomNear(p.x,p.y);
   const bondEl = e.target.closest('[data-bond]');
@@ -3064,8 +3187,7 @@ window.addEventListener('mouseup', handleSvgUp);
 
 // Touch support: translate single-finger touch into the same pointer-down/move/up
 // handlers used for mouse, so drawing/bonding/moving atoms works identically on
-// a touchscreen. Multi-touch (e.g. accidental second finger) is ignored here so
-// it doesn't interfere with a single stroke already in progress.
+// a touchscreen. Two fingers pinch-to-zoom and pan the canvas instead of drawing.
 function touchToEvent(t, target){
   return {
     clientX: t.clientX, clientY: t.clientY,
@@ -3073,24 +3195,65 @@ function touchToEvent(t, target){
     altKey:false, shiftKey:false
   };
 }
+let pinch = null; // { startDist, lastClientMid:{x,y}, anchorSvg:{x,y} }
+function touchDist(t0,t1){ return Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY); }
+function touchMidClient(t0,t1){ return { x:(t0.clientX+t1.clientX)/2, y:(t0.clientY+t1.clientY)/2 }; }
+
 svg.addEventListener('touchstart', (e)=>{
+  if(e.touches.length===2){
+    e.preventDefault();
+    // Cancel any single-finger draw/move interaction already in progress.
+    state.dragging = false; state.moveId = null; state.bondStartId = null; state.lpDrag = null;
+    const [t0,t1] = e.touches;
+    const mid = touchMidClient(t0,t1);
+    pinch = {
+      startDist: touchDist(t0,t1),
+      lastClientMid: mid,
+      anchorSvg: svgPoint({ clientX:mid.x, clientY:mid.y })
+    };
+    return;
+  }
   if(e.touches.length!==1) return;
   e.preventDefault();
   const t = e.touches[0];
   handleSvgDown(touchToEvent(t, e.target));
 }, { passive:false });
 svg.addEventListener('touchmove', (e)=>{
+  if(pinch && e.touches.length===2){
+    e.preventDefault();
+    const [t0,t1] = e.touches;
+    const dist = touchDist(t0,t1);
+    const mid = touchMidClient(t0,t1);
+    const factor = dist / pinch.startDist;
+    if(factor !== 1){
+      zoomAt(factor, pinch.anchorSvg.x, pinch.anchorSvg.y);
+      pinch.startDist = dist;
+    }
+    const dxPx = mid.x - pinch.lastClientMid.x;
+    const dyPx = mid.y - pinch.lastClientMid.y;
+    const { dx, dy } = screenDeltaToSvg(dxPx, dyPx);
+    viewBox.x -= dx; viewBox.y -= dy;
+    applyViewBox();
+    pinch.lastClientMid = mid;
+    pinch.anchorSvg = svgPoint({ clientX:mid.x, clientY:mid.y });
+    return;
+  }
   if(e.touches.length!==1) return;
   e.preventDefault();
   const t = e.touches[0];
   handleSvgMove(touchToEvent(t));
 }, { passive:false });
 svg.addEventListener('touchend', (e)=>{
+  if(pinch){
+    if(e.touches.length<2) pinch = null;
+    return;
+  }
   e.preventDefault();
   const t = e.changedTouches[0];
   handleSvgUp(touchToEvent(t));
 }, { passive:false });
 svg.addEventListener('touchcancel', (e)=>{
+  pinch = null;
   state.dragging = false;
   state.moveId = null;
   state.bondStartId = null;
@@ -3400,6 +3563,7 @@ document.getElementById('btnUndo').addEventListener('click', undo);
 document.getElementById('btnClear').addEventListener('click', ()=>{
   if(!confirm('Clear the whole canvas?')) return;
   mol.atoms=[]; mol.bonds=[]; mol.groups=[]; mol._id=1;
+  resetView();
   pushHistory(); render2D(); update3DPlaceholder();
 });
 
@@ -4042,16 +4206,40 @@ function init3D(){
   updateCamera();
   animate3D();
 
-  let dragging=false, lastX=0, lastY=0;
-  canvas.addEventListener('mousedown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+  // Free rotation on all 3 axes: dragging rotates the molecule (an arcball/trackball
+  // drag), rather than the old fixed-up-vector orbit (which could only yaw/pitch and
+  // couldn't roll or pass over the poles). The camera itself stays put except for zoom,
+  // so cam.theta/cam.phi remain available for the GIF-export turntable spin below.
+  function trackballPoint(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    const r = Math.min(rect.width, rect.height) / 2 || 1;
+    const x = (clientX - rect.left - rect.width/2) / r;
+    const y = (rect.height/2 - (clientY - rect.top)) / r; // flip so +y is up
+    const d2 = x*x + y*y;
+    const z = d2 <= 0.5 ? Math.sqrt(1 - d2) : 0.5 / Math.sqrt(d2);
+    return new THREE.Vector3(x, y, z).normalize();
+  }
+  function applyTrackballRotation(prevPt, curPt){
+    if(!prevPt || !curPt || !camera3d) return;
+    const axisLocal = new THREE.Vector3().crossVectors(prevPt, curPt);
+    const angle = Math.acos(THREE.MathUtils.clamp(prevPt.dot(curPt), -1, 1));
+    if(axisLocal.lengthSq() < 1e-10 || !isFinite(angle) || angle < 1e-6) return;
+    axisLocal.normalize();
+    const axisWorld = axisLocal.applyQuaternion(camera3d.quaternion); // camera-local -> world
+    const dq = new THREE.Quaternion().setFromAxisAngle(axisWorld, angle);
+    molGroup3d.quaternion.premultiply(dq);
+    dipoleGroup3d.quaternion.copy(molGroup3d.quaternion);
+    moSurfaceGroup3d.quaternion.copy(molGroup3d.quaternion);
+  }
+
+  let dragging=false, lastTrackballPt=null;
+  canvas.addEventListener('mousedown', e=>{ dragging=true; lastTrackballPt = trackballPoint(e.clientX, e.clientY); });
   window.addEventListener('mouseup', ()=> dragging=false);
   window.addEventListener('mousemove', e=>{
     if(!dragging) return;
-    const dx = e.clientX-lastX, dy = e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY;
-    cam.theta -= dx*0.01;
-    cam.phi = Math.max(0.15, Math.min(Math.PI-0.15, cam.phi - dy*0.01));
-    updateCamera();
+    const curPt = trackballPoint(e.clientX, e.clientY);
+    applyTrackballRotation(lastTrackballPt, curPt);
+    lastTrackballPt = curPt;
   });
   canvas.addEventListener('wheel', e=>{
     e.preventDefault();
@@ -4059,7 +4247,7 @@ function init3D(){
     updateCamera();
   }, { passive:false });
 
-  // Touch controls: one finger to rotate, two fingers to pinch-zoom.
+  // Touch controls: one finger to rotate (same arcball as mouse drag), two fingers to pinch-zoom.
   let pinchDist=0;
   function pinchDistance(touches){
     const dx = touches[0].clientX-touches[1].clientX;
@@ -4070,7 +4258,7 @@ function init3D(){
     e.preventDefault();
     if(e.touches.length===1){
       dragging=true;
-      lastX=e.touches[0].clientX; lastY=e.touches[0].clientY;
+      lastTrackballPt = trackballPoint(e.touches[0].clientX, e.touches[0].clientY);
     } else if(e.touches.length===2){
       dragging=false;
       pinchDist=pinchDistance(e.touches);
@@ -4079,11 +4267,9 @@ function init3D(){
   canvas.addEventListener('touchmove', e=>{
     e.preventDefault();
     if(e.touches.length===1 && dragging){
-      const dx=e.touches[0].clientX-lastX, dy=e.touches[0].clientY-lastY;
-      lastX=e.touches[0].clientX; lastY=e.touches[0].clientY;
-      cam.theta -= dx*0.01;
-      cam.phi = Math.max(0.15, Math.min(Math.PI-0.15, cam.phi - dy*0.01));
-      updateCamera();
+      const curPt = trackballPoint(e.touches[0].clientX, e.touches[0].clientY);
+      applyTrackballRotation(lastTrackballPt, curPt);
+      lastTrackballPt = curPt;
     } else if(e.touches.length===2){
       const d = pinchDistance(e.touches);
       if(pinchDist>0){
@@ -4096,7 +4282,7 @@ function init3D(){
   canvas.addEventListener('touchend', e=>{
     if(e.touches.length===0){ dragging=false; pinchDist=0; }
     else if(e.touches.length===1){
-      lastX=e.touches[0].clientX; lastY=e.touches[0].clientY;
+      lastTrackballPt = trackballPoint(e.touches[0].clientX, e.touches[0].clientY);
       pinchDist=0;
     }
   });
@@ -4436,6 +4622,13 @@ document.getElementById('btnMinimize').addEventListener('click', ()=>{
 let vibrationModesResult = null;
 let selectedModeIndex = null;
 let vibAnim = null; // { raf } while a mode animation is running
+let irPeakLines = []; // [{ line, x, topY, mode }] for the currently rendered spectrum, indexed by mode
+let irPeakLabel = null; // <text> element showing the selected peak's wavenumber
+const IR_SELECTED_COLOR = '#22c55e'; // green highlight for the clicked/selected peak
+
+function peakColor(mode){
+  return mode.wavenumber<0 ? '#e0687a' : (state.theme==='light'? '#c23a0a' : '#ffb454');
+}
 
 function clearVibrationResults(){
   vibrationModesResult = null;
@@ -4472,6 +4665,8 @@ document.getElementById('btnVibrate').addEventListener('click', ()=>{
 function renderIRSpectrum(result){
   const svg = document.getElementById('irSpectrumSvg');
   while(svg.firstChild) svg.removeChild(svg.firstChild);
+  irPeakLines = [];
+  irPeakLabel = null;
   const ns = 'http://www.w3.org/2000/svg';
   const W=800, H=220, padL=54, padR=20, padT=15, padB=35;
   const freqs = result.modes.map(mo=>mo.wavenumber);
@@ -4516,15 +4711,17 @@ function renderIRSpectrum(result){
   result.modes.forEach((mode,i)=>{
     const x = xOf(mode.wavenumber);
     const h = Math.max((mode.relIntensity/100) * (H-padT-padB), 2);
+    const topY = H-padB-h;
     const line = document.createElementNS(ns,'line');
     line.setAttribute('x1',x); line.setAttribute('x2',x);
-    line.setAttribute('y1',H-padB); line.setAttribute('y2', H-padB-h);
-    line.setAttribute('stroke', mode.wavenumber<0 ? '#e0687a' : (state.theme==='light'? '#c23a0a' : '#ffb454'));
+    line.setAttribute('y1',H-padB); line.setAttribute('y2', topY);
+    line.setAttribute('stroke', peakColor(mode));
     line.setAttribute('stroke-width', 2.4);
     line.setAttribute('data-mode-index', i);
     line.style.cursor = 'pointer';
     line.addEventListener('click', ()=> selectMode(i));
     svg.appendChild(line);
+    irPeakLines[i] = { line, x, topY, mode };
   });
 }
 
@@ -4552,9 +4749,33 @@ function selectMode(i){
   document.querySelectorAll('#modeList .mode-row').forEach(r=>{
     r.style.background = (+r.dataset.modeIndex===i) ? 'var(--panel)' : 'transparent';
   });
-  document.querySelectorAll('#irSpectrumSvg line[data-mode-index]').forEach(l=>{
-    l.setAttribute('stroke-width', (+l.getAttribute('data-mode-index')===i) ? 4 : 2.4);
+
+  const irSvg = document.getElementById('irSpectrumSvg');
+  const ns = 'http://www.w3.org/2000/svg';
+  if(irPeakLabel){ irPeakLabel.remove(); irPeakLabel = null; }
+
+  irPeakLines.forEach((entry, idx)=>{
+    if(!entry) return;
+    const selected = idx === i;
+    entry.line.setAttribute('stroke', selected ? IR_SELECTED_COLOR : peakColor(entry.mode));
+    entry.line.setAttribute('stroke-width', selected ? 4 : 2.4);
   });
+
+  const sel = irPeakLines[i];
+  if(sel && irSvg){
+    const label = document.createElementNS(ns,'text');
+    const labelX = Math.min(776, Math.max(64, sel.x));
+    label.setAttribute('x', labelX);
+    label.setAttribute('y', Math.max(12, sel.topY - 8));
+    label.setAttribute('text-anchor','middle');
+    label.setAttribute('font-size','12');
+    label.setAttribute('font-weight','700');
+    label.setAttribute('fill', IR_SELECTED_COLOR);
+    label.textContent = sel.mode.wavenumber.toFixed(1) + ' cm\u207b\u00b9';
+    irSvg.appendChild(label);
+    irPeakLabel = label;
+  }
+
   const mode = vibrationModesResult.modes[i];
   document.getElementById('modeSelectedLabel').textContent =
     'Selected: ' + mode.wavenumber.toFixed(1) + ' cm⁻¹ (' + mode.relIntensity.toFixed(0) + '% rel. intensity)';
@@ -4666,6 +4887,7 @@ document.getElementById('btnTo2D').addEventListener('click', ()=>{
   mol.atoms.forEach(a=>{ a.x=0; a.y=0; a.z=0; a.sel=false; });
 
   cleanupSkeletonAndHydrogens2D(mol);
+  resetView();
   pushHistory(); render2D();
   statusEl.textContent = 'Done — 2D canvas rebuilt from the 3D structure.';
   const svgEl = document.getElementById('canvas2d');
@@ -4891,6 +5113,7 @@ function loadMoleculeInto(parsed){
   mol.bonds = parsed.bonds;
   mol.groups = parsed.groups || [];
   mol._id = parsed._id;
+  resetView();
   pushHistory();
   render2D();
   update3DPlaceholder();
