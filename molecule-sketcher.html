@@ -222,6 +222,7 @@
       <button data-tool="bond" data-order="1" data-style="wedge">Wedge (front)</button>
       <button data-tool="bond" data-order="1" data-style="dash">Dash (back)</button>
       <button data-tool="move">Move atom</button>
+      <button data-tool="rotate">↻ Rotate structure</button>
       <button data-tool="erase" class="danger">Erase</button>
       <div class="divider"></div>
       <button data-tool="lonepair">Lone-pair (click/shift-click atom)</button>
@@ -233,7 +234,7 @@
     </div>
     <details class="hint-details">
       <summary>How this works</summary>
-      <div class="hint">Lone pairs are hidden by default — click an atom with the lone-pair tool to add one pair at a time (up to 4), shift-click to remove one pair at a time, alt-click to clear all and reset. Switch to "Move lone pair" and drag a dot pair to reposition it anywhere around its atom. Wedge/dash bonds depict a 3D front/back projection on the 2D structure.</div>
+      <div class="hint">Lone pairs are hidden by default — click an atom with the lone-pair tool to add one pair at a time (up to 4), shift-click to remove one pair at a time, alt-click to clear all and reset. Switch to "Move lone pair" and drag a dot pair to reposition it anywhere around its atom. Wedge/dash bonds depict a 3D front/back projection on the 2D structure. "Rotate structure" spins the whole drawing around its center — click and drag anywhere on the canvas; dragging clockwise rotates it clockwise, counter-clockwise rotates it the other way.</div>
     </details>
     <div class="toolbar">
       <label class="chk"><input type="checkbox" id="toggleC" checked> Show C symbols</label>
@@ -3049,6 +3050,8 @@ const state = {
   bondStartId: null,
   moveId: null,
   lpDrag: null,          // { atomId, index } while dragging a lone pair
+  rotateCenter: null,    // {x,y} centroid the structure is rotating around, set on rotate-drag start
+  rotateLastAngle: null, // previous cursor angle (radians) around rotateCenter, for incremental rotation
   hasCoords3D: false,
   history: [],
   theme: 'light',
@@ -3297,6 +3300,16 @@ function handleSvgDown(e){
     return;
   }
 
+  if(state.mode==='rotate'){
+    if(mol.atoms.length===0) return;
+    let sx=0, sy=0;
+    mol.atoms.forEach(a=>{ sx+=a.x; sy+=a.y; });
+    state.rotateCenter = { x: sx/mol.atoms.length, y: sy/mol.atoms.length };
+    state.rotateLastAngle = Math.atan2(p.y-state.rotateCenter.y, p.x-state.rotateCenter.x);
+    state.dragging = true;
+    return;
+  }
+
   if(state.mode==='erase'){
     if(atom){ mol.removeAtom(atom.id); pushHistory(); render2D(); return; }
     if(bondEl){ mol.removeBond(Number(bondEl.dataset.bond)); pushHistory(); render2D(); return; }
@@ -3321,6 +3334,20 @@ function handleSvgMove(e){
     a.lpAngles[state.lpDrag.index] = ang;
     render2D();
   }
+  if(state.mode==='rotate' && state.rotateCenter){
+    const ang = Math.atan2(p.y-state.rotateCenter.y, p.x-state.rotateCenter.x);
+    const delta = ang - state.rotateLastAngle;
+    const c = Math.cos(delta), s = Math.sin(delta);
+    const cx = state.rotateCenter.x, cy = state.rotateCenter.y;
+    mol.atoms.forEach(a=>{
+      const dx = a.x-cx, dy = a.y-cy;
+      a.x = cx + dx*c - dy*s;
+      a.y = cy + dx*s + dy*c;
+      if(a.lpAngles) a.lpAngles = a.lpAngles.map(la=> la+delta);
+    });
+    state.rotateLastAngle = ang;
+    render2D();
+  }
 }
 svg.addEventListener('mousemove', handleSvgMove);
 
@@ -3337,6 +3364,11 @@ function handleSvgUp(e){
   if(state.mode==='movelp' && state.lpDrag){
     pushHistory();
     state.lpDrag = null;
+  }
+  if(state.mode==='rotate' && state.rotateCenter){
+    pushHistory();
+    state.rotateCenter = null;
+    state.rotateLastAngle = null;
   }
   state.dragging = false;
   state.moveId = null;
@@ -3753,18 +3785,28 @@ function resolveOverlappingAtoms2D(m){
   if(n<2) return { hadOverlap:false };
   const OVERLAP_DIST = 25; // px - comfortably less than the standard 55px bond length
   const BOND_LEN = 55;
+
+  // Cheap pre-check: if nothing overlaps, skip the relaxation loop entirely rather than run
+  // 250 iterations of bond-length normalization on a structure that didn't need fixing -
+  // that would subtly nudge bond lengths/angles even when there was nothing to clean up.
   let hadOverlap = false;
+  outerCheck:
+  for(let i=0;i<n;i++){
+    for(let j=i+1;j<n;j++){
+      const dx=m.atoms[i].x-m.atoms[j].x, dy=m.atoms[i].y-m.atoms[j].y;
+      if(Math.hypot(dx,dy) < OVERLAP_DIST){ hadOverlap = true; break outerCheck; }
+    }
+  }
+  if(!hadOverlap) return { hadOverlap:false };
 
   for(let iter=0; iter<250; iter++){
     const forces = m.atoms.map(()=>({fx:0,fy:0}));
-    let overlapThisIter = false;
     for(let i=0;i<n;i++){
       for(let j=i+1;j<n;j++){
         const a=m.atoms[i], b=m.atoms[j];
         let dx=a.x-b.x, dy=a.y-b.y;
         let d = Math.hypot(dx,dy);
         if(d>=OVERLAP_DIST) continue;
-        overlapThisIter = true;
         if(d<0.5){ // exactly (or nearly) coincident - direction is undefined, so pick one
           const ang = Math.random()*2*Math.PI;
           dx = Math.cos(ang); dy = Math.sin(ang); d = 1;
@@ -3774,7 +3816,6 @@ function resolveOverlappingAtoms2D(m){
         forces[j].fx -= f*dx/d; forces[j].fy -= f*dy/d;
       }
     }
-    if(iter===0) hadOverlap = overlapThisIter;
     m.bonds.forEach(b=>{
       const A=m.getAtom(b.a), B=m.getAtom(b.b);
       if(!A||!B) return;
@@ -3794,10 +3835,9 @@ function resolveOverlappingAtoms2D(m){
 }
 document.getElementById('btnCleanStructure').addEventListener('click', ()=>{
   if(mol.atoms.length<2){ alert('Draw a molecule with at least two atoms first.'); return; }
-  const { hadOverlap } = resolveOverlappingAtoms2D(mol);
+  resolveOverlappingAtoms2D(mol);
   fitToCanvas2D(mol);
   pushHistory(); render2D();
-  if(!hadOverlap) alert('No overlapping atoms found — the structure already looked clean.');
 });
 
 // Removes any existing explicit H atoms, re-spaces the heavy-atom skeleton into a clean,
@@ -4162,8 +4202,10 @@ function updateMOIsosurfaceDisplay(){
   const toggle = document.getElementById('toggleMoSurface');
   if(toggle && toggle.checked){
     // Only one MO isosurface (Huckel or PM7) is shown at a time, and never alongside a running
-    // vibration animation - both mutate the same 3D scene for a geometry that's about to move.
+    // vibration animation or the strain/dipole displays - all mutate the same 3D scene for a
+    // geometry that's fixed while this is shown.
     stopModeAnimation();
+    if(typeof turnOffStrainAndDipoleDisplays==='function') turnOffStrainAndDipoleDisplays();
     const pm7Toggle = document.getElementById('togglePM7MoSurface');
     if(pm7Toggle && pm7Toggle.checked){
       pm7Toggle.checked = false;
@@ -4746,9 +4788,13 @@ function updateDipoleVector3D(d){
   dipoleGroup3d.add(arrow);
 }
 
-document.getElementById('toggleDipole').addEventListener('change', updateDipoleDisplay);
+document.getElementById('toggleDipole').addEventListener('change', ()=>{
+  if(document.getElementById('toggleDipole').checked && typeof turnOffAnimationAndMODisplays==='function') turnOffAnimationAndMODisplays();
+  updateDipoleDisplay();
+});
 
 document.getElementById('toggleStrain').addEventListener('change', ()=>{
+  if(document.getElementById('toggleStrain').checked && typeof turnOffAnimationAndMODisplays==='function') turnOffAnimationAndMODisplays();
   if(mol3d) renderMolecule3D(mol3d);
   else if(document.getElementById('toggleStrain').checked) alert('Generate or load a 3D structure first.');
   updateDipoleDisplay();
@@ -5020,6 +5066,32 @@ function selectMode(i){
   startModeAnimation(mode);
 }
 
+// Turn off "force field strain" and "dipole vector" displays - both show a property of a
+// single fixed geometry, same as a vibration animation or an MO isosurface would, so all
+// four are treated as mutually exclusive views of the 3D scene.
+function turnOffStrainAndDipoleDisplays(){
+  const strainToggle = document.getElementById('toggleStrain');
+  if(strainToggle && strainToggle.checked){
+    strainToggle.checked = false;
+    if(mol3d) renderMolecule3D(mol3d);
+  }
+  const dipoleToggle = document.getElementById('toggleDipole');
+  if(dipoleToggle && dipoleToggle.checked){
+    dipoleToggle.checked = false;
+    updateDipoleDisplay();
+  }
+}
+
+// Turn off vibration animation and any shown MO isosurface (Huckel or PM7) - the reverse
+// direction of the pairing above.
+function turnOffAnimationAndMODisplays(){
+  stopModeAnimation();
+  const ehtToggle = document.getElementById('toggleMoSurface');
+  if(ehtToggle && ehtToggle.checked){ ehtToggle.checked = false; if(typeof updateMOIsosurfaceDisplay==='function') updateMOIsosurfaceDisplay(); }
+  const pm7Toggle = document.getElementById('togglePM7MoSurface');
+  if(pm7Toggle && pm7Toggle.checked){ pm7Toggle.checked = false; if(typeof updatePM7MOIsosurfaceDisplay==='function') updatePM7MOIsosurfaceDisplay(); }
+}
+
 function startModeAnimation(mode){
   stopModeAnimation();
   // MO isosurfaces are built for one fixed geometry; an animating structure invalidates them
@@ -5028,6 +5100,7 @@ function startModeAnimation(mode){
   if(ehtToggle && ehtToggle.checked){ ehtToggle.checked = false; if(typeof updateMOIsosurfaceDisplay==='function') updateMOIsosurfaceDisplay(); }
   const pm7Toggle = document.getElementById('togglePM7MoSurface');
   if(pm7Toggle && pm7Toggle.checked){ pm7Toggle.checked = false; if(typeof updatePM7MOIsosurfaceDisplay==='function') updatePM7MOIsosurfaceDisplay(); }
+  turnOffStrainAndDipoleDisplays();
   if(!mol3d || !threeReady || !vibrationModesResult) return;
   renderMolecule3D(mol3d); // clean static render so mesh references below are current
   const com = mol3d.centerOfMass();
@@ -6815,6 +6888,7 @@ function updatePM7MOIsosurfaceDisplay(){
   const toggle = document.getElementById('togglePM7MoSurface');
   if(toggle && toggle.checked){
     stopModeAnimation();
+    if(typeof turnOffStrainAndDipoleDisplays==='function') turnOffStrainAndDipoleDisplays();
     const ehtToggle = document.getElementById('toggleMoSurface');
     if(ehtToggle && ehtToggle.checked){
       ehtToggle.checked = false;
