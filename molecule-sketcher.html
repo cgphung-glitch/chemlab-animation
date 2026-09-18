@@ -309,12 +309,12 @@
     </details>
     <div class="toolbar">
       <button id="btnMinimizePM7">Minimize structure (semiempirical PM7)</button>
-      <span class="hint" id="pm7Status" style="margin-left:auto;">H, C, N, O only</span>
+      <span class="hint" id="pm7Status" style="margin-left:auto;">H, Li, Be, B, C, N, O, F only</span>
     </div>
     <div class="hint" id="pm7EnergyLine"><span id="pm7Energy"></span></div>
     <details class="hint-details">
       <summary>How this works</summary>
-      <div class="hint">Genuine semiempirical quantum chemistry — an NDDO self-consistent-field calculation (the same method family MOPAC's PM7 belongs to), not a force field: it builds a minimal-basis (s,p) Hamiltonian, computes two-electron integrals via the semiempirical multipole model, and solves the Roothaan equations iteratively, restricted to H, C, N, O and closed-shell (even-electron) molecules. Parameters and integral formulas are taken directly from MOPAC's and PYSEQM's open-source code, not reproduced from memory. Validated against known molecules: bond lengths/angles typically land within a few percent of experiment (e.g. CH₄ C–H 1.085 Å, NH₃ N–H 1.000 Å/106.8°, H₂O O–H 0.960 Å/102.6°), and heats of formation typically within 10–45 kcal/mol of experiment — in the right ballpark for a from-scratch implementation, but not as tight as production MOPAC, which includes additional pairwise correction terms this app omits. Runs entirely in your browser via numerical-gradient conjugate-gradient optimization, which means it can take anywhere from under a second (small molecules) to a minute or more (8+ atoms) — the status line updates live.</div>
+      <div class="hint">Genuine semiempirical quantum chemistry — an NDDO self-consistent-field calculation (the same method family MOPAC's PM7 belongs to), not a force field: it builds a minimal-basis (s,p) Hamiltonian, computes two-electron integrals via the semiempirical multipole model, and solves the Roothaan equations iteratively, restricted to H, Li, Be, B, C, N, O, F (periods 1-2 main group) and closed-shell (even-electron) molecules — elements from Al onward, and the first-row transition metals, need d-orbital extensions ("MNDO/d") this implementation doesn't yet have. Parameters and integral formulas are taken directly from MOPAC's and PYSEQM's open-source code, not reproduced from memory. Validated against known molecules: bond lengths/angles typically land within a few percent of experiment (e.g. CH₄ C–H 1.085 Å, NH₃ N–H 1.000 Å/106.8°, H₂O O–H 0.960 Å/102.6°, HF H–F 0.884 Å, BF₃ B–F 1.301 Å), and heats of formation typically within 10–45 kcal/mol of experiment (HF itself came out at −65.3 vs. an experimental −65.1 kcal/mol) — in the right ballpark for a from-scratch implementation, but not as tight as production MOPAC, which includes additional pairwise correction terms this app omits. While adding fluorine, testing turned up and fixed an atom-ordering bug that had been silently affecting any calculation where a bonded hydrogen happened to be listed before its heavy-atom partner (e.g. some PubChem imports) — results are now identical regardless of atom order. Lithium-containing bonds specifically still come out with equilibrium lengths well short of experiment (e.g. LiH, Li₂) even though heats of formation land close — treat Li geometries with extra caution. Runs entirely in your browser via numerical-gradient conjugate-gradient optimization, which means it can take anywhere from under a second (small molecules) to a minute or more (8+ atoms) — the status line updates live.</div>
     </details>
     <div id="canvas3d-wrap">
       <canvas id="canvas3d"></canvas>
@@ -429,11 +429,11 @@
     <h2>PM7 Molecular Orbitals</h2>
     <div class="toolbar">
       <button id="btnRunPM7MO">Compute PM7 molecular orbitals</button>
-      <span class="hint" id="pm7MOStatus" style="margin-left:auto;">H, C, N, O only</span>
+      <span class="hint" id="pm7MOStatus" style="margin-left:auto;">H, Li, Be, B, C, N, O, F only</span>
     </div>
     <details class="hint-details">
       <summary>How this works</summary>
-      <div class="hint">Uses the current 3D structure and the same NDDO self-consistent-field calculation as the PM7 minimizer above — these are the real converged molecular orbitals and orbital energies from that calculation (not Hückel-style approximations), restricted to H, C, N, O and closed-shell molecules. Orbital energies are in eV and are generally much closer to real ionization energies than Extended Hückel's, since they come from an actual self-consistent Fock operator rather than fixed empirical parameters.</div>
+      <div class="hint">Uses the current 3D structure and the same NDDO self-consistent-field calculation as the PM7 minimizer above — these are the real converged molecular orbitals and orbital energies from that calculation (not Hückel-style approximations), restricted to H, Li, Be, B, C, N, O, F and closed-shell molecules. Orbital energies are in eV and are generally much closer to real ionization energies than Extended Hückel's, since they come from an actual self-consistent Fock operator rather than fixed empirical parameters.</div>
     </details>
 
     <div id="pm7MOResults" class="light-panel" style="display:none;">
@@ -4820,9 +4820,9 @@ function update3DPlaceholder(){
   const minimizeStatus = document.getElementById('minimizeStatus');
   if(minimizeStatus && typeof rdkitReady!=='undefined') minimizeStatus.textContent = rdkitReady ? 'Ready.' : 'Loading RDKit.js…';
   const pm7Status = document.getElementById('pm7Status');
-  if(pm7Status) pm7Status.textContent = 'H, C, N, O only';
+  if(pm7Status) pm7Status.textContent = 'H, Li, Be, B, C, N, O, F only';
   const pm7MOStatus = document.getElementById('pm7MOStatus');
-  if(pm7MOStatus) pm7MOStatus.textContent = 'H, C, N, O only';
+  if(pm7MOStatus) pm7MOStatus.textContent = 'H, Li, Be, B, C, N, O, F only';
 }
 
 // ============================================================
@@ -5609,10 +5609,23 @@ function applyKekulizedBondOrders(m, molBlockText){
 // "Semiempirical PM7 structure minimization" section below for the
 // scope, sourcing, and validation notes.
 // ===================================================================
+// ===================================================================
+// PM7 (NDDO) semiempirical quantum chemistry engine, restricted to
+// H, C, N, O. Bundled from separately-tested modules; see the
+// "Semiempirical PM7 structure minimization" section below for the
+// scope, sourcing, and validation notes.
+// ===================================================================
+// ===================================================================
+// PM7 (NDDO) semiempirical quantum chemistry engine, restricted to
+// H, C, N, O. Bundled from separately-tested modules; see the
+// "Semiempirical PM7 structure minimization" section below for the
+// scope, sourcing, and validation notes.
+// ===================================================================
 window.PM7 = (function () {
 
 // ----- from pm7core.js -----
-// PM7 (NDDO) semiempirical quantum chemistry engine, restricted to H, C, N, O.
+// PM7 (NDDO) semiempirical quantum chemistry engine, restricted to
+// H, Li, Be, B, C, N, O, F (periods 1-2 main group).
 //
 // Formulas and parameters are sourced directly from:
 //  - MOPAC open-source code (github.com/openmopac/mopac, Apache-2.0):
@@ -5621,7 +5634,8 @@ window.PM7 = (function () {
 //  - PYSEQM (github.com/lanl/PYSEQM, BSD-3), used to verify/cross-check the
 //    NDDO integral formulas (Dewar-Thiel MNDO multipole model), the STO
 //    overlap auxiliary-integral formulas, the rotation of local-frame
-//    integrals into the molecular frame, and the Fock-matrix assembly.
+//    integrals into the molecular frame, the Fock-matrix assembly, and the
+//    EISOL (isolated-atom reference energy) coefficient tables.
 //
 // This is genuine NDDO-SCF (self-consistent field), not a force field: it
 // builds a minimal-basis (s,p) Hamiltonian, computes two-electron integrals
@@ -5630,7 +5644,15 @@ window.PM7 = (function () {
 //
 // Known, deliberate simplifications (documented so nobody mistakes this for
 // a full MOPAC port):
-//  - Restricted to H, C, N, O (the elements this app's trainer apps use).
+//  - Restricted to H, Li, Be, B, C, N, O, F -- period 1-2 main group only.
+//    Elements from Al onward (and the first-row transition metals) use
+//    d-orbital polarization functions in real PM7 (the "MNDO/d" extension),
+//    which needs different overlap/two-electron-integral formulas and a
+//    different orbital-rotation scheme than this sp-only implementation
+//    provides; adding them is a separate, substantially larger undertaking.
+//    Elements past period 2 that DON'T need d-orbitals (Na, Mg) also aren't
+//    included yet -- they need additional closed-form overlap integrals
+//    (for n=3 orbitals) this file doesn't implement.
 //  - No special-case diatomic corrections beyond the ones MOPAC itself
 //    documents as general (C-H/N-H/O-H exponent form, the C-C triple-bond
 //    correction, and the O-H "slow" correction) -- i.e. nothing omitted for
@@ -5641,11 +5663,11 @@ const EV = 27.21;        // Hartree -> eV (MOPAC's constant, matches "ev" in the
 const A0 = 0.529167;     // Bohr -> Angstrom (MOPAC's constant, matches "a0")
 
 // ---------------------------------------------------------------------
-// Per-element PM7 parameters (H, C, N, O), verbatim from
-// parameters_for_PM7_C.F90.  qn = principal quantum number of the valence
-// shell (1 for H, 2 for C/N/O). tore = valence-shell core charge.
-// gauss1/2/3 = the single Voityuk-type Gaussian core-core correction term
-// MOPAC calls guess1/guess2/guess3 (gues71/72/73 in the data file).
+// Per-element PM7 parameters, verbatim from parameters_for_PM7_C.F90.
+// qn = principal quantum number of the valence shell. tore = valence-shell
+// core charge. gauss1/2/3 = Voityuk-type Gaussian core-core correction
+// term(s) MOPAC calls guess1/guess2/guess3 (gues71/72/73 in the data file);
+// empty when an element has none.
 // ---------------------------------------------------------------------
 const ELEMENTS = {
   H: {
@@ -5653,6 +5675,27 @@ const ELEMENTS = {
     Uss: -11.070112, Upp: 0, zs: 1.260237, zp: 0, betas: -8.389745, betap: 0,
     Gss: 14.149656, Gsp: 0, Gpp: 0, Gp2: 0, Hsp: 0,
     gauss: [[0.177854, 1.428710, 0.991324]],
+  },
+  Li: {
+    Z: 3, qn: 2, tore: 1,
+    Uss: -4.804124, Upp: -2.450842, zs: 0.804974, zp: 6.027530,
+    betas: -2.082310, betap: -27.085547,
+    Gss: 9.175811, Gsp: 16.614419, Gpp: 14.193195, Gp2: 11.289123, Hsp: 3.533317,
+    gauss: [],
+  },
+  Be: {
+    Z: 4, qn: 2, tore: 2,
+    Uss: -17.427477, Upp: -14.843910, zs: 1.036199, zp: 1.764629,
+    betas: -3.965129, betap: -8.623194,
+    Gss: 9.590009, Gsp: 9.878338, Gpp: 8.195145, Gp2: 10.136549, Hsp: 0.966381,
+    gauss: [],
+  },
+  B: {
+    Z: 5, qn: 2, tore: 3,
+    Uss: -26.613990, Upp: -23.468278, zs: 1.560481, zp: 1.449712,
+    betas: -7.509528, betap: -3.775165,
+    Gss: 6.418667, Gsp: 10.191243, Gpp: 5.675076, Gp2: 6.689156, Hsp: 0.942923,
+    gauss: [],
   },
   C: {
     Z: 6, qn: 2, tore: 4,
@@ -5675,27 +5718,78 @@ const ELEMENTS = {
     Gss: 14.955121, Gsp: 16.088521, Gpp: 12.403337, Gp2: 10.499706, Hsp: 5.028656,
     gauss: [[-0.016243, 1.871970, 1.844360]],
   },
+  F: {
+    Z: 9, qn: 2, tore: 7,
+    Uss: -137.395658, Upp: -98.051239, zs: 6.070030, zp: 2.930631,
+    betas: -69.725688, betap: -29.746124,
+    Gss: 13.745134, Gsp: 17.991219, Gpp: 9.188912, Gp2: 12.322503, Hsp: 2.906187,
+    gauss: [],
+  },
 };
 
 // Experimental atomic heats of formation, kcal/mol (MOPAC's "eheat" table,
 // same for every NDDO method -- used only to convert electronic+nuclear
 // energy into a Hf that is comparable to tabulated values).
-const EHEAT = { H: 52.102, C: 170.890, N: 113.000, O: 59.559 };
+const EHEAT = { H: 52.102, Li: 38.410, Be: 76.960, B: 135.700, C: 170.890, N: 113.000, O: 59.559, F: 18.890 };
+
+// EISOL coefficients: the ground-state atomic term energy for each element
+// is ussc*Uss + uppc*Upp + gssc*Gss + gspc*Gsp + hspc*Hsp + gp2c*Gp2 + gppc*Gpp,
+// with these fixed per-element coefficients (encoding the atom's valence
+// electron configuration and term-symbol coupling), taken directly from
+// PYSEQM's constants.py (itself sourced from MOPAC's block.f).
+const EISOLC = {
+  H:  { ussc: 1, uppc: 0, gssc: 0, gspc: 0, hspc: 0, gp2c: 0, gppc: 0 },
+  Li: { ussc: 1, uppc: 0, gssc: 0, gspc: 0, hspc: 0, gp2c: 0, gppc: 0 },
+  Be: { ussc: 2, uppc: 0, gssc: 1, gspc: 0, hspc: 0, gp2c: 0, gppc: 0 },
+  B:  { ussc: 2, uppc: 1, gssc: 1, gspc: 2, hspc: -1, gp2c: 0, gppc: 0 },
+  C:  { ussc: 2, uppc: 2, gssc: 1, gspc: 4, hspc: -2, gp2c: 1.5, gppc: -0.5 },
+  N:  { ussc: 2, uppc: 3, gssc: 1, gspc: 6, hspc: -3, gp2c: 4.5, gppc: -1.5 },
+  O:  { ussc: 2, uppc: 4, gssc: 1, gspc: 8, hspc: -4, gp2c: 6.5, gppc: -0.5 },
+  F:  { ussc: 2, uppc: 5, gssc: 1, gspc: 10, hspc: -5, gp2c: 10, gppc: 0 },
+};
 
 // Diatomic core-core parameters alpb(i,j), xfac(i,j), from
 // alpb_and_xfac_pm7 in parameters_for_PM7_C.F90. Keyed "X-Y" with X,Y in
-// element symbol order (we normalize the lookup below).
+// element symbol order (we normalize the lookup below), the heavier
+// element (higher Z) always listed first, matching the source's own
+// indexing convention.
 const DIATOMIC = {
   'H-H': { alpb: 4.051163, xfac: 2.845627 },
+  'Li-H': { alpb: 1.265105, xfac: 0.488118 },
+  'Li-Li': { alpb: 3.213216, xfac: 16.832394 },
+  'Be-H': { alpb: 2.854611, xfac: 3.447327 },
+  'Be-Li': { alpb: 2.432991, xfac: 11.306301 },
+  'Be-Be': { alpb: 2.042783, xfac: 1.680607 },
+  'B-H': { alpb: 2.314226, xfac: 1.135897 },
+  'B-Li': { alpb: 3.000118, xfac: 5.549420 },
+  'B-Be': { alpb: 1.991820, xfac: 1.213171 },
+  'B-B': { alpb: 2.181999, xfac: 0.964011 },
   'C-H': { alpb: 1.038716, xfac: 0.204582 },
+  'C-Li': { alpb: 3.061752, xfac: 7.351225 },
+  'C-Be': { alpb: 2.798358, xfac: 2.803943 },
+  'C-B': { alpb: 2.650092, xfac: 1.456708 },
   'C-C': { alpb: 2.655746, xfac: 0.937818 },
   'N-H': { alpb: 1.049958, xfac: 0.173966 },
+  'N-Li': { alpb: 2.205062, xfac: 1.070477 },
+  'N-Be': { alpb: 2.391056, xfac: 1.588438 },
+  'N-B': { alpb: 2.264882, xfac: 0.794623 },
   'N-C': { alpb: 2.734636, xfac: 0.959163 },
   'N-N': { alpb: 2.786676, xfac: 0.863430 },
   'O-H': { alpb: 1.508030, xfac: 0.160602 },
+  'O-Li': { alpb: 2.090902, xfac: 0.499065 },
+  'O-Be': { alpb: 3.081366, xfac: 2.735812 },
+  'O-B': { alpb: 2.694696, xfac: 1.106827 },
   'O-C': { alpb: 2.850931, xfac: 0.826848 },
   'O-N': { alpb: 2.841313, xfac: 0.699190 },
   'O-O': { alpb: 2.457135, xfac: 0.356439 },
+  'F-H': { alpb: 3.104012, xfac: 0.587775 },
+  'F-Li': { alpb: 3.036354, xfac: 0.756703 },
+  'F-Be': { alpb: 3.328175, xfac: 2.273878 },
+  'F-B': { alpb: 2.841215, xfac: 0.892467 },
+  'F-C': { alpb: 3.230134, xfac: 0.946026 },
+  'F-N': { alpb: 3.207271, xfac: 0.894011 },
+  'F-O': { alpb: 3.140885, xfac: 0.698033 },
+  'F-F': { alpb: 4.492940, xfac: 3.111004 },
 };
 // v_par7 constants used by the C-C triple-bond and "slow" O-H corrections.
 const PAR1 = 8.947612, PAR2 = 6.024265, PAR3 = -0.012037, PAR4 = 0.701333;
@@ -5771,7 +5865,7 @@ function atomAdditiveTerms(el) {
 
 
 
-  const core = { EV, A0, ELEMENTS, EHEAT, DIATOMIC, PAR1, PAR2, PAR3, PAR4,
+  const core = { EV, A0, ELEMENTS, EHEAT, EISOLC, DIATOMIC, PAR1, PAR2, PAR3, PAR4,
     diatomicParams, ddqq, solveRho1, solveRho2, atomAdditiveTerms };
 
 // ----- from integrals.js -----
@@ -6310,18 +6404,37 @@ function buildOverlapAndHcore(mol, pairs) {
   }
   for (const pr of pairs) {
     const { A, B } = pr;
-    // ---- overlap + resonance (beta) term ----
-    const nA = A.orbCount, nB = B.orbCount;
-    for (let ii = 0; ii < nA; ii++) {
-      for (let jj = 0; jj < nB; jj++) {
-        const sval = pr.ovlBlock[ii][jj];
-        S[A.offset + ii][B.offset + jj] = sval;
-        S[B.offset + jj][A.offset + ii] = sval;
-        const betaA = ii === 0 ? A.p.betas : A.p.betap;
-        const betaB = jj === 0 ? B.p.betas : B.p.betap;
-        const beta = 0.5 * (betaA + betaB) * sval;
-        Hcore[A.offset + ii][B.offset + jj] += beta;
-        Hcore[B.offset + jj][A.offset + ii] += beta;
+    if (pr.isXH || pr.isHX) {
+      // overlapBlock always returns [heavy's 4 orbitals] x [hyd's real s orbital in column 0];
+      // index directly via heavy/hyd (not A/B) so this is correct regardless of which atom
+      // came first in the pair -- ovlBlock[ii][jj] for jj>0 is meaningless (computed against
+      // hyd's phantom p-orbitals, since hyd has none) and must never be read.
+      const heavy = pr.heavy, hyd = pr.hyd;
+      for (let ii = 0; ii < 4; ii++) {
+        const sval = pr.ovlBlock[ii][0];
+        S[heavy.offset + ii][hyd.offset] = sval;
+        S[hyd.offset][heavy.offset + ii] = sval;
+        const betaHeavy = ii === 0 ? heavy.p.betas : heavy.p.betap;
+        const beta = 0.5 * (betaHeavy + hyd.p.betas) * sval;
+        Hcore[heavy.offset + ii][hyd.offset] += beta;
+        Hcore[hyd.offset][heavy.offset + ii] += beta;
+      }
+    } else {
+      // heavy-heavy or H-H: overlapBlock was called with A,B directly (no heavy/hyd
+      // renaming) in both cases, so ovlBlock[ii][jj] unambiguously means
+      // [A's orbital ii][B's orbital jj] here.
+      const nA = A.orbCount, nB = B.orbCount;
+      for (let ii = 0; ii < nA; ii++) {
+        for (let jj = 0; jj < nB; jj++) {
+          const sval = pr.ovlBlock[ii][jj];
+          S[A.offset + ii][B.offset + jj] = sval;
+          S[B.offset + jj][A.offset + ii] = sval;
+          const betaA = ii === 0 ? A.p.betas : A.p.betap;
+          const betaB = jj === 0 ? B.p.betas : B.p.betap;
+          const beta = 0.5 * (betaA + betaB) * sval;
+          Hcore[A.offset + ii][B.offset + jj] += beta;
+          Hcore[B.offset + jj][A.offset + ii] += beta;
+        }
       }
     }
     // ---- electron-core attraction (added to diagonal blocks) ----
@@ -6550,15 +6663,10 @@ function runSCF(atomsInput, opts = {}) {
   let EisolKcal = 0;
   for (const a of mol.atoms) {
     const p = a.p;
-    let eiso; // eV
-    if (a.el === 'H') eiso = p.Uss;
-    else {
-      const ussc = 2, uppc = a.el === 'C' ? 2 : a.el === 'N' ? 3 : 4;
-      const gspc = ussc * uppc;
-      const gssc = 1, hspc = -uppc, gp2c = a.el === 'C' ? 1.5 : a.el === 'N' ? 4.5 : 6.5;
-      const gppc = a.el === 'C' ? -0.5 : a.el === 'N' ? -1.5 : -0.5;
-      eiso = ussc * p.Uss + uppc * p.Upp + gssc * p.Gss + gspc * p.Gsp + hspc * p.Hsp + gp2c * p.Gp2 + gppc * p.Gpp;
-    }
+    const c = core.EISOLC[a.el];
+    if (!c) throw new Error(`No EISOL coefficients for element ${a.el}`);
+    const eiso = c.ussc * p.Uss + c.uppc * p.Upp + c.gssc * p.Gss + c.gspc * p.Gsp
+      + c.hspc * p.Hsp + c.gp2c * p.Gp2 + c.gppc * p.Gpp; // eV
     EisolKcal += eiso * KCAL_PER_EV;
   }
   let atomHeatSum = 0;
@@ -6777,9 +6885,9 @@ function pm7ValidateMolecule(atoms, netCharge){
   const bad = atoms.filter(a => !PM7.SUPPORTED_ELEMENTS.includes(a.el));
   if(bad.length){
     const els = [...new Set(bad.map(a=>a.el))].join(', ');
-    return 'PM7 in this app only supports H, C, N, and O. This structure also has: ' + els + '.';
+    return 'PM7 in this app only supports H, Li, Be, B, C, N, O, and F. This structure also has: ' + els + '.';
   }
-  const valence = {H:1,C:4,N:5,O:6};
+  const valence = {H:1,Li:1,Be:2,B:3,C:4,N:5,O:6,F:7};
   const totalElectrons = atoms.reduce((s,a)=> s + valence[a.el], 0) - netCharge;
   if(totalElectrons % 2 !== 0){
     return 'PM7 here only handles closed-shell (even-electron) molecules. This structure has an odd total electron count (e.g. a radical or an odd net charge) and can\'t be run.';
