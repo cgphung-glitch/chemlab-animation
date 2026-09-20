@@ -230,6 +230,10 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><rect x="6" y="13" width="2.5" height="6"/><rect x="11" y="9" width="2.5" height="10"/><rect x="16" y="5" width="2.5" height="14"/></svg>
               View mass spectrum
             </button>
+            <button id="lineSpecBtn" class="ms-trigger" type="button" aria-haspopup="dialog" aria-controls="lineSpecOverlay" style="margin-top:var(--space-2)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v16h16"/><path d="M7 20V9"/><path d="M11.5 20v-6"/><path d="M16 20V6"/><path d="M20.5 20v-9"/></svg>
+              View line spectrum
+            </button>
           </section>
           <section>
             <h2 style="font-size:var(--text-lg);margin:0 0 var(--space-3)">Legend</h2>
@@ -273,6 +277,34 @@
         <tbody id="msTableBody"></tbody>
       </table>
       <p class="ms-note" id="msNote"></p>
+    </div>
+  </div>
+
+  <div class="ms-overlay" id="lineSpecOverlay" role="dialog" aria-modal="true" aria-labelledby="lsTitle">
+    <div class="ms-modal">
+      <div class="ms-head">
+        <div>
+          <h3 id="lsTitle">Line spectrum</h3>
+          <p id="lsSub"></p>
+        </div>
+        <div class="ms-head-actions">
+          <button class="ms-export" id="lsExportBtn" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+            Export
+          </button>
+          <button class="ms-close" id="lsCloseBtn" type="button" aria-label="Close line spectrum">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="ms-chart-wrap">
+        <svg id="lsChart" viewBox="0 0 640 300" width="100%" role="img" aria-labelledby="lsTitle"></svg>
+      </div>
+      <table class="ms-table" id="lsTableWrap">
+        <thead><tr><th>Wavelength (nm)</th><th>Region</th><th>Relative intensity</th></tr></thead>
+        <tbody id="lsTableBody"></tbody>
+      </table>
+      <p class="ms-note" id="lsNote"></p>
     </div>
   </div>
 
@@ -408,6 +440,184 @@
       117:[{mass:294,abundance:100,exactMass:294.21046,radioactive:true}],
       118:[{mass:294,abundance:100,exactMass:294.21392,radioactive:true}]
     };
+
+    // Characteristic visible (and near-visible) atomic emission lines for elements whose
+    // spectra are simple/well-documented enough to be meaningfully shown as a small set of
+    // lines (Balmer series, alkali/alkaline-earth flame lines, noble-gas discharge lines,
+    // and a few classic reference sources such as mercury and copper-vapor lamps).
+    // Wavelengths are standard air wavelengths in nm, sourced from NIST-adjacent references
+    // (Balmer series constants, J. Chem. Educ. 2025, 102, 4195, and standard discharge-tube
+    // spectral tables). Lines beyond ~750 nm are technically near-infrared and not visible
+    // to the eye even though they are often the strongest emission from that atom.
+    // intensity: 'strong' | 'medium' | 'weak' (qualitative, for relative bar height/opacity).
+    const lineSpectrumData = {
+      1:{ // Hydrogen — Balmer series
+        lines:[
+          {wavelength:656.3, intensity:'strong'},
+          {wavelength:486.1, intensity:'strong'},
+          {wavelength:434.0, intensity:'medium'},
+          {wavelength:410.2, intensity:'medium'}
+        ],
+        note:'These four lines are the Balmer series, emitted when an excited electron falls to the n = 2 level. Hα (656.3 nm, red) and Hβ (486.1 nm, blue-green) are the brightest; higher members of the series (Hγ, Hδ) continue into the violet and near-UV.'
+      },
+      2:{ // Helium
+        lines:[
+          {wavelength:447.1, intensity:'strong'},
+          {wavelength:471.3, intensity:'medium'},
+          {wavelength:492.2, intensity:'medium'},
+          {wavelength:501.6, intensity:'strong'},
+          {wavelength:587.6, intensity:'strong'},
+          {wavelength:667.8, intensity:'medium'},
+          {wavelength:706.5, intensity:'medium'}
+        ],
+        note:'Excited helium gas shows a rich set of lines dominated by a bright yellow line at 587.6 nm — the line whose unexplained presence in the Sun\u2019s spectrum in 1868 led to the discovery of helium before it was found on Earth.'
+      },
+      3:{ // Lithium
+        lines:[{wavelength:670.8, intensity:'strong'}],
+        note:'A single dominant red line at 670.8 nm gives lithium salts their characteristic crimson flame-test color.'
+      },
+      10:{ // Neon
+        lines:[
+          {wavelength:540.1, intensity:'strong'},
+          {wavelength:585.2, intensity:'strong'},
+          {wavelength:588.2, intensity:'medium'},
+          {wavelength:597.6, intensity:'medium'},
+          {wavelength:609.6, intensity:'weak'},
+          {wavelength:614.3, intensity:'medium'},
+          {wavelength:616.4, intensity:'medium'},
+          {wavelength:621.7, intensity:'medium'},
+          {wavelength:626.6, intensity:'medium'},
+          {wavelength:633.4, intensity:'medium'},
+          {wavelength:638.3, intensity:'medium'},
+          {wavelength:640.2, intensity:'strong'},
+          {wavelength:650.7, intensity:'medium'},
+          {wavelength:659.9, intensity:'medium'}
+        ],
+        note:'Neon\u2019s spectrum is crowded with lines concentrated in the red-orange region, which is why neon discharge tubes glow with the familiar warm red-orange color used in neon signage.'
+      },
+      11:{ // Sodium
+        lines:[
+          {wavelength:589.0, intensity:'strong'},
+          {wavelength:589.6, intensity:'strong'}
+        ],
+        note:'The famous sodium "D line" doublet — two lines only 0.6 nm apart — produces the intense yellow glow of sodium-vapor streetlights and the sodium flame test.'
+      },
+      18:{ // Argon
+        lines:[
+          {wavelength:696.5, intensity:'medium'},
+          {wavelength:706.7, intensity:'medium'},
+          {wavelength:714.7, intensity:'weak'},
+          {wavelength:727.3, intensity:'weak'},
+          {wavelength:738.4, intensity:'medium'},
+          {wavelength:750.4, intensity:'strong'},
+          {wavelength:763.5, intensity:'strong'},
+          {wavelength:772.4, intensity:'weak'},
+          {wavelength:794.8, intensity:'medium'},
+          {wavelength:811.5, intensity:'strong'},
+          {wavelength:826.5, intensity:'weak'}
+        ],
+        note:'This well-documented reference series sits at the red edge of vision and beyond; argon\u2019s characteristic pale lavender-violet discharge glow actually comes from a much denser set of lines in the blue-violet region that aren\u2019t individually tabulated here.'
+      },
+      19:{ // Potassium
+        lines:[
+          {wavelength:404.4, intensity:'weak'},
+          {wavelength:404.7, intensity:'weak'},
+          {wavelength:766.5, intensity:'strong'},
+          {wavelength:769.9, intensity:'strong'}
+        ],
+        note:'Potassium\u2019s strongest emission is actually a near-infrared doublet around 766\u2013770 nm, invisible to the eye. The pale lilac flame color people actually see comes from the much fainter violet doublet near 404 nm.'
+      },
+      20:{ // Calcium
+        lines:[
+          {wavelength:422.7, intensity:'medium'},
+          {wavelength:643.9, intensity:'medium'},
+          {wavelength:646.3, intensity:'medium'},
+          {wavelength:649.4, intensity:'medium'}
+        ],
+        note:'A violet resonance line near 423 nm together with a cluster of orange-red lines around 644\u2013649 nm combine to give calcium its brick-red flame-test color.'
+      },
+      29:{ // Copper
+        lines:[
+          {wavelength:510.6, intensity:'strong'},
+          {wavelength:578.2, intensity:'strong'}
+        ],
+        note:'These same two lines — green (510.6 nm) and yellow (578.2 nm) — are the working transitions of the copper-vapor laser; in a flame they combine with weaker blue lines to give copper its blue-green color.'
+      },
+      36:{ // Krypton
+        lines:[
+          {wavelength:427.4, intensity:'strong'},
+          {wavelength:432.0, intensity:'strong'},
+          {wavelength:437.6, intensity:'medium'},
+          {wavelength:445.4, intensity:'medium'},
+          {wavelength:446.4, intensity:'medium'},
+          {wavelength:450.2, intensity:'medium'},
+          {wavelength:556.2, intensity:'medium'},
+          {wavelength:557.0, intensity:'strong'},
+          {wavelength:587.0, intensity:'strong'}
+        ],
+        note:'Krypton discharge tubes glow with a yellowish-green light, dominated by strong lines near 557 nm and 587 nm alongside a cluster of blue-violet lines.'
+      },
+      37:{ // Rubidium
+        lines:[
+          {wavelength:420.2, intensity:'weak'},
+          {wavelength:421.6, intensity:'weak'},
+          {wavelength:780.0, intensity:'strong'},
+          {wavelength:794.8, intensity:'medium'}
+        ],
+        note:'The near-infrared doublet around 780\u2013795 nm is the strongest emission — it\u2019s the transition used to laser-cool rubidium in atomic-physics labs — while a fainter violet doublet near 420 nm contributes to the visible red-violet flame color.'
+      },
+      38:{ // Strontium
+        lines:[
+          {wavelength:640.8, intensity:'medium'},
+          {wavelength:650.4, intensity:'medium'},
+          {wavelength:661.7, intensity:'medium'},
+          {wavelength:687.8, intensity:'medium'}
+        ],
+        note:'A dense cluster of lines in the orange-red region (640\u2013690 nm) produces strontium\u2019s deep crimson flame color — the basis of red fireworks and roadside flares.'
+      },
+      54:{ // Xenon
+        lines:[
+          {wavelength:462.4, intensity:'medium'},
+          {wavelength:467.1, intensity:'medium'},
+          {wavelength:469.8, intensity:'medium'},
+          {wavelength:473.4, intensity:'medium'},
+          {wavelength:480.7, intensity:'weak'},
+          {wavelength:823.2, intensity:'strong'},
+          {wavelength:828.0, intensity:'strong'},
+          {wavelength:895.2, intensity:'strong'},
+          {wavelength:904.5, intensity:'strong'}
+        ],
+        note:'Xenon has hundreds of emission lines. A group of blue lines near 462\u2013481 nm is visible, but xenon\u2019s strongest lines are actually in the near-infrared (largely invisible) — together they give xenon flash lamps their characteristic blue-white daylight color.'
+      },
+      55:{ // Cesium
+        lines:[
+          {wavelength:455.5, intensity:'medium'},
+          {wavelength:852.1, intensity:'strong'},
+          {wavelength:894.3, intensity:'medium'}
+        ],
+        note:'The 852.1 nm line is famous as the reference transition of the cesium atomic clock that defines the SI second; the weaker blue line near 455.5 nm is the main visible contributor to cesium\u2019s blue-violet flame color.'
+      },
+      56:{ // Barium
+        lines:[
+          {wavelength:455.4, intensity:'medium'},
+          {wavelength:493.4, intensity:'weak'},
+          {wavelength:553.5, intensity:'strong'}
+        ],
+        note:'A green line at 553.5 nm dominates, giving barium salts their apple-green flame-test color; fainter blue lines from Ba\u207a also contribute.'
+      },
+      80:{ // Mercury
+        lines:[
+          {wavelength:404.7, intensity:'strong'},
+          {wavelength:435.8, intensity:'strong'},
+          {wavelength:546.1, intensity:'strong'},
+          {wavelength:577.0, intensity:'medium'},
+          {wavelength:579.1, intensity:'medium'},
+          {wavelength:690.7, intensity:'weak'}
+        ],
+        note:'Mercury\u2019s violet (404.7 nm), blue (435.8 nm), and green (546.1 nm) lines are strong and sharp enough to be used as wavelength calibration standards; together with the yellow doublet (577/579 nm) they give fluorescent and mercury-vapor lamps their bluish-white light.'
+      }
+    };
+    const lineSpectrumFallbackNote = 'A simple, well-resolved set of visible emission lines isn\u2019t included for this element. Many elements — especially transition metals, lanthanides, and actinides — have extremely dense spectra with hundreds to thousands of lines across the visible range, so they aren\u2019t well represented by a handful of characteristic wavelengths. The NIST Atomic Spectra Database has the complete line list for every element.';
 
     const propertyConfig = {
       mass:{label:'Average mass', key:'mass'},
@@ -649,6 +859,240 @@
       msCloseBtn.focus();
       document.addEventListener('keydown', onMsKeydown);
     }
+
+    // --- Line (emission) spectrum -------------------------------------------------------
+
+    // Approximate perceived RGB color for a visible wavelength (Dan Bruton's classic
+    // algorithm). Wavelengths outside ~380-750nm (near-UV/near-IR) return a dim gray,
+    // since they aren't actually visible to the eye.
+    function wavelengthToRGB(nm){
+      let r=0,g=0,b=0;
+      if(nm >= 380 && nm < 440){ r = -(nm-440)/(440-380); g = 0; b = 1; }
+      else if(nm >= 440 && nm < 490){ r = 0; g = (nm-440)/(490-440); b = 1; }
+      else if(nm >= 490 && nm < 510){ r = 0; g = 1; b = -(nm-510)/(510-490); }
+      else if(nm >= 510 && nm < 580){ r = (nm-510)/(580-510); g = 1; b = 0; }
+      else if(nm >= 580 && nm < 645){ r = 1; g = -(nm-645)/(645-580); b = 0; }
+      else if(nm >= 645 && nm <= 750){ r = 1; g = 0; b = 0; }
+      else { return 'rgb(120,120,128)'; }
+      let factor;
+      if(nm >= 380 && nm < 420) factor = 0.3 + 0.7*(nm-380)/(420-380);
+      else if(nm >= 420 && nm < 701) factor = 1.0;
+      else factor = 0.3 + 0.7*(750-nm)/(750-700);
+      const gamma = 0.8;
+      const adjust = (c) => c===0 ? 0 : Math.round(255*Math.pow(c*factor, gamma));
+      return `rgb(${adjust(r)},${adjust(g)},${adjust(b)})`;
+    }
+
+    function wavelengthRegionLabel(nm){
+      if(nm > 750) return 'Near-infrared (not visible)';
+      if(nm >= 620) return 'Red';
+      if(nm >= 585) return 'Orange';
+      if(nm >= 565) return 'Yellow';
+      if(nm >= 500) return 'Green';
+      if(nm >= 485) return 'Cyan';
+      if(nm >= 440) return 'Blue';
+      if(nm >= 380) return 'Violet';
+      return 'Ultraviolet (not visible)';
+    }
+
+    const intensityWeight = { strong:1, medium:0.62, weak:0.36 };
+
+    const lsOverlay = document.getElementById('lineSpecOverlay');
+    const lsChart = document.getElementById('lsChart');
+    const lsTitle = document.getElementById('lsTitle');
+    const lsSub = document.getElementById('lsSub');
+    const lsTableBody = document.getElementById('lsTableBody');
+    const lsNote = document.getElementById('lsNote');
+    const lsCloseBtn = document.getElementById('lsCloseBtn');
+    const lsExportBtn = document.getElementById('lsExportBtn');
+    const lineSpecBtn = document.getElementById('lineSpecBtn');
+    let lsLastFocused = null;
+    let lsCurrentEl = null;
+    let lsCurrentLines = null;
+    let lsCurrentNote = '';
+
+    // Shared layout math for both the on-screen chart and the exported SVG: a visible-light
+    // gradient bar from 380-750nm, with a hatched "beyond vision" zone for any lines past
+    // that (some alkali-metal and noble-gas lines fall in the near-infrared).
+    function computeLineSpectrumLayout(lines, chartW){
+      const maxLine = Math.max(750, ...lines.map(l => l.wavelength));
+      const axisMax = Math.min(950, Math.ceil((maxLine + 20)/10)*10);
+      const axisMin = 380;
+      const visibleFrac = Math.min(1, (750 - axisMin) / (axisMax - axisMin));
+      const xFor = (nm) => ((nm - axisMin) / (axisMax - axisMin)) * chartW;
+      return { axisMin, axisMax, visibleFrac, xFor };
+    }
+
+    function lineSpectrumMarkup(el, lines, W, H, forExport){
+      const padL = forExport ? 40 : 34, padR = forExport ? 40 : 34;
+      const padT = forExport ? 16 : 14, padB = forExport ? 46 : 42;
+      const chartW = W - padL - padR;
+      const chartH = H - padT - padB;
+      const { axisMin, axisMax, visibleFrac, xFor } = computeLineSpectrumLayout(lines, chartW);
+      const barY = padT + chartH * 0.28;
+      const barH = chartH * 0.34;
+      const gradId = `lsGrad${forExport ? 'X' : ''}`;
+
+      const stops = [];
+      for(let nm = axisMin; nm <= 750; nm += 10){ stops.push({nm, color: wavelengthToRGB(nm)}); }
+      const defsGrad = `<linearGradient id="${gradId}" x1="0" x2="1" y1="0" y2="0">` +
+        stops.map(s => `<stop offset="${(((s.nm-axisMin)/(750-axisMin))*100).toFixed(2)}%" stop-color="${s.color}"/>`).join('') +
+        `</linearGradient>`;
+
+      const labelColor = forExport ? '#111827' : null;
+      const mutedColor = forExport ? '#6b7280' : null;
+      const gridColor = forExport ? '#e5e7eb' : null;
+
+      let svg = `<defs>${defsGrad}</defs>`;
+      // continuous visible-spectrum background bar
+      svg += `<rect x="${padL}" y="${barY.toFixed(2)}" width="${(chartW*visibleFrac).toFixed(2)}" height="${barH.toFixed(2)}" rx="4" fill="url(#${gradId})"></rect>`;
+      if(visibleFrac < 1){
+        svg += `<rect x="${(padL+chartW*visibleFrac).toFixed(2)}" y="${barY.toFixed(2)}" width="${(chartW*(1-visibleFrac)).toFixed(2)}" height="${barH.toFixed(2)}" rx="4" fill="${forExport ? '#e5e7eb' : 'color-mix(in oklab, var(--color-text) 12%, transparent)'}"></rect>`;
+        svg += `<text x="${(padL+chartW*(visibleFrac + (1-visibleFrac)/2)).toFixed(2)}" y="${(barY+barH/2+4).toFixed(2)}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9.5" fill="${mutedColor || 'currentColor'}" ${forExport ? '' : 'class="ms-label-muted"'}>beyond vision</text>`;
+      }
+
+      // stems for each line, rising above and dropping below the bar; height ~ intensity
+      lines.forEach(line => {
+        const x = padL + xFor(line.wavelength);
+        const w = intensityWeight[line.intensity] || 0.6;
+        const stemUp = 8 + w * (chartH*0.28 - 8);
+        const stemDown = 6 + w * (chartH*0.22 - 6);
+        const color = wavelengthToRGB(line.wavelength);
+        const topY = (barY - stemUp).toFixed(2);
+        const botY = (barY + barH + stemDown).toFixed(2);
+        svg += `<line x1="${x.toFixed(2)}" y1="${barY.toFixed(2)}" x2="${x.toFixed(2)}" y2="${topY}" stroke="${color}" stroke-width="${forExport ? 2.5 : 2.2}"></line>`;
+        svg += `<line x1="${x.toFixed(2)}" y1="${(barY+barH).toFixed(2)}" x2="${x.toFixed(2)}" y2="${botY}" stroke="${color}" stroke-width="1.4" stroke-dasharray="1.5,2"></line>`;
+        svg += `<text x="${x.toFixed(2)}" y="${(Number(topY)-6).toFixed(2)}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="700" fill="${labelColor || 'currentColor'}" ${forExport ? '' : 'class="ms-label"'}>${line.wavelength}</text>`;
+      });
+
+      // axis ticks
+      const axisY = barY + barH + (chartH*0.34);
+      svg += `<line x1="${padL}" y1="${axisY.toFixed(2)}" x2="${padL+chartW}" y2="${axisY.toFixed(2)}" stroke="${gridColor || 'currentColor'}" stroke-width="1" ${forExport ? '' : 'class="ms-gridline"'}></line>`;
+      for(let nm = Math.ceil(axisMin/50)*50; nm <= axisMax; nm += 50){
+        const x = padL + xFor(nm);
+        svg += `<line x1="${x.toFixed(2)}" y1="${(axisY-3).toFixed(2)}" x2="${x.toFixed(2)}" y2="${(axisY+3).toFixed(2)}" stroke="${gridColor || 'currentColor'}" stroke-width="1" ${forExport ? '' : 'class="ms-gridline"'}></line>`;
+        svg += `<text x="${x.toFixed(2)}" y="${(axisY+16).toFixed(2)}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9.5" fill="${mutedColor || 'currentColor'}" ${forExport ? '' : 'class="ms-label-muted"'}>${nm}</text>`;
+      }
+      svg += `<text x="${(padL+chartW/2).toFixed(1)}" y="${H-6}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="${mutedColor || 'currentColor'}" ${forExport ? '' : 'class="ms-label-muted"'}>Wavelength (nm)</text>`;
+
+      return svg;
+    }
+
+    function renderLineSpectrumChart(el, lines){
+      const W = 640, H = 300;
+      lsChart.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      lsChart.innerHTML = lineSpectrumMarkup(el, lines, W, H, false);
+    }
+
+    function openLineSpectrum(el){
+      const entry = lineSpectrumData[el.number];
+      lsTitle.textContent = `${el.name} (${el.symbol}) — line spectrum`;
+
+      if(!entry || !entry.lines || entry.lines.length === 0){
+        lsSub.textContent = 'No simple characteristic line set available.';
+        lsChart.setAttribute('viewBox', '0 0 640 120');
+        lsChart.innerHTML = `<text x="320" y="60" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" class="ms-label-muted">No curated line data for ${escapeXml(el.name)}</text>`;
+        lsTableBody.innerHTML = '';
+        lsNote.textContent = lineSpectrumFallbackNote;
+        lsExportBtn.disabled = true;
+        lsCurrentEl = el;
+        lsCurrentLines = null;
+        lsCurrentNote = lineSpectrumFallbackNote;
+      } else {
+        const lines = entry.lines.slice().sort((a,b) => a.wavelength - b.wavelength);
+        lsSub.textContent = 'Characteristic emission lines shown against the visible spectrum, with stem height indicating relative intensity.';
+        renderLineSpectrumChart(el, lines);
+        lsTableBody.innerHTML = lines.map(line => `
+          <tr>
+            <td>${line.wavelength}</td>
+            <td>${wavelengthRegionLabel(line.wavelength)}</td>
+            <td>${line.intensity.charAt(0).toUpperCase()+line.intensity.slice(1)}</td>
+          </tr>
+        `).join('');
+        lsNote.textContent = entry.note;
+        lsExportBtn.disabled = false;
+        lsCurrentEl = el;
+        lsCurrentLines = lines;
+        lsCurrentNote = entry.note;
+      }
+
+      lsLastFocused = document.activeElement;
+      lsOverlay.classList.add('open');
+      lsCloseBtn.focus();
+      document.addEventListener('keydown', onLsKeydown);
+    }
+
+    function closeLineSpectrum(){
+      lsOverlay.classList.remove('open');
+      document.removeEventListener('keydown', onLsKeydown);
+      if(lsLastFocused) lsLastFocused.focus();
+    }
+
+    function onLsKeydown(e){
+      if(e.key === 'Escape') closeLineSpectrum();
+    }
+
+    function buildLineSpectrumExportSVG(el, lines, noteText){
+      const ink = '#111827', muted = '#6b7280', headBg = '#f3f4f6', rowDivider = '#e5e7eb', bg = '#ffffff';
+      const W = 720, chartH = 260;
+      const chartTop = 78;
+
+      let svg = '';
+      svg += `<rect x="0" y="0" width="${W}" height="9999" fill="${bg}"></rect>`;
+      svg += `<text x="32" y="34" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="700" fill="${ink}">${escapeXml(el.name)} (${escapeXml(el.symbol)}) — line spectrum</text>`;
+      svg += `<text x="32" y="56" font-family="Arial,Helvetica,sans-serif" font-size="12.5" fill="${muted}">Characteristic emission lines shown against the visible spectrum.</text>`;
+
+      const chartSvg = lineSpectrumMarkup(el, lines, W - 64, chartH, true);
+      svg += `<g transform="translate(32,${chartTop})">${chartSvg}</g>`;
+
+      const tableTop = chartTop + chartH + 24;
+      const rowH = 24, headH = 28;
+      const colX = [32, 260, 460];
+      const tableW = W - 64;
+      svg += `<rect x="32" y="${tableTop}" width="${tableW}" height="${headH}" fill="${headBg}"></rect>`;
+      ['Wavelength (nm)', 'Region', 'Relative intensity'].forEach((h, i) => {
+        svg += `<text x="${colX[i]+8}" y="${tableTop+headH-9}" font-family="Arial,Helvetica,sans-serif" font-size="10.5" font-weight="700" fill="${muted}">${escapeXml(h.toUpperCase())}</text>`;
+      });
+      lines.forEach((line, idx) => {
+        const rowY = tableTop + headH + idx * rowH;
+        svg += `<line x1="32" y1="${rowY+rowH}" x2="${32+tableW}" y2="${rowY+rowH}" stroke="${rowDivider}" stroke-width="1"></line>`;
+        const cells = [String(line.wavelength), wavelengthRegionLabel(line.wavelength), line.intensity.charAt(0).toUpperCase()+line.intensity.slice(1)];
+        cells.forEach((c, i) => {
+          svg += `<text x="${colX[i]+8}" y="${rowY+rowH-8}" font-family="Arial,Helvetica,sans-serif" font-size="12.5" fill="${ink}">${escapeXml(c)}</text>`;
+        });
+      });
+
+      const tableBottom = tableTop + headH + lines.length * rowH;
+      const noteLines = wrapText(noteText, 100);
+      let noteY = tableBottom + 22;
+      noteLines.forEach(line => {
+        svg += `<text x="32" y="${noteY}" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="${muted}">${escapeXml(line)}</text>`;
+        noteY += 15;
+      });
+
+      const totalHeight = noteY + 12;
+      const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${totalHeight}" viewBox="0 0 ${W} ${totalHeight}">${svg}</svg>`;
+      return { svg: fullSvg, width: W, height: totalHeight };
+    }
+
+    function exportLineSpectrum(){
+      if(!lsCurrentEl || !lsCurrentLines) return;
+      lsExportBtn.disabled = true;
+      const originalLabel = lsExportBtn.innerHTML;
+      lsExportBtn.innerHTML = 'Exporting…';
+      try {
+        const { svg, width, height } = buildLineSpectrumExportSVG(lsCurrentEl, lsCurrentLines, lsCurrentNote);
+        const filename = `${lsCurrentEl.symbol.toLowerCase()}-line-spectrum.png`;
+        downloadPngFromSvg(svg, width, height, filename);
+      } finally {
+        setTimeout(() => { lsExportBtn.disabled = false; lsExportBtn.innerHTML = originalLabel; }, 300);
+      }
+    }
+
+    lineSpecBtn.addEventListener('click', () => openLineSpectrum(activeElement));
+    lsCloseBtn.addEventListener('click', closeLineSpectrum);
+    lsExportBtn.addEventListener('click', exportLineSpectrum);
+    lsOverlay.addEventListener('click', (e) => { if(e.target === lsOverlay) closeLineSpectrum(); });
 
     function wrapText(text, maxChars){
       const words = text.split(' ');

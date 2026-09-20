@@ -73,6 +73,10 @@
     position:absolute; bottom:10px; left:12px; font-size:11px; color:var(--text-dim);
     font-family:var(--mono); pointer-events:none;
   }
+  #btnResetView{
+    position:absolute; top:10px; right:12px; padding:5px 10px; font-size:11.5px;
+    background:rgba(20,27,35,0.85);
+  }
   .hint{ color:var(--text-dim); font-size:11.5px; line-height:1.5; }
   .divider{ height:1px; background:var(--border); margin:2px 0; }
 </style>
@@ -123,10 +127,11 @@
   </div>
 
   <div class="panel">
-    <h2>3D view — drag to rotate, scroll to zoom</h2>
+    <h2>3D view — drag to rotate, scroll to zoom, double-click to reset</h2>
     <div id="viewer-wrap">
       <canvas id="canvas3d"></canvas>
       <div id="status">Loading 3D engine…</div>
+      <button id="btnResetView" type="button" title="Restore the default orientation and zoom">Reset view</button>
     </div>
   </div>
 </div>
@@ -288,7 +293,7 @@ const ORBITAL_NAMES = {
 function orbitalLabel(n,l,ml){
   const key = l+'_'+ml;
   if(ORBITAL_NAMES[key]) return n+ORBITAL_NAMES[key];
-  const subshell = ['s','p','d','f','g','h'][l] || ('l='+l);
+  const subshell = ['s','p','d','f','g','h','i'][l] || ('l='+l);
   return n+subshell+' (ml='+(ml>=0?'+':'')+ml+')';
 }
 
@@ -392,7 +397,7 @@ const SUBSHELL_LETTERS = ['s','p','d','f','g','h','i'];
 
 function populateN(){
   selN.innerHTML='';
-  for(let n=1;n<=6;n++){
+  for(let n=1;n<=7;n++){
     const opt = document.createElement('option');
     opt.value=n; opt.textContent=n;
     selN.appendChild(opt);
@@ -434,7 +439,14 @@ selL.addEventListener('change', ()=>{ populateML(); });
 // Three.js viewer (custom orbit controls, matching the pattern used elsewhere)
 // ============================================================
 let renderer3d, scene3d, camera3d, group3d;
+// View state. The camera stays fixed on the +Z axis looking at `target`; dragging spins the orbital
+// group with a quaternion (trackball-style). There is therefore no polar-angle limit and no gimbal
+// lock: horizontal AND vertical drags can rotate a full 360 degrees and beyond. `theta`/`phi` now only
+// define the initial viewpoint (converted to `orient` in init3D()).
 let cam = { theta:0.6, phi:1.1, dist:24, target:[0,0,0] };
+let orient = null;       // THREE.Quaternion applied to group3d (created in init3D once THREE has loaded)
+let homeOrient = null;   // the default orientation that Reset view returns to
+const ROT_SPEED = 0.01;  // radians of rotation per pixel dragged
 let threeReady = false;
 
 function init3D(){
@@ -453,6 +465,14 @@ function init3D(){
   group3d = new THREE.Group();
   scene3d.add(group3d);
 
+  // Initial orientation: reproduces the original default viewpoint (azimuth cam.theta, polar cam.phi).
+  const initCam = new THREE.PerspectiveCamera();
+  initCam.position.set(Math.sin(cam.phi)*Math.cos(cam.theta), Math.cos(cam.phi), Math.sin(cam.phi)*Math.sin(cam.theta));
+  initCam.up.set(0,1,0);
+  initCam.lookAt(0,0,0);
+  orient = initCam.quaternion.clone().invert();
+  homeOrient = orient.clone();
+
   scene3d.add(new THREE.AmbientLight(0xffffff, 0.9));
   const dir = new THREE.DirectionalLight(0xffffff, 0.4);
   dir.position.set(5,8,6);
@@ -468,9 +488,7 @@ function init3D(){
     if(!dragging) return;
     const dx=e.clientX-lastX, dy=e.clientY-lastY;
     lastX=e.clientX; lastY=e.clientY;
-    cam.theta -= dx*0.01;
-    cam.phi = Math.max(0.1, Math.min(Math.PI-0.1, cam.phi - dy*0.01));
-    updateCamera();
+    rotateView(dx, dy);
   });
   canvas.addEventListener('wheel', e=>{
     e.preventDefault();
@@ -502,9 +520,7 @@ function init3D(){
       const p=touchPoint(e.touches[0]);
       const dx=p.x-lastX, dy=p.y-lastY;
       lastX=p.x; lastY=p.y;
-      cam.theta -= dx*0.01;
-      cam.phi = Math.max(0.1, Math.min(Math.PI-0.1, cam.phi - dy*0.01));
-      updateCamera();
+      rotateView(dx, dy);
     } else if(e.touches.length===2){
       const d = pinchDistance(e.touches);
       if(pinchDist>0){
@@ -536,11 +552,28 @@ function resize3D(){
 }
 function updateCamera(){
   if(!camera3d) return;
-  const x = cam.target[0] + cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta);
-  const y = cam.target[1] + cam.dist*Math.cos(cam.phi);
-  const z = cam.target[2] + cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta);
-  camera3d.position.set(x,y,z);
+  // Camera is fixed on +Z; the orbital (group3d) is what rotates.
+  camera3d.position.set(cam.target[0], cam.target[1], cam.target[2] + cam.dist);
+  camera3d.up.set(0,1,0);
   camera3d.lookAt(cam.target[0],cam.target[1],cam.target[2]);
+  if(orient) group3d.quaternion.copy(orient);
+}
+// Trackball-style rotation: a horizontal drag spins the orbital about the screen's vertical axis,
+// a vertical drag about the screen's horizontal axis. Rotations are composed as quaternions, so
+// neither axis is limited (full 360 degrees and beyond, including over the poles).
+function rotateView(dx, dy){
+  if(!orient) return;
+  const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), -dx*ROT_SPEED);
+  const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),  dy*ROT_SPEED);
+  orient.premultiply(qy.premultiply(qx)).normalize();   // net delta = qx * qy
+  updateCamera();
+}
+// Restore the default orientation and the auto-framed zoom for the current orbital.
+function resetView(){
+  if(!orient || !homeOrient) return;
+  orient.copy(homeOrient);
+  if(cam.homeDist) cam.dist = cam.homeDist;
+  updateCamera();
 }
 function animate3D(){
   requestAnimationFrame(animate3D);
@@ -644,6 +677,7 @@ function renderOrbital(){
   }
 
   cam.dist = Math.max(4, rExtent*1.8);
+  cam.homeDist = cam.dist;
   updateCamera();
 
   updateInfoPanel(n,l,ml);
@@ -676,6 +710,8 @@ function updateInfoPanel(n,l,ml){
 }
 
 document.getElementById('btnRender').addEventListener('click', renderOrbital);
+document.getElementById('btnResetView').addEventListener('click', resetView);
+document.getElementById('canvas3d').addEventListener('dblclick', resetView);
 document.getElementById('toggleRadialNodes').addEventListener('change', renderOrbital);
 document.getElementById('toggleAngularNodes').addEventListener('change', renderOrbital);
 document.getElementById('toggleNucleus').addEventListener('change', renderOrbital);
