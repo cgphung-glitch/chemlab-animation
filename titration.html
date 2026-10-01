@@ -181,6 +181,13 @@ button.small{ padding:6px 10px; font-size:0.75rem; }
   border-radius:8px;
   padding:8px;
 }
+.zoom-bar{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;
+  font-size:0.72rem; color: var(--ink-faint);
+}
+.zoom-bar .zoom-hint{ flex:1; min-width:160px; }
+.zoom-bar .zoom-hint b{ color: var(--cyan); font-weight:600; }
+#chartSvg{ touch-action: pan-y; user-select:none; -webkit-user-select:none; cursor: crosshair; }
 .eq-banner{
   margin-top:10px; padding:9px 12px; border-radius:7px;
   background: rgba(232,163,61,0.08); border:1px solid var(--amber-dim);
@@ -337,6 +344,11 @@ tbody td.dim{ color: var(--ink-faint); }
       <div class="chart-wrap">
         <svg id="chartSvg" viewBox="0 0 640 340" width="100%" style="display:block;"></svg>
       </div>
+      <div class="zoom-bar">
+        <span class="zoom-hint" id="zoomHint">Drag across the graph to zoom in on a range of the x-axis.</span>
+        <button class="ghost small" id="zoomOutBtn" style="display:none;">Zoom out</button>
+        <button class="ghost small" id="zoomResetBtn" style="display:none;">Reset zoom</button>
+      </div>
       <div class="eq-banner" id="eqBanner">Add titrant to begin plotting the curve.</div>
 
       <div class="name-row">
@@ -433,6 +445,7 @@ const state = {
   Vtitrant: 0,                     // mL added so far
   Vwater: 0,                       // mL water added so far
   data: [],                        // [{V, pH}]
+  zoomStack: [],                   // x-range zoom levels: [{x0, x1}, ...] (last = current)
   mode: 'pH',                      // 'pH' | 'd1' | 'd2'
 };
 
@@ -654,6 +667,7 @@ function buildResolvedReagents() {
 }
 
 function startExperiment() {
+  state.zoomStack = [];
   const { acid, base } = buildResolvedReagents();
   state.acid = acid;
   state.base = base;
@@ -706,6 +720,8 @@ function startExperiment() {
 }
 
 function resetToSetup() {
+  state.zoomStack = [];
+  updateZoomUI();
   state.started = false;
   [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput].forEach(el => el.disabled = false);
   document.querySelectorAll('[data-add]').forEach(b => b.disabled = true);
@@ -1038,15 +1054,30 @@ function buildChartSVG(theme, standalone) {
   }
 
   const plotW = W - margin.l - margin.r, plotH = H - margin.t - margin.b;
+  const zoom = state.zoomStack.length ? state.zoomStack[state.zoomStack.length - 1] : null;
   let xMin = Math.min(0, ...points.map(p => p.x)), xMax = Math.max(...points.map(p => p.x), 1);
   let yMin, yMax;
-  if (state.mode === 'pH') { yMin = 0; yMax = 14; }
+  if (zoom) {
+    // zoomed: x-range chosen by the user, y auto-fits the visible points
+    xMin = zoom.x0; xMax = zoom.x1;
+    const vis = points.filter(p => p.x >= xMin && p.x <= xMax);
+    const src = vis.length ? vis : points;
+    yMin = Math.min(...src.map(p => p.y)); yMax = Math.max(...src.map(p => p.y));
+    const pad = (yMax - yMin) * 0.15 || (state.mode === 'pH' ? 0.5 : Math.max(0.5, Math.abs(yMax) * 0.2));
+    yMin -= pad; yMax += pad;
+    if (state.mode === 'pH') { yMin = Math.max(0, yMin); yMax = Math.min(14, yMax); }
+  } else if (state.mode === 'pH') { yMin = 0; yMax = 14; }
   else {
     yMin = Math.min(...points.map(p => p.y)); yMax = Math.max(...points.map(p => p.y));
     const pad = (yMax - yMin) * 0.2 || Math.max(1, Math.abs(yMax) * 0.2) || 1;
     yMin -= pad; yMax += pad;
   }
-  if (xMax - xMin < 1) xMax = xMin + 1;
+  if (!zoom && xMax - xMin < 1) xMax = xMin + 1;
+  if (zoom && xMax - xMin < 1e-6) xMax = xMin + 1e-6;
+  chartView = { l: margin.l, r: W - margin.r, t: margin.t, b: H - margin.b, W, H, xMin, xMax };
+  const xr = xMax - xMin, yr = yMax - yMin;
+  const xDec = zoom ? (xr < 0.5 ? 3 : xr < 5 ? 2 : 1) : 1;
+  const yDec = zoom ? (state.mode === 'pH' ? (yr < 3 ? 2 : 1) : (yr < 0.1 ? 3 : 2)) : (state.mode === 'pH' ? 1 : 2);
 
   const xScale = v => margin.l + (v - xMin) / (xMax - xMin) * plotW;
   const yScale = v => margin.t + (1 - (v - yMin) / (yMax - yMin)) * plotH;
@@ -1057,17 +1088,17 @@ function buildChartSVG(theme, standalone) {
     const v = xMin + i / xTicks * (xMax - xMin);
     const x = xScale(v);
     grid += `<line x1="${x}" y1="${margin.t}" x2="${x}" y2="${H - margin.b}" stroke="${T.grid}" stroke-width="1"/>`;
-    grid += `<text x="${x}" y="${H - margin.b + 15}" text-anchor="middle" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(1)}</text>`;
+    grid += `<text x="${x}" y="${H - margin.b + 15}" text-anchor="middle" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(xDec)}</text>`;
   }
   for (let i = 0; i <= yTicks; i++) {
     const v = yMin + i / yTicks * (yMax - yMin);
     const y = yScale(v);
     grid += `<line x1="${margin.l}" y1="${y}" x2="${W - margin.r}" y2="${y}" stroke="${T.grid}" stroke-width="1"/>`;
-    grid += `<text x="${margin.l - 8}" y="${y + 3}" text-anchor="end" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(state.mode === 'pH' ? 1 : 2)}</text>`;
+    grid += `<text x="${margin.l - 8}" y="${y + 3}" text-anchor="end" font-size="9" fill="${T.tick}" font-family="${T.font}">${v.toFixed(yDec)}</text>`;
   }
 
   const pathD = points.map((p, i) => (i === 0 ? 'M' : 'L') + xScale(p.x).toFixed(2) + ',' + yScale(p.y).toFixed(2)).join(' ');
-  const dots = points.map(p => `<circle cx="${xScale(p.x).toFixed(2)}" cy="${yScale(p.y).toFixed(2)}" r="2.6" fill="${T.dot}"/>`).join('');
+  const dots = points.filter(p => p.x >= xMin && p.x <= xMax).map(p => `<circle cx="${xScale(p.x).toFixed(2)}" cy="${yScale(p.y).toFixed(2)}" r="2.6" fill="${T.dot}"/>`).join('');
 
   let eqMarker = '';
   if (eqV != null && eqV >= xMin && eqV <= xMax) {
@@ -1082,17 +1113,87 @@ function buildChartSVG(theme, standalone) {
     <line x1="${margin.l}" y1="${margin.t}" x2="${margin.l}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
     <line x1="${margin.l}" y1="${H - margin.b}" x2="${W - margin.r}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
     ${eqMarker}
-    <path d="${pathD}" fill="none" stroke="${T.line}" stroke-width="2"/>
-    ${dots}
+    <clipPath id="plotClip"><rect x="${margin.l}" y="${margin.t}" width="${plotW}" height="${plotH}"/></clipPath>
+    <g clip-path="url(#plotClip)"><path d="${pathD}" fill="none" stroke="${T.line}" stroke-width="2"/>${dots}</g>
     <text x="${(margin.l + W - margin.r) / 2}" y="${H - 4}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}">Volume of titrant (mL)</text>
     <text x="14" y="${(margin.t + H - margin.b) / 2}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}" transform="rotate(-90 14 ${(margin.t + H - margin.b) / 2})">${yLabel}</text>
   `;
   return standalone ? wrapSVG(inner, W, H, T) : inner;
 }
 
+let chartView = null;      // plot-area geometry + current x-range of the on-screen chart
+let dragSel = null;        // in-progress drag-to-zoom selection
+
 function drawChart() {
+  dragSel = null;
   chartSvg.innerHTML = buildChartSVG('dark', false);
+  updateZoomUI();
 }
+
+// ---- Drag-to-zoom on the x-axis ------------------------------------------
+const zoomHint = document.getElementById('zoomHint');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const zoomResetBtn = document.getElementById('zoomResetBtn');
+
+function updateZoomUI() {
+  const z = state.zoomStack.length ? state.zoomStack[state.zoomStack.length - 1] : null;
+  zoomOutBtn.style.display = z ? '' : 'none';
+  zoomResetBtn.style.display = state.zoomStack.length > 1 ? '' : (z ? '' : 'none');
+  zoomHint.innerHTML = z
+    ? `Zoomed to <b>${z.x0.toFixed(2)} \u2013 ${z.x1.toFixed(2)} mL</b>. Drag again to zoom further, or double-click the graph to reset.`
+    : 'Drag across the graph to zoom in on a range of the x-axis.';
+}
+
+function chartX(evt) {   // pointer position -> chart (viewBox) coordinates
+  const pt = chartSvg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const m = chartSvg.getScreenCTM();
+  return m ? pt.matrixTransform(m.inverse()) : { x: 0, y: 0 };
+}
+
+chartSvg.addEventListener('pointerdown', (e) => {
+  if (!chartView || e.button > 0) return;
+  const p = chartX(e);
+  if (p.x < chartView.l || p.x > chartView.r || p.y < chartView.t || p.y > chartView.b) return;
+  dragSel = { x0: p.x, x1: p.x, rect: null };
+  chartSvg.setPointerCapture(e.pointerId);
+});
+chartSvg.addEventListener('pointermove', (e) => {
+  if (!dragSel || !chartView) return;
+  const p = chartX(e);
+  dragSel.x1 = Math.min(Math.max(p.x, chartView.l), chartView.r);
+  const a = Math.min(dragSel.x0, dragSel.x1), w = Math.abs(dragSel.x1 - dragSel.x0);
+  if (!dragSel.rect) {
+    dragSel.rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    dragSel.rect.setAttribute('fill', 'rgba(95,208,200,0.16)');
+    dragSel.rect.setAttribute('stroke', '#5fd0c8');
+    dragSel.rect.setAttribute('stroke-dasharray', '4,3');
+    dragSel.rect.setAttribute('pointer-events', 'none');
+    chartSvg.appendChild(dragSel.rect);
+  }
+  dragSel.rect.setAttribute('x', a);
+  dragSel.rect.setAttribute('y', chartView.t);
+  dragSel.rect.setAttribute('width', w);
+  dragSel.rect.setAttribute('height', chartView.b - chartView.t);
+});
+function finishDrag(e, cancel) {
+  if (!dragSel || !chartView) return;
+  const sel = dragSel; dragSel = null;
+  if (sel.rect && sel.rect.parentNode) sel.rect.parentNode.removeChild(sel.rect);
+  if (cancel) return;
+  const px0 = Math.min(sel.x0, sel.x1), px1 = Math.max(sel.x0, sel.x1);
+  if (px1 - px0 < 8) return;                         // a click, not a selection
+  const toV = px => chartView.xMin + (px - chartView.l) / (chartView.r - chartView.l) * (chartView.xMax - chartView.xMin);
+  let v0 = toV(px0), v1 = toV(px1);
+  if (v1 - v0 < 0.02) { const c = (v0 + v1) / 2; v0 = c - 0.01; v1 = c + 0.01; }   // minimum zoom span
+  state.zoomStack.push({ x0: v0, x1: v1 });
+  renderChart();
+}
+chartSvg.addEventListener('pointerup', (e) => finishDrag(e, false));
+chartSvg.addEventListener('pointercancel', (e) => finishDrag(e, true));
+chartSvg.addEventListener('dblclick', () => { if (state.zoomStack.length) { state.zoomStack = []; renderChart(); } });
+zoomOutBtn.addEventListener('click', () => { state.zoomStack.pop(); renderChart(); });
+zoomResetBtn.addEventListener('click', () => { state.zoomStack = []; renderChart(); });
 
 function updateEqBanner(eqV) {
   if (eqV == null) {
