@@ -316,7 +316,7 @@
         <div id="particleHost"></div>
       </div>
     </div>
-    <div class="hint">drag / swipe the box to rotate it</div>
+    <div class="hint">drag / swipe the box to rotate it &middot; double-click to reset the view</div>
     <div class="clip-note" id="clipNote"></div>
   </section>
 
@@ -401,7 +401,7 @@
   </section>
 
   <section>
-    <h2 class="section-title">Data table <span class="hint-small">up to 10 points</span></h2>
+    <h2 class="section-title">Data table <span class="hint-small">up to 10 points &middot; calculated values carry a random &plusmn;0.7% measurement variation</span></h2>
     <div class="table-controls">
       <div class="field">
         <label for="inverseSelect">Add inverse column</label>
@@ -436,6 +436,7 @@
         <select id="yAxisSelect"></select>
       </div>
       <button class="btn" id="swapAxesBtn">⇄ Swap axes</button>
+      <button class="btn" id="connectBtn">Connect points</button>
       <button class="btn" id="fitLineBtn">Show linear fit</button>
     </div>
     <div class="fit-readout" id="fitReadout"></div>
@@ -625,14 +626,33 @@
 
   const rotator = document.getElementById('rotator');
   const sceneWrap = document.getElementById('sceneWrap');
-  let rotX=-24, rotY=-34, dragging=false, lastX=0, lastY=0;
-  function applyRotation(){ rotator.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`; }
+  // The orientation is stored as a 3x3 rotation matrix and every drag is applied about the SCREEN's own axes:
+  // left/right drag turns the box about the vertical screen axis, up/down drag about the horizontal screen axis.
+  // (Previously the pitch was clamped and yaw spun about the box's own tilted axis.) Double-click resets the view.
+  const DEG = Math.PI/180;
+  const mulM = (A,B)=>[0,1,2].map(i=>[0,1,2].map(j=>A[i][0]*B[0][j]+A[i][1]*B[1][j]+A[i][2]*B[2][j]));
+  const rotXm = a=>{ const c=Math.cos(a), s=Math.sin(a); return [[1,0,0],[0,c,-s],[0,s,c]]; };
+  const rotYm = a=>{ const c=Math.cos(a), s=Math.sin(a); return [[c,0,s],[0,1,0],[-s,0,c]]; };
+  const transposeM = M=>[0,1,2].map(i=>[0,1,2].map(j=>M[j][i]));
+  const m3d = M=>`matrix3d(${M[0][0]},${M[1][0]},${M[2][0]},0,${M[0][1]},${M[1][1]},${M[2][1]},0,${M[0][2]},${M[1][2]},${M[2][2]},0,0,0,0,1)`;
+  function orthonormalize(M){            // keep the matrix a true rotation (removes numeric drift)
+    const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    const norm=a=>{ const l=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/l,a[1]/l,a[2]/l]; };
+    const r0=norm(M[0]);
+    let r1=M[1].map((v,i)=>v-dot(M[1],r0)*r0[i]); r1=norm(r1);
+    const r2=[r0[1]*r1[2]-r0[2]*r1[1], r0[2]*r1[0]-r0[0]*r1[2], r0[0]*r1[1]-r0[1]*r1[0]];
+    return [r0,r1,r2];
+  }
+  const homeRotation = ()=>mulM(rotXm(-24*DEG), rotYm(-34*DEG));   // same starting view as before
+  let orient = homeRotation(), billboard = '';
+  let dragging=false, lastX=0, lastY=0;
+  function applyRotation(){ rotator.style.transform = m3d(orient); billboard = m3d(transposeM(orient)); }
   applyRotation();
   function pointerDown(x,y){ dragging=true; lastX=x; lastY=y; rotator.classList.add('grabbing'); }
   function pointerMove(x,y){
     if(!dragging) return;
     const dx=x-lastX, dy=y-lastY; lastX=x; lastY=y;
-    rotY += dx*0.4; rotX = clamp(rotX - dy*0.4, -70, 20);
+    orient = orthonormalize(mulM(rotYm(dx*0.4*DEG), mulM(rotXm(-dy*0.4*DEG), orient)));
     applyRotation();
   }
   function pointerUp(){ dragging=false; rotator.classList.remove('grabbing'); }
@@ -640,6 +660,7 @@
   sceneWrap.addEventListener('pointermove', e=> pointerMove(e.clientX,e.clientY));
   sceneWrap.addEventListener('pointerup', pointerUp);
   sceneWrap.addEventListener('pointercancel', pointerUp);
+  sceneWrap.addEventListener('dblclick', ()=>{ orient = homeRotation(); applyRotation(); });
 
   const sceneOuter = document.getElementById('sceneOuter');
   const BASE_W=420, BASE_H=340;
@@ -744,7 +765,7 @@
       const speedT=clamp((speed-SPEED_MIN)/Math.max(1,(SPEED_MAX-SPEED_MIN)),0,1);
       const halo=lerp(3,11,speedT);
       p.el.style.boxShadow = `0 0 ${halo.toFixed(1)}px ${glow}`;
-      p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, ${p.z}px) rotateY(${-rotY}deg) rotateX(${-rotX}deg)`;
+      p.el.style.transform = `translate3d(${p.x}px, ${p.y}px, ${p.z}px) ${billboard}`;
     }
     requestAnimationFrame(frame);
   }
@@ -775,15 +796,16 @@
   gasSelect.addEventListener('change', ()=>{
     state.gas = gasSelect.value;
     customAB.classList.toggle('show', state.gas==='X');
-    const oldT = state.T;
-    enforceConsistency();
-    applyParticleColors();
-    refreshAll();
+    resetToDefaults();            // new gas: clear data + graph, restore default V, T, P
     updateGasConstantsDisplay();
   });
   customA.addEventListener('input', ()=>{ state.customA = parseFloat(customA.value)||0; enforceConsistency(); refreshAll(); updateGasConstantsDisplay(); });
   customB.addEventListener('input', ()=>{ state.customB = parseFloat(customB.value)||0; enforceConsistency(); refreshAll(); updateGasConstantsDisplay(); });
-  modeSelect.addEventListener('change', ()=>{ state.mode = modeSelect.value; refreshAll(); syncAxisDefaults(); });
+  modeSelect.addEventListener('change', ()=>{
+    state.mode = modeSelect.value;
+    syncAxisDefaults();           // pick the matching graph axes first so the cleared graph uses them
+    resetToDefaults();            // new method: clear data + graph, restore default V, T, P
+  });
 
   // ============================================================
   // UI: controls
@@ -847,6 +869,7 @@
     const oldT = state.T;
     const lim = LIMITS[key];
     state[key] = clamp(round2(state[key] + delta), lim.min, lim.max);
+    lastSet = key;
     recomputeOther(key);
     if(key==='T' || (MODES[state.mode].active.includes('T'))) rescaleSpeeds(oldT, state.T);
     if(key==='n') adjustParticleCount();
@@ -865,7 +888,13 @@
   nUp.addEventListener('click',   ()=> setVar('n',  LIMITS.n.step));
 
   const resetBtn = document.getElementById('resetBtn');
-  resetBtn.addEventListener('click', ()=>{
+  // Back to the default V / T / P (n follows from the gas law) and an empty data table + graph.
+  // Used by the Reset button and whenever the gas or the method (mode) is changed.
+  function resetToDefaults(){
+    lastSet = null;
+    setFit(false);                // hide the linear fit
+    setConnect(false);            // back to a plain scatter plot
+
     const oldT = state.T;
     state.V = DEFAULTS.V;
     state.T = DEFAULTS.T;
@@ -877,7 +906,8 @@
     clampParticlesToBounds();
     updateDisplay();
     clearTable();
-  });
+  }
+  resetBtn.addEventListener('click', resetToDefaults);
 
   function refreshAll(){
     clampParticlesToBounds();
@@ -890,6 +920,8 @@
   // ============================================================
   const records = [];
   const MAX_RECORDS = 10;
+  const MEASUREMENT_ERROR = 0.007;     // +/-0.7 % random experimental variation on the calculated quantity
+  let lastSet = null;                  // the variable the user last stepped (it stays exact; the other one is "measured")
   const recordBtn = document.getElementById('recordBtn');
   const recordStatus = document.getElementById('recordStatus');
   const inverseSelect = document.getElementById('inverseSelect');
@@ -905,7 +937,19 @@
 
   function recordPoint(){
     if(records.length >= MAX_RECORDS) return;
-    records.push({ gas: state.gas, mode: state.mode, V: state.V, T: state.T, P: state.P, n: state.n });
+    const rec = { gas: state.gas, mode: state.mode, V: state.V, T: state.T, P: state.P, n: state.n };
+    // Experimental variation: the quantity that was *calculated* (not the one the user set) is recorded with a
+    // random error of up to +/-0.7 %, so fitted lines have R^2 slightly below 1, like real lab data.
+    const active = MODES[state.mode].active;
+    let measured;
+    if(lastSet && active.includes(lastSet)){
+      measured = active[0]===lastSet ? active[1] : active[0];
+    } else {                                   // nothing stepped yet: use the mode's default "output" variable
+      const order = { V:0, n:1, P:2, T:3 };
+      measured = order[active[0]] > order[active[1]] ? active[0] : active[1];
+    }
+    rec[measured] *= 1 + (Math.random()*2 - 1) * MEASUREMENT_ERROR;
+    records.push(rec);
     renderTable();
     renderChart();
   }
@@ -1017,13 +1061,20 @@
   const chartSvg = document.getElementById('chartSvg');
   const exportPngBtn = document.getElementById('exportPngBtn');
 
-  let showFit = false;
-  fitLineBtn.addEventListener('click', ()=>{
-    showFit = !showFit;
+  const connectBtn = document.getElementById('connectBtn');
+  let showFit = false, showConnect = false;      // scatter plot only by default
+  function setFit(v){
+    showFit = v;
     fitLineBtn.textContent = showFit ? 'Hide linear fit' : 'Show linear fit';
     fitLineBtn.classList.toggle('active', showFit);
-    renderChart();
-  });
+  }
+  function setConnect(v){
+    showConnect = v;
+    connectBtn.textContent = showConnect ? 'Disconnect points' : 'Connect points';
+    connectBtn.classList.toggle('active', showConnect);
+  }
+  fitLineBtn.addEventListener('click', ()=>{ setFit(!showFit); renderChart(); });
+  connectBtn.addEventListener('click', ()=>{ setConnect(!showConnect); renderChart(); });
 
   function linearFit(pts){
     const n = pts.length;
@@ -1174,7 +1225,7 @@
     const uniquePts = Array.from(byX.entries()).map(([x,ys])=>({x, y: ys.reduce((a,b)=>a+b,0)/ys.length}))
       .sort((a,b)=>a.x-b.x);
 
-    if(uniquePts.length>=2){
+    if(showConnect && uniquePts.length>=2){
       const spline = naturalCubicSpline(uniquePts.map(p=>p.x), uniquePts.map(p=>p.y));
       const N=120;
       let d='';
@@ -1203,14 +1254,28 @@
     return svg;
   }
 
+  function fitSummary(fit){
+    const signB = fit.b>=0 ? '+' : '\u2212';
+    return `Linear fit: y = ${fit.m.toPrecision(4)}x ${signB} ${Math.abs(fit.b).toPrecision(4)}     R\u00b2 = ${fit.r2.toFixed(5)}`;
+  }
+  // text lines added to the exported PNG when the linear fit is switched on (null otherwise)
+  function fitExportLines(){
+    if(!showFit) return null;
+    const xKey = xAxisSelect.value, yKey = yAxisSelect.value;
+    const pts = records.map(r=>({x:getVal(r,xKey), y:getVal(r,yKey)})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+    const fit = pts.length>=2 ? linearFit(pts) : null;
+    if(!fit) return null;
+    const keepGaps = t=>t.replace(/ {2,}/g, m=>'\u00a0'.repeat(m.length));   // SVG text collapses runs of spaces
+    return { eq: keepGaps(fitSummary(fit)), legend: keepGaps(`where y = ${axisOptionLabel(yKey)},  x = ${axisOptionLabel(xKey)}`) };
+  }
+
   function updateFitReadout(){
     const xKey = xAxisSelect.value, yKey = yAxisSelect.value;
     const pts = records.map(r=>({x:getVal(r,xKey), y:getVal(r,yKey)})).filter(p=>isFinite(p.x)&&isFinite(p.y));
     if(showFit && pts.length>=2){
       const fit = linearFit(pts);
       if(fit){
-        const signB = fit.b>=0 ? '+' : '−';
-        fitReadout.textContent = `Linear fit: y = ${fit.m.toPrecision(4)}x ${signB} ${Math.abs(fit.b).toPrecision(4)}     R² = ${fit.r2.toFixed(5)}`;
+        fitReadout.textContent = fitSummary(fit);
       } else {
         fitReadout.textContent = 'Linear fit unavailable (need points spread across x-values).';
       }
@@ -1241,8 +1306,9 @@
     const name = userNameInput.value.trim();
     const simLabel = simulationTypeLabel();
 
-    const NAME_LINE_H = 26, SIM_LINE_H = 20, TITLE_PAD = 10;
-    const TITLE_H = TITLE_PAD*2 + (name ? NAME_LINE_H : 0) + SIM_LINE_H;
+    const fitLines = fitExportLines();
+    const NAME_LINE_H = 26, SIM_LINE_H = 20, FIT_LINE_H = 22, LEGEND_LINE_H = 16, TITLE_PAD = 10;
+    const TITLE_H = TITLE_PAD*2 + (name ? NAME_LINE_H : 0) + SIM_LINE_H + (fitLines ? FIT_LINE_H + LEGEND_LINE_H : 0);
     const totalH = CHART_H + TITLE_H;
 
     let titleSvg = `<rect x="0" y="0" width="${CHART_W}" height="${TITLE_H}" fill="${THEME_LIGHT.bg}"/>`;
@@ -1254,6 +1320,12 @@
     }
     cursorY += SIM_LINE_H*0.72;
     titleSvg += `<text x="${CHART_W/2}" y="${cursorY}" fill="${THEME_LIGHT.axisText}" font-size="13" text-anchor="middle" font-family="monospace">${escapeXml(simLabel)}</text>`;
+    if(fitLines){
+      cursorY += SIM_LINE_H*0.28 + FIT_LINE_H*0.72;
+      titleSvg += `<text x="${CHART_W/2}" y="${cursorY}" fill="${THEME_LIGHT.labelText}" font-size="14" font-weight="bold" text-anchor="middle" font-family="monospace">${escapeXml(fitLines.eq)}</text>`;
+      cursorY += FIT_LINE_H*0.28 + LEGEND_LINE_H*0.72;
+      titleSvg += `<text x="${CHART_W/2}" y="${cursorY}" fill="${THEME_LIGHT.axisText}" font-size="11" text-anchor="middle" font-family="monospace">${escapeXml(fitLines.legend)}</text>`;
+    }
 
     const svgMarkup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CHART_W} ${totalH}" width="${CHART_W}" height="${totalH}">`+
       titleSvg +
