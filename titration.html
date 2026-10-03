@@ -211,6 +211,26 @@ button.small{ padding:6px 10px; font-size:0.75rem; }
 }
 .name-row input[type=text]:focus{ border-color: var(--amber); }
 
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(5,8,14,0.65); display:none;
+  align-items:center; justify-content:center; z-index:1000;
+}
+.modal-backdrop.open{ display:flex; }
+.modal-box{
+  background: var(--panel); border:1px solid var(--line); border-radius:12px;
+  padding:20px 22px; width:min(380px, 90vw); box-shadow:0 20px 50px rgba(0,0,0,0.5);
+}
+.modal-box h3{ margin:0 0 6px; font-size:1rem; color: var(--ink); }
+.modal-box p{ margin:0 0 12px; font-size:0.78rem; color: var(--ink-faint); }
+.modal-box input[type=text]{
+  background: var(--panel-raised); border:1px solid var(--line);
+  color: var(--ink); border-radius:6px; padding:9px 10px;
+  font-family:'Inter', sans-serif; font-size:0.9rem; outline:none; width:100%;
+}
+.modal-box input[type=text]:focus{ border-color: var(--amber); }
+.modal-box .modal-err{ color:#e2685f; font-size:0.72rem; min-height:1em; margin-top:6px; }
+.modal-actions{ display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+
 .table-wrap{
   margin-top:16px; max-height:280px; overflow-y:auto;
   border:1px solid var(--line-soft); border-radius:8px;
@@ -351,10 +371,6 @@ tbody td.dim{ color: var(--ink-faint); }
       </div>
       <div class="eq-banner" id="eqBanner">Add titrant to begin plotting the curve.</div>
 
-      <div class="name-row">
-        <label for="userNameInput">Name (printed on the exported graph)</label>
-        <input type="text" id="userNameInput" placeholder="e.g. Jordan Lee" maxlength="60">
-      </div>
       <div class="export-row">
         <button class="ghost small" id="exportGraphBtn">Export graph (light mode)</button>
         <button class="ghost small" id="exportTableBtn">Export table (CSV)</button>
@@ -374,6 +390,19 @@ tbody td.dim{ color: var(--ink-faint); }
   </div>
 
   <div class="footnote">Simplified equilibrium model for instructional use · strong acids/bases treated as fully dissociated · single-equivalence-point simplification for polyprotic species</div>
+</div>
+
+<div class="modal-backdrop" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+  <div class="modal-box">
+    <h3 id="nameModalTitle">Export graph</h3>
+    <p>Enter your name. It will be printed on the graph as &ldquo;Prepared by &lt;name&gt;&rdquo;.</p>
+    <input type="text" id="nameModalInput" placeholder="e.g. Jordan Lee" maxlength="60" autocomplete="name">
+    <div class="modal-err" id="nameModalErr"></div>
+    <div class="modal-actions">
+      <button class="ghost small" id="nameModalCancel">Cancel</button>
+      <button class="primary small" id="nameModalOk">Export</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -547,6 +576,27 @@ function equivalenceFromD1(data, d1) {
   return x1;
 }
 
+// End point (V_end) from the 1st derivative graph: find the dominant peak
+// (largest |dpH/dV|). If that peak is positive, V_end is the volume at the
+// maximum y; if negative, the volume at the minimum y. Returns null while the
+// peak is still at the edge of the data (not yet bracketed).
+function endPointFromD1(data, d1) {
+  let iAbs = -1, best = -1;
+  for (let i = 0; i < d1.length; i++) {
+    if (d1[i] == null) continue;
+    if (Math.abs(d1[i]) > best) { best = Math.abs(d1[i]); iAbs = i; }
+  }
+  if (iAbs <= 0 || iAbs >= d1.length - 1) return null;
+  if (d1[iAbs - 1] == null || d1[iAbs + 1] == null) return null;
+  const positive = d1[iAbs] > 0;
+  let idx = -1, val = positive ? -Infinity : Infinity;
+  for (let i = 0; i < d1.length; i++) {
+    if (d1[i] == null) continue;
+    if (positive ? d1[i] > val : d1[i] < val) { val = d1[i]; idx = i; }
+  }
+  return idx >= 0 ? data[idx].V : null;
+}
+
 // Equivalence volume from 2nd derivative: linear-interpolated zero crossing,
 // restricted to the neighborhood of the 1st-derivative peak so that tiny
 // floating-point noise in flat, far-from-equivalence regions (where the true
@@ -589,7 +639,7 @@ const dataTableBody = document.getElementById('dataTableBody');
 const chartSvg = document.getElementById('chartSvg');
 const exportGraphBtn = document.getElementById('exportGraphBtn');
 const exportTableBtn = document.getElementById('exportTableBtn');
-const userNameInput = document.getElementById('userNameInput');
+let exportName = '';   // name entered in the export dialog
 const apparatusStage = document.getElementById('apparatusStage');
 
 function populateSelectors() {
@@ -892,6 +942,8 @@ function renderApparatus() {
 
   const pH = state.started ? pHAtCurrentState() : null;
   const liquidColor = state.started && totalFlaskVol > 0 ? pHToColor(pH) : 'rgba(95,208,200,0.12)';
+  const probeTipY = Math.max(NECK_TOP + 20, Math.min(BODY_BOTTOM - 8, liquidY + 12));
+  const meterText = (state.started && pH != null) ? pH.toFixed(2) : '\u2014';
   const titrantColor = state.started ? (state.titrantIs === 'acid' ? '#e2685f' : '#5fd0c8') : '#586273';
 
   // graduation marks on burette (every 10 mL of its 100 mL span)
@@ -944,6 +996,16 @@ function renderApparatus() {
 
     <text x="${CX}" y="${BUR_TOP-6}" text-anchor="middle" font-size="9" fill="#7a8494" font-family="JetBrains Mono, monospace">100 mL burette</text>
     <text x="${CX}" y="${BODY_BOTTOM+22}" text-anchor="middle" font-size="9" fill="#7a8494" font-family="JetBrains Mono, monospace">250 mL flask</text>
+
+    <!-- pH meter + probe dipping into the flask -->
+    <path d="M 220,112 C 220,200 ${CX+8},170 ${CX+8},222" fill="none" stroke="#6b7588" stroke-width="2" stroke-linecap="round"/>
+    <rect x="${CX+6}" y="222" width="4" height="${Math.max(0, probeTipY-222)}" rx="1.5" fill="rgba(210,220,235,0.6)" stroke="#8a94a6" stroke-width="0.8"/>
+    <circle cx="${CX+8}" cy="${probeTipY+1}" r="3.4" fill="rgba(230,240,255,0.75)" stroke="#8a94a6" stroke-width="0.8"/>
+    <rect x="184" y="62" width="74" height="50" rx="6" fill="#1a2030" stroke="#4a5568" stroke-width="1.5"/>
+    <text x="221" y="74" text-anchor="middle" font-size="7.5" letter-spacing="1" fill="#7a8494" font-family="JetBrains Mono, monospace">pH METER</text>
+    <rect x="190" y="79" width="62" height="26" rx="3" fill="#0c1a1a" stroke="#2c3a3a" stroke-width="1"/>
+    <text x="221" y="98" text-anchor="middle" font-size="17" font-weight="700" fill="#5fd0c8" font-family="JetBrains Mono, monospace">${meterText}</text>
+    <circle cx="249" cy="69" r="2" fill="${state.started ? '#6fcf8a' : '#586273'}"/>
   </svg>`;
 }
 
@@ -999,13 +1061,13 @@ function computeChartGeometry() {
   } else if (state.mode === 'd1') {
     points = state.data.map((p, i) => d1[i] != null ? { x: p.V, y: d1[i] } : null).filter(Boolean);
     yLabel = 'dpH/dV';
-    eqV = equivalenceFromD1(state.data, d1);
+    eqV = endPointFromD1(state.data, d1);
   } else {
     points = state.data.map((p, i) => d2[i] != null ? { x: p.V, y: d2[i] } : null).filter(Boolean);
     yLabel = 'd\u00b2pH/dV\u00b2';
     eqV = equivalenceFromD2(state.data, d2, equivalenceFromD1(state.data, d1));
   }
-  return { points, yLabel, eqV };
+  return { points, yLabel, eqV, markerKind: state.mode === 'd1' ? 'end' : 'ex' };
 }
 
 function wrapSVG(inner, W, H, T) {
@@ -1029,27 +1091,29 @@ function buildChartSVG(theme, standalone) {
   const acidName = state.acid ? state.acid.name : '';
   const baseName = state.base ? state.base.name : '';
   let titleMarkup = '';
+  let preparedMarkup = '';
   if (acidName && baseName) {
     const titrantConcStr = state.titrantConc != null ? state.titrantConc.toFixed(2) + ' M ' : '';
     const acidLabel = state.titrantIs === 'acid' ? `${titrantConcStr}${acidName}` : `${acidName} (unknown)`;
     const baseLabel = state.titrantIs === 'base' ? `${titrantConcStr}${baseName}` : `${baseName} (unknown)`;
-    titleMarkup = `<text x="${W / 2}" y="18" text-anchor="middle" font-size="14" font-weight="600" fill="${T.axisLabel}" font-family="Fraunces, Georgia, serif">${escapeXml(acidLabel)} + ${escapeXml(baseLabel)}</text>`;
+    titleMarkup = `<text x="${W / 2}" y="17" text-anchor="middle" font-size="14" font-weight="600" fill="${T.axisLabel}" font-family="Fraunces, Georgia, serif">${escapeXml(acidLabel)} + ${escapeXml(baseLabel)}</text>`;
     if (standalone) {
-      const userName = userNameInput && userNameInput.value.trim();
-      if (userName) {
-        titleMarkup += `<text x="${W / 2}" y="33" text-anchor="middle" font-size="10" fill="${T.tick}" font-family="Inter, sans-serif">Prepared by ${escapeXml(userName)}</text>`;
+      const typeName = state.mode === 'd1' ? 'First Derivative' : state.mode === 'd2' ? 'Second Derivative' : 'pH';
+      titleMarkup += `<text x="${W / 2}" y="31" text-anchor="middle" font-size="11" fill="${T.tick}" font-family="Inter, sans-serif">${escapeXml(typeName)}</text>`;
+      if (exportName) {
+        preparedMarkup = `<text x="${W - 20}" y="${H - 4}" text-anchor="end" font-size="10" font-style="italic" fill="${T.tick}" font-family="Inter, sans-serif">Prepared by ${escapeXml(exportName)}</text>`;
       }
     }
   }
 
   if (!geo) {
-    return standalone ? wrapSVG(titleMarkup, W, H, T) : titleMarkup;
+    return standalone ? wrapSVG(titleMarkup + preparedMarkup, W, H, T) : titleMarkup;
   }
   updateEqBanner(geo.eqV);
-  const { points, yLabel, eqV } = geo;
+  const { points, yLabel, eqV, markerKind } = geo;
 
   if (points.length === 0) {
-    const msg = titleMarkup + `<text x="320" y="170" text-anchor="middle" fill="${T.tick}" font-family="Inter, sans-serif" font-size="13">Not enough points yet for this view.</text>`;
+    const msg = titleMarkup + preparedMarkup + `<text x="320" y="170" text-anchor="middle" fill="${T.tick}" font-family="Inter, sans-serif" font-size="13">Not enough points yet for this view.</text>`;
     return standalone ? wrapSVG(msg, W, H, T) : msg;
   }
 
@@ -1074,7 +1138,7 @@ function buildChartSVG(theme, standalone) {
   }
   if (!zoom && xMax - xMin < 1) xMax = xMin + 1;
   if (zoom && xMax - xMin < 1e-6) xMax = xMin + 1e-6;
-  chartView = { l: margin.l, r: W - margin.r, t: margin.t, b: H - margin.b, W, H, xMin, xMax };
+  chartView = { l: margin.l, r: W - margin.r, t: margin.t, b: H - margin.b, W, H, xMin, xMax, yMin, yMax, points, mode: state.mode };
   const xr = xMax - xMin, yr = yMax - yMin;
   const xDec = zoom ? (xr < 0.5 ? 3 : xr < 5 ? 2 : 1) : 1;
   const yDec = zoom ? (state.mode === 'pH' ? (yr < 3 ? 2 : 1) : (yr < 0.1 ? 3 : 2)) : (state.mode === 'pH' ? 1 : 2);
@@ -1104,12 +1168,22 @@ function buildChartSVG(theme, standalone) {
   if (eqV != null && eqV >= xMin && eqV <= xMax) {
     const ex = xScale(eqV);
     eqMarker = `<line x1="${ex}" y1="${margin.t}" x2="${ex}" y2="${H - margin.b}" stroke="${T.eq}" stroke-width="1.4" stroke-dasharray="4,3"/>
-      <text x="${ex}" y="${margin.t + 10}" text-anchor="${ex > W - 90 ? 'end' : 'start'}" font-size="9" fill="${T.eq}" font-family="${T.font}">V\u2091\u2093 \u2248 ${eqV.toFixed(2)}</text>`;
+      <text x="${ex}" y="${margin.t + 10}" text-anchor="${ex > W - 90 ? 'end' : 'start'}" font-size="9" fill="${T.eq}" font-family="${T.font}">${markerKind === 'end'
+        ? `V<tspan dy="2" font-size="7">end</tspan><tspan dy="-2"> = ${eqV.toFixed(2)}</tspan>`
+        : `V\u2091\u2093 \u2248 ${eqV.toFixed(2)}`}</text>`;
+  }
+
+  // y = 0 reference line (dotted) on the 2nd derivative graph
+  let zeroLine = '';
+  if (state.mode === 'd2' && yMin < 0 && yMax > 0) {
+    const zy = yScale(0);
+    zeroLine = `<line x1="${margin.l}" y1="${zy}" x2="${W - margin.r}" y2="${zy}" stroke="${T.axisLabel}" stroke-width="1.3" stroke-dasharray="1.5,3.5" stroke-linecap="round" opacity="0.85"/>`;
   }
 
   const inner = `
     ${titleMarkup}
     ${grid}
+    ${zeroLine}
     <line x1="${margin.l}" y1="${margin.t}" x2="${margin.l}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
     <line x1="${margin.l}" y1="${H - margin.b}" x2="${W - margin.r}" y2="${H - margin.b}" stroke="${T.axis}" stroke-width="1.4"/>
     ${eqMarker}
@@ -1117,6 +1191,7 @@ function buildChartSVG(theme, standalone) {
     <g clip-path="url(#plotClip)"><path d="${pathD}" fill="none" stroke="${T.line}" stroke-width="2"/>${dots}</g>
     <text x="${(margin.l + W - margin.r) / 2}" y="${H - 4}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}">Volume of titrant (mL)</text>
     <text x="14" y="${(margin.t + H - margin.b) / 2}" text-anchor="middle" font-size="10" fill="${T.axisLabel}" font-family="${T.labelFont}" transform="rotate(-90 14 ${(margin.t + H - margin.b) / 2})">${yLabel}</text>
+    ${preparedMarkup}
   `;
   return standalone ? wrapSVG(inner, W, H, T) : inner;
 }
@@ -1126,6 +1201,7 @@ let dragSel = null;        // in-progress drag-to-zoom selection
 
 function drawChart() {
   dragSel = null;
+  cursorG = null;
   chartSvg.innerHTML = buildChartSVG('dark', false);
   updateZoomUI();
 }
@@ -1189,6 +1265,58 @@ function finishDrag(e, cancel) {
   state.zoomStack.push({ x0: v0, x1: v1 });
   renderChart();
 }
+// ---- Cursor tracker: follows the pointer's x and reports (x, y) on the curve ----
+let cursorG = null;
+function clearCursor() {
+  if (cursorG && cursorG.parentNode) cursorG.parentNode.removeChild(cursorG);
+  cursorG = null;
+}
+function curveYAt(pts, x) {
+  if (!pts || pts.length === 0) return null;
+  if (pts.length === 1) return Math.abs(pts[0].x - x) < 1e-9 ? pts[0].y : null;
+  if (x < pts[0].x || x > pts[pts.length - 1].x) return null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (x >= a.x && x <= b.x) {
+      const dx = b.x - a.x;
+      return dx < 1e-12 ? a.y : a.y + (b.y - a.y) * (x - a.x) / dx;
+    }
+  }
+  return null;
+}
+chartSvg.addEventListener('pointermove', (e) => {
+  if (dragSel || !chartView || !chartView.points) { clearCursor(); return; }
+  const p = chartX(e);
+  const cv = chartView;
+  if (p.x < cv.l || p.x > cv.r || p.y < cv.t || p.y > cv.b) { clearCursor(); return; }
+  const xv = cv.xMin + (p.x - cv.l) / (cv.r - cv.l) * (cv.xMax - cv.xMin);
+  const yv = curveYAt(cv.points, xv);
+  clearCursor();
+  if (yv == null) return;
+  const px = p.x;
+  const py = cv.t + (1 - (yv - cv.yMin) / (cv.yMax - cv.yMin)) * (cv.b - cv.t);
+  const xr = cv.xMax - cv.xMin;
+  const xs = xv.toFixed(xr < 0.5 ? 3 : 2);
+  const ys = yv.toFixed(cv.mode === 'pH' ? 2 : 3);
+  const bw = 96, bh = 32;
+  let bx = px + 10; if (bx + bw > cv.r) bx = px - bw - 10;
+  let by = py - bh - 8; if (by < cv.t + 2) by = py + 10;
+  by = Math.min(by, cv.b - bh - 2);
+  const NS = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('pointer-events', 'none');
+  g.innerHTML = `
+    <line x1="${px}" y1="${cv.t}" x2="${px}" y2="${cv.b}" stroke="#9aa2b1" stroke-width="1" stroke-dasharray="3,3" opacity="0.8"/>
+    <circle cx="${px}" cy="${Math.max(cv.t, Math.min(cv.b, py))}" r="4" fill="#0b0f16" stroke="#e8a33d" stroke-width="2"/>
+    <rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="5" fill="#0b0f16" fill-opacity="0.92" stroke="#e8a33d" stroke-width="1"/>
+    <text x="${bx + 7}" y="${by + 13}" font-size="9.5" fill="#dfe6ee" font-family="JetBrains Mono, monospace">x = ${xs} mL</text>
+    <text x="${bx + 7}" y="${by + 26}" font-size="9.5" fill="#5fd0c8" font-family="JetBrains Mono, monospace">y = ${ys}</text>`;
+  chartSvg.appendChild(g);
+  cursorG = g;
+});
+chartSvg.addEventListener('pointerleave', clearCursor);
+chartSvg.addEventListener('pointerdown', clearCursor);
+
 chartSvg.addEventListener('pointerup', (e) => finishDrag(e, false));
 chartSvg.addEventListener('pointercancel', (e) => finishDrag(e, true));
 chartSvg.addEventListener('dblclick', () => { if (state.zoomStack.length) { state.zoomStack = []; renderChart(); } });
@@ -1200,6 +1328,10 @@ function updateEqBanner(eqV) {
     eqBanner.textContent = state.data.length < 3
       ? 'Add a few more titrant increments to resolve an equivalence point.'
       : 'No clear equivalence point detected yet \u2014 keep adding titrant.';
+    return;
+  }
+  if (state.mode === 'd1') {
+    eqBanner.innerHTML = `End point V<sub>end</sub> = <b style="color:var(--amber)">${eqV.toFixed(2)} mL</b> titrant \u2014 volume at the 1st-derivative peak (max y if positive, min y if negative).`;
     return;
   }
   const method = state.mode === 'd2'
@@ -1242,12 +1374,42 @@ function downloadBlob(content, filename, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+const nameModal = document.getElementById('nameModal');
+const nameModalInput = document.getElementById('nameModalInput');
+const nameModalErr = document.getElementById('nameModalErr');
+
+function openNameDialog() {
+  nameModalInput.value = exportName;
+  nameModalErr.textContent = '';
+  nameModal.classList.add('open');
+  setTimeout(() => nameModalInput.focus(), 30);
+}
+function closeNameDialog() { nameModal.classList.remove('open'); }
+function confirmNameDialog() {
+  const v = nameModalInput.value.trim();
+  if (!v) { nameModalErr.textContent = 'Please enter your name to export the graph.'; nameModalInput.focus(); return; }
+  exportName = v;
+  closeNameDialog();
+  doExportGraph();
+}
+document.getElementById('nameModalOk').addEventListener('click', confirmNameDialog);
+document.getElementById('nameModalCancel').addEventListener('click', closeNameDialog);
+nameModal.addEventListener('click', (e) => { if (e.target === nameModal) closeNameDialog(); });
+nameModalInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmNameDialog();
+  else if (e.key === 'Escape') closeNameDialog();
+});
+
 function exportGraphLightMode() {
   if (!state.started || state.data.length === 0) {
     statusMsg.textContent = 'Start a titration and add some titrant before exporting the graph.';
     statusMsg.classList.add('warn');
     return;
   }
+  openNameDialog();
+}
+
+function doExportGraph() {
   const svgString = buildChartSVG('light', true);
   const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
   const svgUrl = URL.createObjectURL(svgBlob);
