@@ -271,8 +271,8 @@
           <canvas id="graphCanvas" class="w-full h-full block cursor-crosshair"></canvas>
           
           <!-- Dynamic Hover Crosshair Coordinate Display -->
-          <div id="graphCoordOverlay" class="absolute top-3 right-3 bg-slate-900/90 text-slate-200 font-mono text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 pointer-events-none backdrop-blur hidden">
-            X: <span id="coordX">0.00</span> mL | Y: <span id="coordY">0.00</span>
+          <div id="graphCoordOverlay" class="absolute top-3 right-3 bg-slate-900/90 text-slate-200 font-mono text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 pointer-events-none backdrop-blur hidden shadow-lg">
+            V: <span id="coordX" class="text-brand-400 font-bold">0.00</span> mL | <span id="coordYLabel">pH</span>: <span id="coordY" class="text-emerald-400 font-bold">0.00</span>
           </div>
 
           <!-- Start Titration Overlay Prompt when V = 0 -->
@@ -424,7 +424,12 @@
 
       isDraggingZoom: false,
       dragStartX: null,
-      dragCurrentX: null
+      dragCurrentX: null,
+
+      // Hover Crosshair Tracking State
+      hoverActive: false,
+      hoverV: 0,
+      hoverYVal: 0
     };
 
     function solveQuadraticPos(a, b, c) {
@@ -557,6 +562,47 @@
       return 7.0;
     }
 
+    /**
+     * Interpolates exact curve value (Y) for volume V on the active graph tab
+     */
+    function getInterpolatedCurveY(vTarget, activeTab = state.activeTab) {
+      if (!state.dataGrid || state.dataGrid.length === 0) return 0;
+
+      // Handle bounds
+      if (vTarget <= state.dataGrid[0].v) {
+        const p = state.dataGrid[0];
+        return activeTab === 'ph' ? p.ph : (activeTab === 'd1' ? p.d1 : p.d2);
+      }
+      if (vTarget >= state.dataGrid[state.dataGrid.length - 1].v) {
+        const p = state.dataGrid[state.dataGrid.length - 1];
+        return activeTab === 'ph' ? p.ph : (activeTab === 'd1' ? p.d1 : p.d2);
+      }
+
+      // Find adjacent data grid points for linear interpolation
+      for (let i = 0; i < state.dataGrid.length - 1; i++) {
+        const p1 = state.dataGrid[i];
+        const p2 = state.dataGrid[i + 1];
+
+        if (vTarget >= p1.v && vTarget <= p2.v) {
+          const t = (vTarget - p1.v) / (p2.v - p1.v);
+          let y1 = p1.ph;
+          let y2 = p2.ph;
+
+          if (activeTab === 'd1') {
+            y1 = p1.d1;
+            y2 = p2.d1;
+          } else if (activeTab === 'd2') {
+            y1 = p1.d2;
+            y2 = p2.d2;
+          }
+
+          return y1 + t * (y2 - y1);
+        }
+      }
+
+      return calculateExactpH(vTarget);
+    }
+
     function generateSamplingGrid() {
       const V_eq = state.veq;
       const vSet = new Set();
@@ -683,7 +729,7 @@
       const centerX = w * 0.45;
       const buretteTop = 15;
       const buretteHeight = h * 0.44;
-      const buretteWidth = 18; // Slightly slimmed
+      const buretteWidth = 18;
 
       const currentpH = calculateExactpH(state.currentV);
       document.getElementById('digitalPhDisplay').innerText = currentpH.toFixed(2);
@@ -952,7 +998,7 @@
         ctx.fillText(yVal.toFixed(1), padding.left - 8, yPx + 3.5);
       }
 
-      // Titles
+      // Axis Labels
       ctx.fillStyle = textColor;
       ctx.font = '11px Inter, sans-serif';
       ctx.textAlign = 'center';
@@ -1023,23 +1069,50 @@
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Current Titration Point Head Marker
+        // Current Titration Progress Point
         if (state.currentV >= xMin && state.currentV <= xMax) {
           const currX = getXPx(state.currentV);
-          const currpH = calculateExactpH(state.currentV);
-          let currYVal = currpH;
-
-          if (state.activeTab === 'd1' || state.activeTab === 'd2') {
-            const closest = state.dataGrid.reduce((prev, curr) => 
-              Math.abs(curr.v - state.currentV) < Math.abs(prev.v - state.currentV) ? curr : prev
-            );
-            currYVal = (state.activeTab === 'd1') ? closest.d1 : closest.d2;
-          }
-
+          const currYVal = getInterpolatedCurveY(state.currentV);
           const currY = getYPx(currYVal);
 
           ctx.beginPath();
-          ctx.arc(currX, currY, 6, 0, Math.PI * 2);
+          ctx.arc(currX, currY, 5, 0, Math.PI * 2);
+          ctx.fillStyle = curveColor;
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      /* PRECISE INTERPOLATED HOVER CROSSHAIR: Snapping directly onto the curve */
+      if (state.hoverActive && !state.isDraggingZoom && state.currentV > 0 && state.hoverV <= state.currentV) {
+        if (state.hoverV >= xMin && state.hoverV <= xMax) {
+          const crossX = getXPx(state.hoverV);
+          const crossYVal = state.hoverYVal;
+          const crossY = getYPx(crossYVal);
+
+          // Render Snapped Crosshair Dotted Lines
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)';
+          ctx.setLineDash([3, 3]);
+
+          // Vertical Line from curve down to x-axis & top
+          ctx.beginPath();
+          ctx.moveTo(crossX, padding.top);
+          ctx.lineTo(crossX, padding.top + graphH);
+          ctx.stroke();
+
+          // Horizontal Line from curve to y-axis & right
+          ctx.beginPath();
+          ctx.moveTo(padding.left, crossY);
+          ctx.lineTo(padding.left + graphW, crossY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Glowing Curve Intersection Point Node
+          ctx.beginPath();
+          ctx.arc(crossX, crossY, 6, 0, Math.PI * 2);
           ctx.fillStyle = curveColor;
           ctx.fill();
           ctx.strokeStyle = '#ffffff';
@@ -1322,6 +1395,7 @@
         state.animFrameId = null;
       }
       state.currentV = 0.00;
+      state.hoverActive = false;
       updateStartPauseUI();
     }
 
@@ -1483,7 +1557,7 @@
       // Global Restart Button
       document.getElementById('globalRestartBtn').addEventListener('click', restartAll);
 
-      // Species Change listeners (Triggers reset of graph zoom, tab, and apparatus)
+      // Species Change listeners
       document.getElementById('acidSelect').addEventListener('change', handleSpeciesChange);
       document.getElementById('baseSelect').addEventListener('change', handleSpeciesChange);
 
@@ -1546,6 +1620,14 @@
           const activeBtn = document.getElementById(tab.id);
           activeBtn.classList.add('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
           state.activeTab = tab.key;
+          
+          // Refresh hover reading if mouse is over canvas
+          if (state.hoverActive) {
+            state.hoverYVal = getInterpolatedCurveY(state.hoverV, state.activeTab);
+            document.getElementById('coordY').innerText = state.hoverYVal.toFixed(2);
+            document.getElementById('coordYLabel').innerText = (state.activeTab === 'ph') ? 'pH' : ((state.activeTab === 'd1') ? 'd1' : 'd2');
+          }
+
           drawGraphCanvas();
         });
       });
@@ -1576,6 +1658,7 @@
       const coordOverlay = document.getElementById('graphCoordOverlay');
       const coordX = document.getElementById('coordX');
       const coordY = document.getElementById('coordY');
+      const coordYLabel = document.getElementById('coordYLabel');
 
       graphCanvas.addEventListener('mousedown', (e) => {
         const rect = graphCanvas.getBoundingClientRect();
@@ -1597,16 +1680,29 @@
           drawGraphCanvas();
         }
 
-        if (mouseX >= padding.left && mouseX <= padding.left + graphW) {
+        if (mouseX >= padding.left && mouseX <= padding.left + graphW && state.currentV > 0) {
           const vHover = state.zoomXMin + ((mouseX - padding.left) / graphW) * (state.zoomXMax - state.zoomXMin);
-          const ypH = calculateExactpH(vHover);
 
-          coordOverlay.classList.remove('hidden');
-          coordX.innerText = vHover.toFixed(2);
-          coordY.innerText = ypH.toFixed(2);
+          // Restrict crosshair snapping to titrated range (v <= currentV)
+          if (vHover >= 0 && vHover <= state.currentV) {
+            state.hoverActive = true;
+            state.hoverV = vHover;
+            state.hoverYVal = getInterpolatedCurveY(vHover, state.activeTab);
+
+            coordOverlay.classList.remove('hidden');
+            coordX.innerText = vHover.toFixed(2);
+            coordY.innerText = state.hoverYVal.toFixed(2);
+            coordYLabel.innerText = (state.activeTab === 'ph') ? 'pH' : ((state.activeTab === 'd1') ? 'd1' : 'd2');
+          } else {
+            state.hoverActive = false;
+            coordOverlay.classList.add('hidden');
+          }
         } else {
+          state.hoverActive = false;
           coordOverlay.classList.add('hidden');
         }
+
+        drawGraphCanvas();
       });
 
       window.addEventListener('mouseup', () => {
@@ -1635,11 +1731,12 @@
       });
 
       graphCanvas.addEventListener('mouseleave', () => {
+        state.hoverActive = false;
         coordOverlay.classList.add('hidden');
         if (state.isDraggingZoom) {
           state.isDraggingZoom = false;
-          drawGraphCanvas();
         }
+        drawGraphCanvas();
       });
 
       window.addEventListener('resize', () => {
