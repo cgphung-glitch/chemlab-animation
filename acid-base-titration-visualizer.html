@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acid-Base Titration Visualizer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur border-b border-slate-200 dark:border-slate-700 px-4 py-3 transition-colors">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-brand-500/10 text-brand-600 dark:text-brand-500 rounded-xl">
+          <i class="fa-solid fa-flask-vial text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight">Acid-Base Titration Visualizer</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Real-time Synchronized Titration Simulation & Calculus Analysis</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Restart App Button -->
+        <button id="globalRestartBtn" class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-semibold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate-left"></i> Restart All
+        </button>
+        <!-- Dark / Light Theme Toggle -->
+        <button id="themeToggleBtn" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-colors" title="Toggle Light/Dark Theme">
+          <i class="fa-solid fa-moon dark:hidden"></i>
+          <i class="fa-solid fa-sun hidden dark:block"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Top Controls: Chemical Species and Volumetric Inputs -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+      <h2 class="text-sm font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-brand-500"></i> Titration Parameters
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- Acid Selection Dropdown -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-300">Acid Species</label>
+          <select id="acidSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+            <optgroup label="Strong Acids">
+              <option value="HCl" data-type="strong" selected>Hydrochloric Acid (HCl)</option>
+              <option value="HNO3" data-type="strong">Nitric Acid (HNO₃)</option>
+              <option value="HBr" data-type="strong">Hydrobromic Acid (HBr)</option>
+              <option value="HClO4" data-type="strong">Perchloric Acid (HClO₄)</option>
+            </optgroup>
+            <optgroup label="Weak Acids">
+              <option value="CH3COOH" data-type="weak" data-pka="4.76">Acetic Acid (CH₃COOH)</option>
+              <option value="HCOOH" data-type="weak" data-pka="3.75">Formic Acid (HCOOH)</option>
+              <option value="HF" data-type="weak" data-pka="3.17">Hydrofluoric Acid (HF)</option>
+              <option value="HCN" data-type="weak" data-pka="9.21">Hydrocyanic Acid (HCN)</option>
+              <option value="CUSTOM_ACID" data-type="custom_weak">Unknown Weak Acid (HA)...</option>
+            </optgroup>
+          </select>
+          <div id="acidPkaContainer" class="text-xs text-brand-600 dark:text-brand-400 font-mono hidden flex items-center gap-2">
+            <span>pK<sub>a</sub> =</span>
+            <span id="acidPkaVal">4.76</span>
+            <input type="number" id="customPkaInput" value="4.75" step="0.01" min="0.1" max="14.0" class="hidden w-20 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs font-mono focus:ring-1 focus:ring-brand-500">
+          </div>
+        </div>
+
+        <!-- Base Selection Dropdown -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-300">Base Species</label>
+          <select id="baseSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+            <optgroup label="Strong Bases">
+              <option value="NaOH" data-type="strong" selected>Sodium Hydroxide (NaOH)</option>
+              <option value="KOH" data-type="strong">Potassium Hydroxide (KOH)</option>
+              <option value="LiOH" data-type="strong">Lithium Hydroxide (LiOH)</option>
+            </optgroup>
+            <optgroup label="Weak Bases">
+              <option value="NH3" data-type="weak" data-pkb="4.75">Ammonia (NH₃)</option>
+              <option value="CH3NH2" data-type="weak" data-pkb="3.36">Methylamine (CH₃NH₂)</option>
+              <option value="C5H5N" data-type="weak" data-pkb="8.77">Pyridine (C₅H₅N)</option>
+              <option value="CUSTOM_BASE" data-type="custom_weak">Unknown Weak Base (B)...</option>
+            </optgroup>
+          </select>
+          <div id="basePkbContainer" class="text-xs text-emerald-600 dark:text-emerald-400 font-mono hidden flex items-center gap-2">
+            <span>pK<sub>b</sub> =</span>
+            <span id="basePkbVal">4.75</span>
+            <input type="number" id="customPkbInput" value="4.75" step="0.01" min="0.1" max="14.0" class="hidden w-20 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs font-mono focus:ring-1 focus:ring-brand-500">
+          </div>
+        </div>
+
+        <!-- Titrant Species Selection -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-slate-600 dark:text-slate-300">Burette Titrant</label>
+          <select id="titrantRoleSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+            <option value="base">Base in Burette (Titrate Acid)</option>
+            <option value="acid">Acid in Burette (Titrate Base)</option>
+          </select>
+          <p class="text-[11px] text-slate-500">Strong species defaults as titrant.</p>
+        </div>
+
+        <!-- Numeric Parameters -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="space-y-1">
+            <label class="block text-[11px] font-medium text-slate-600 dark:text-slate-300">C<sub>titrant</sub> (M)</label>
+            <input type="number" id="titrantConcInput" value="0.100" step="0.001" min="0.001" max="5.0" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div class="space-y-1">
+            <label class="block text-[11px] font-medium text-slate-600 dark:text-slate-300">V<sub>titrate</sub> (mL)</label>
+            <input type="number" id="titrateVolInput" value="25.00" step="0.01" min="1.0" max="200.0" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div class="space-y-1">
+            <label class="block text-[11px] font-medium text-slate-600 dark:text-slate-300">V<sub>eq</sub> (mL)</label>
+            <input type="number" id="veqInput" value="20.00" step="0.01" min="1.0" max="200.0" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:outline-none">
+          </div>
+        </div>
+      </div>
+
+      <!-- Information Metrics Banner -->
+      <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/60 flex flex-wrap gap-4 text-xs justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 p-3 rounded-xl">
+        <div class="flex items-center space-x-2">
+          <span class="text-slate-500">Calculated Titrate Conc:</span>
+          <span id="calculatedConcVal" class="font-mono font-semibold text-brand-600 dark:text-brand-400 text-sm">0.080 M</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-slate-500">Burette Spec:</span>
+          <span id="buretteSpecText" class="font-mono font-medium text-slate-700 dark:text-slate-300">50 mL</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-slate-500">Flask Vol Spec:</span>
+          <span id="flaskSpecText" class="font-mono font-medium text-slate-700 dark:text-slate-300">100 mL</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-slate-500">Equivalence pH:</span>
+          <span id="eqPhText" class="font-mono font-bold text-amber-600 dark:text-amber-400 text-sm">7.00</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Middle Split Section: Animation Apparatus (Left) & Chart Canvas (Right) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- Left Column: Titration Apparatus Canvas (Reduced by 20% in size) -->
+      <section class="lg:col-span-4 bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col transition-colors">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-vial text-brand-500"></i> Titration Apparatus
+          </h2>
+          <!-- Digital pH Display Gauge -->
+          <div class="bg-slate-900 text-emerald-400 font-mono px-2.5 py-0.5 rounded-lg text-base font-bold border border-slate-700 shadow-inner flex items-center gap-1.5">
+            <span class="text-[9px] text-slate-400 font-sans tracking-normal">pH</span>
+            <span id="digitalPhDisplay">7.00</span>
+          </div>
+        </div>
+
+        <!-- Apparatus Canvas Container (20% Size Reduction: aspect-[4/5] -> max-h-[350px]) -->
+        <div class="relative w-full aspect-[4/5] max-h-[350px] bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+          <canvas id="apparatusCanvas" class="w-full h-full block"></canvas>
+        </div>
+
+        <!-- Controls for Animation -->
+        <div class="mt-3 space-y-2.5">
+          <div class="flex items-center space-x-2">
+            <button id="startPauseBtn" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-medium py-2 px-3 rounded-xl shadow-sm transition flex items-center justify-center gap-2 text-xs">
+              <i class="fa-solid fa-play" id="startPauseIcon"></i>
+              <span id="startPauseText">Start Titration</span>
+            </button>
+            <button id="resetAnimBtn" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2 px-3 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+              <i class="fa-solid fa-rotate-left"></i> Reset
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between gap-2 text-[11px] bg-slate-50 dark:bg-slate-900/80 p-2 rounded-xl border border-slate-200 dark:border-slate-700/60">
+            <span class="text-slate-500 font-medium">Speed:</span>
+            <div class="flex items-center space-x-1">
+              <button class="speed-btn active bg-brand-500 text-white px-1.5 py-0.5 rounded text-[10px] font-mono" data-speed="1">1x</button>
+              <button class="speed-btn bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono" data-speed="2">2x</button>
+              <button class="speed-btn bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono" data-speed="5">5x</button>
+              <button class="speed-btn bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono" data-speed="10">10x</button>
+            </div>
+            <div class="text-slate-400 font-mono text-[10px]">
+              V: <span id="currentVolumeText" class="text-slate-700 dark:text-slate-200 font-semibold">0.00</span> mL
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Graph Canvas & Tabbed Display -->
+      <section class="lg:col-span-8 bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col transition-colors">
+        
+        <!-- Tab Headers & Actions -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-700">
+          <!-- Graph Navigation Tabs -->
+          <div class="flex space-x-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+            <button id="tabPh" class="tab-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm transition">
+              pH vs Volume
+            </button>
+            <button id="tabD1" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition">
+              dpH / dV
+            </button>
+            <button id="tabD2" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition">
+              d²pH / dV²
+            </button>
+          </div>
+
+          <!-- Action Buttons (Reset Zoom & Export Graph) -->
+          <div class="flex items-center space-x-2">
+            <button id="resetZoomBtn" class="px-2.5 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-magnifying-glass-minus"></i> Reset Zoom
+            </button>
+            <button id="exportGraphModalBtn" class="px-3 py-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm transition flex items-center gap-1.5 font-medium">
+              <i class="fa-solid fa-file-image"></i> Export Graph
+            </button>
+          </div>
+        </div>
+
+        <!-- Graph Canvas Container -->
+        <div class="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-slate-50 dark:bg-slate-950 rounded-xl overflow-hidden mt-3 border border-slate-200 dark:border-slate-800 select-none">
+          <canvas id="graphCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+          
+          <!-- Dynamic Hover Crosshair Coordinate Display -->
+          <div id="graphCoordOverlay" class="absolute top-3 right-3 bg-slate-900/90 text-slate-200 font-mono text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 pointer-events-none backdrop-blur hidden">
+            X: <span id="coordX">0.00</span> mL | Y: <span id="coordY">0.00</span>
+          </div>
+
+          <!-- Start Titration Overlay Prompt when V = 0 -->
+          <div id="graphStartPrompt" class="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center p-4 text-center">
+            <div class="bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-xl max-w-xs space-y-2">
+              <i class="fa-solid fa-chart-line text-brand-500 text-2xl"></i>
+              <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Synchronized Plot Ready</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Click "Start Titration" to begin streaming data and plot the curve in real time.</p>
+            </div>
+          </div>
+
+          <div class="absolute bottom-2 left-3 pointer-events-none text-[10px] text-slate-400 dark:text-slate-500 bg-slate-100/80 dark:bg-slate-900/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
+            Tip: Drag across graph to zoom X-axis
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Data Table Section -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-table text-brand-500"></i> Calculated Titration Grid & Derivatives
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Strict incremental point calculation grid centered at Equivalence Point</p>
+        </div>
+        <button id="exportCsvBtn" class="self-start sm:self-auto px-3.5 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition flex items-center gap-2 font-medium">
+          <i class="fa-solid fa-file-csv text-sm"></i> Export CSV Data
+        </button>
+      </div>
+
+      <!-- Scrollable Data Table -->
+      <div class="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-xl max-h-80">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 sticky top-0 border-b border-slate-200 dark:border-slate-700 uppercase tracking-wider text-[11px]">
+            <tr>
+              <th class="py-3 px-4">Volume (V / mL)</th>
+              <th class="py-3 px-4">pH</th>
+              <th class="py-3 px-4">dpH / dV</th>
+              <th class="py-3 px-4">d²pH / dV²</th>
+            </tr>
+          </thead>
+          <tbody id="dataTableBody" class="divide-y divide-slate-100 dark:divide-slate-700/50 text-slate-700 dark:text-slate-300">
+            <!-- Table rows dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Export Graph Modal Dialog -->
+  <div id="exportModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-print text-brand-500"></i> Export Graph Image
+        </h3>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        This will generate a light-theme publication-ready PNG graph complete with title and author signature.
+      </p>
+
+      <div class="space-y-1.5">
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300">Prepared By (Your Name):</label>
+        <input type="text" id="userNameInput" placeholder="e.g. Student / Researcher" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none">
+      </div>
+
+      <div class="pt-2 flex justify-end space-x-2">
+        <button id="cancelModalBtn" class="px-4 py-2 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium transition">
+          Cancel
+        </button>
+        <button id="confirmExportBtn" class="px-4 py-2 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-download"></i> Download Image
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="exportCanvas" class="hidden"></canvas>
+
+  <!-- JavaScript Logic Block -->
+  <script>
+    /* ==========================================================================
+       1. CHEMICAL KNOWLEDGE BASE & SYSTEM STATE
+       ========================================================================== */
+    const SPECIES_DATA = {
+      HCl: { name: 'Hydrochloric Acid', formulaHTML: 'HCl', type: 'strong' },
+      HNO3: { name: 'Nitric Acid', formulaHTML: 'HNO<sub>3</sub>', type: 'strong' },
+      HBr: { name: 'Hydrobromic Acid', formulaHTML: 'HBr', type: 'strong' },
+      HClO4: { name: 'Perchloric Acid', formulaHTML: 'HClO<sub>4</sub>', type: 'strong' },
+      CH3COOH: { name: 'Acetic Acid', formulaHTML: 'CH<sub>3</sub>COOH', type: 'weak', pKa: 4.76, Ka: Math.pow(10, -4.76) },
+      HCOOH: { name: 'Formic Acid', formulaHTML: 'HCOOH', type: 'weak', pKa: 3.75, Ka: Math.pow(10, -3.75) },
+      HF: { name: 'Hydrofluoric Acid', formulaHTML: 'HF', type: 'weak', pKa: 3.17, Ka: Math.pow(10, -3.17) },
+      HCN: { name: 'Hydrocyanic Acid', formulaHTML: 'HCN', type: 'weak', pKa: 9.21, Ka: Math.pow(10, -9.21) },
+      CUSTOM_ACID: { name: 'Unknown Weak Acid', formulaHTML: 'HA', type: 'custom_weak', pKa: 4.75, Ka: Math.pow(10, -4.75) },
+      
+      NaOH: { name: 'Sodium Hydroxide', formulaHTML: 'NaOH', type: 'strong' },
+      KOH: { name: 'Potassium Hydroxide', formulaHTML: 'KOH', type: 'strong' },
+      LiOH: { name: 'Lithium Hydroxide', formulaHTML: 'LiOH', type: 'strong' },
+      NH3: { name: 'Ammonia', formulaHTML: 'NH<sub>3</sub>', type: 'weak', pKb: 4.75, Kb: Math.pow(10, -4.75) },
+      CH3NH2: { name: 'Methylamine', formulaHTML: 'CH<sub>3</sub>NH<sub>2</sub>', type: 'weak', pKb: 3.36, Kb: Math.pow(10, -3.36) },
+      C5H5N: { name: 'Pyridine', formulaHTML: 'C<sub>5</sub>H<sub>5</sub>N', type: 'weak', pKb: 8.77, Kb: Math.pow(10, -8.77) },
+      CUSTOM_BASE: { name: 'Unknown Weak Base', formulaHTML: 'B', type: 'custom_weak', pKb: 4.75, Kb: Math.pow(10, -4.75) }
+    };
+
+    const DEFAULT_STATE = {
+      acidKey: 'HCl',
+      baseKey: 'NaOH',
+      titrantRole: 'base',
+      titrantConc: 0.100,
+      titrateVol: 25.00,
+      veq: 20.00
+    };
+
+    const KW = 1e-14;
+
+    const state = {
+      theme: 'dark',
+      acidKey: DEFAULT_STATE.acidKey,
+      baseKey: DEFAULT_STATE.baseKey,
+      titrantRole: DEFAULT_STATE.titrantRole,
+      titrantConc: DEFAULT_STATE.titrantConc,
+      titrateVol: DEFAULT_STATE.titrateVol,
+      veq: DEFAULT_STATE.veq,
+      titrateConc: 0.080,
+      
+      buretteCapacity: 50,
+      flaskCapacity: 100,
+
+      dataGrid: [],
+      
+      animating: false,
+      currentV: 0.00,
+      speedMultiplier: 1,
+      animFrameId: null,
+
+      activeTab: 'ph',
+      
+      zoomXMin: 0,
+      zoomXMax: 40,
+      isZoomed: false,
+
+      isDraggingZoom: false,
+      dragStartX: null,
+      dragCurrentX: null
+    };
+
+    function solveQuadraticPos(a, b, c) {
+      const disc = b * b - 4 * a * c;
+      if (disc < 0) return 0;
+      return (-b + Math.sqrt(disc)) / (2 * a);
+    }
+
+    function calculateExactpH(V) {
+      const isBaseTitrant = (state.titrantRole === 'base');
+      
+      const acidKey = state.acidKey;
+      const baseKey = state.baseKey;
+      const acidSpec = SPECIES_DATA[acidKey];
+      const baseSpec = SPECIES_DATA[baseKey];
+
+      const C_titrant = state.titrantConc;
+      const C_titrate = state.titrateConc;
+      const V_titrate = state.titrateVol;
+
+      const V_acid = isBaseTitrant ? V_titrate : V;
+      const V_base = isBaseTitrant ? V : V_titrate;
+
+      const C_acid_init = isBaseTitrant ? C_titrate : C_titrant;
+      const C_base_init = isBaseTitrant ? C_titrant : C_titrate;
+
+      const V_total = (V_acid + V_base) / 1000.0;
+      if (V_total <= 0) return 7.0;
+
+      const moles_acid = (C_acid_init * V_acid) / 1000.0;
+      const moles_base = (C_base_init * V_base) / 1000.0;
+
+      const isAcidStrong = (acidSpec.type === 'strong');
+      const isBaseStrong = (baseSpec.type === 'strong');
+
+      // Strong Acid + Strong Base
+      if (isAcidStrong && isBaseStrong) {
+        const net_acid = moles_acid - moles_base;
+        if (Math.abs(net_acid) < 1e-12) {
+          return 7.0;
+        } else if (net_acid > 0) {
+          const H_conc = net_acid / V_total;
+          return -Math.log10(H_conc);
+        } else {
+          const OH_conc = (-net_acid) / V_total;
+          const pOH = -Math.log10(OH_conc);
+          return 14.0 - pOH;
+        }
+      }
+
+      // Weak Acid + Strong Base
+      if (!isAcidStrong && isBaseStrong) {
+        const Ka = acidSpec.Ka;
+        const net_acid = moles_acid - moles_base;
+
+        if (V === 0 && isBaseTitrant) {
+          const C_wa = moles_acid / V_total;
+          const H_conc = solveQuadraticPos(1, Ka, -Ka * C_wa);
+          return -Math.log10(H_conc);
+        }
+
+        if (net_acid > 1e-9) {
+          const C_wa = net_acid / V_total;
+          const C_a = moles_base / V_total;
+          const H_conc = solveQuadraticPos(1, Ka + C_a, -Ka * C_wa);
+          return -Math.log10(H_conc);
+        } else if (Math.abs(net_acid) <= 1e-9) {
+          const C_a = moles_base / V_total;
+          const Kb = KW / Ka;
+          const OH_conc = solveQuadraticPos(1, Kb, -Kb * C_a);
+          return 14.0 - (-Math.log10(OH_conc));
+        } else {
+          const excess_OH = moles_base - moles_acid;
+          const OH_conc = excess_OH / V_total;
+          return 14.0 - (-Math.log10(OH_conc));
+        }
+      }
+
+      // Strong Acid + Weak Base
+      if (isAcidStrong && !isBaseStrong) {
+        const Kb = baseSpec.Kb;
+        const Ka = KW / Kb;
+        const net_base = moles_base - moles_acid;
+
+        if (V === 0 && !isBaseTitrant) {
+          const C_wb = moles_base / V_total;
+          const OH_conc = solveQuadraticPos(1, Kb, -Kb * C_wb);
+          return 14.0 - (-Math.log10(OH_conc));
+        }
+
+        if (net_base > 1e-9) {
+          const C_wb = net_base / V_total;
+          const C_bh = moles_acid / V_total;
+          const OH_conc = solveQuadraticPos(1, Kb + C_bh, -Kb * C_wb);
+          return 14.0 - (-Math.log10(OH_conc));
+        } else if (Math.abs(net_base) <= 1e-9) {
+          const C_bh = moles_acid / V_total;
+          const H_conc = solveQuadraticPos(1, Ka, -Ka * C_bh);
+          return -Math.log10(H_conc);
+        } else {
+          const excess_H = moles_acid - moles_base;
+          const H_conc = excess_H / V_total;
+          return -Math.log10(H_conc);
+        }
+      }
+
+      // Weak Acid + Weak Base
+      if (!isAcidStrong && !isBaseStrong) {
+        const Ka = acidSpec.Ka;
+        const Kb = baseSpec.Kb;
+        const pKa = acidSpec.pKa;
+        const pKb = baseSpec.pKb;
+
+        const net_acid = moles_acid - moles_base;
+        if (Math.abs(net_acid) < 1e-9) {
+          return 0.5 * (14.0 + pKa - pKb);
+        } else if (net_acid > 0) {
+          const C_wa = net_acid / V_total;
+          const C_salt = moles_base / V_total;
+          const H_conc = solveQuadraticPos(1, Ka + C_salt, -Ka * C_wa);
+          return -Math.log10(H_conc);
+        } else {
+          const C_wb = (-net_acid) / V_total;
+          const C_salt = moles_acid / V_total;
+          const OH_conc = solveQuadraticPos(1, Kb + C_salt, -Kb * C_wb);
+          return 14.0 - (-Math.log10(OH_conc));
+        }
+      }
+
+      return 7.0;
+    }
+
+    function generateSamplingGrid() {
+      const V_eq = state.veq;
+      const vSet = new Set();
+
+      const addV = (v) => {
+        if (v >= 0 && v <= V_eq * 2.2) {
+          vSet.add(Math.round(v * 1000) / 1000);
+        }
+      };
+
+      // Equivalence Point
+      addV(V_eq);
+
+      // Fine step 0.1 mL around eq pt
+      const eq01 = Math.round(V_eq * 10) / 10;
+      addV(eq01);
+      addV(eq01 - 0.1);
+      addV(eq01 + 0.1);
+
+      for (let i = 1; i <= 8; i++) {
+        addV(eq01 - 0.1 * i);
+        addV(eq01 + 0.1 * i);
+      }
+
+      for (let i = 1; i <= 10; i++) {
+        addV(eq01 - 0.5 * i);
+        addV(eq01 + 0.5 * i);
+      }
+
+      for (let v = 0; v <= V_eq * 2.2; v += 1.0) {
+        addV(v);
+      }
+
+      // Dense mesh at equivalence jump region
+      for (let delta = -0.05; delta <= 0.05; delta += 0.005) {
+        addV(V_eq + delta);
+      }
+      for (let delta = -0.5; delta <= 0.5; delta += 0.02) {
+        addV(V_eq + delta);
+      }
+
+      for (let v = 0; v <= V_eq * 2.2; v += 0.2) {
+        addV(v);
+      }
+
+      const sortedVolumes = Array.from(vSet).sort((a, b) => a - b);
+
+      const rawData = sortedVolumes.map(v => ({
+        v: v,
+        ph: Math.min(14.0, Math.max(0.0, calculateExactpH(v)))
+      }));
+
+      // Numerical 1st and 2nd derivatives
+      const dataGrid = rawData.map((pt, i, arr) => {
+        let d1 = 0;
+        let d2 = 0;
+
+        if (i > 0 && i < arr.length - 1) {
+          const prev = arr[i - 1];
+          const next = arr[i + 1];
+          d1 = (next.ph - prev.ph) / (next.v - prev.v);
+
+          const d1_left = (pt.ph - prev.ph) / (pt.v - prev.v);
+          const d1_right = (next.ph - pt.ph) / (next.v - pt.v);
+          const dv_avg = (next.v - prev.v) / 2;
+          d2 = (d1_right - d1_left) / dv_avg;
+        } else if (i === 0 && arr.length > 1) {
+          const next = arr[1];
+          d1 = (next.ph - pt.ph) / (next.v - pt.v);
+          d2 = 0;
+        } else if (i === arr.length - 1 && arr.length > 1) {
+          const prev = arr[i - 1];
+          d1 = (pt.ph - prev.ph) / (pt.v - prev.v);
+          d2 = 0;
+        }
+
+        return { v: pt.v, ph: pt.ph, d1: d1, d2: d2 };
+      });
+
+      state.dataGrid = dataGrid;
+      
+      if (!state.isZoomed) {
+        state.zoomXMin = 0;
+        state.zoomXMax = Math.ceil(V_eq * 1.8);
+      }
+
+      renderTable();
+    }
+
+    /* Indicator fluid color transition map */
+    function getIndicatorColor(ph, alpha = 0.7) {
+      if (ph < 3.0) return `rgba(239, 68, 68, ${alpha})`;
+      if (ph < 5.0) return `rgba(249, 115, 22, ${alpha})`;
+      if (ph < 6.5) return `rgba(234, 179, 8, ${alpha})`;
+      if (ph < 7.5) return `rgba(34, 197, 94, ${alpha})`;
+      if (ph < 9.0) return `rgba(14, 165, 233, ${alpha})`;
+      if (ph < 11.0) return `rgba(168, 85, 247, ${alpha})`;
+      return `rgba(236, 72, 153, ${alpha})`;
+    }
+
+    function drawApparatusCanvas() {
+      const canvas = document.getElementById('apparatusCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+
+      const isDark = state.theme === 'dark';
+      const bgColor = isDark ? '#020617' : '#f8fafc';
+      const glassBorder = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)';
+      const glassFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.6)';
+      const textColor = isDark ? '#94a3b8' : '#475569';
+
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, w, h);
+
+      const centerX = w * 0.45;
+      const buretteTop = 15;
+      const buretteHeight = h * 0.44;
+      const buretteWidth = 18; // Slightly slimmed
+
+      const currentpH = calculateExactpH(state.currentV);
+      document.getElementById('digitalPhDisplay').innerText = currentpH.toFixed(2);
+      document.getElementById('currentVolumeText').innerText = state.currentV.toFixed(2);
+
+      // Stand & Clamp
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = isDark ? '#475569' : '#94a3b8';
+      ctx.beginPath();
+      ctx.moveTo(centerX - 65, h - 15);
+      ctx.lineTo(centerX + 65, h - 15);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(centerX - 50, h - 15);
+      ctx.lineTo(centerX - 50, 20);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(centerX - 50, buretteTop + 45);
+      ctx.lineTo(centerX, buretteTop + 45);
+      ctx.stroke();
+
+      // Burette Body
+      const buretteCap = state.buretteCapacity;
+      const fillFraction = Math.max(0, 1 - (state.currentV / buretteCap));
+
+      ctx.fillStyle = glassFill;
+      ctx.fillRect(centerX - buretteWidth/2, buretteTop, buretteWidth, buretteHeight);
+      
+      const liquidH = buretteHeight * fillFraction;
+      const liquidTop = buretteTop + (buretteHeight - liquidH);
+
+      const titrantIsBase = state.titrantRole === 'base';
+      const buretteLiquidColor = titrantIsBase 
+        ? (isDark ? 'rgba(56, 189, 248, 0.65)' : 'rgba(2, 132, 199, 0.65)')
+        : (isDark ? 'rgba(244, 63, 94, 0.65)' : 'rgba(225, 29, 72, 0.65)');
+
+      ctx.fillStyle = buretteLiquidColor;
+      ctx.fillRect(centerX - buretteWidth/2 + 1.5, liquidTop, buretteWidth - 3, liquidH);
+
+      if (fillFraction > 0) {
+        ctx.beginPath();
+        ctx.ellipse(centerX, liquidTop, buretteWidth/2 - 1.5, 2.5, 0, 0, Math.PI);
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)';
+        ctx.fill();
+      }
+
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = glassBorder;
+      ctx.strokeRect(centerX - buretteWidth/2, buretteTop, buretteWidth, buretteHeight);
+
+      // Scale Ticks
+      ctx.fillStyle = textColor;
+      ctx.font = '7.5px monospace';
+      const numTicks = 5;
+      for (let i = 0; i <= numTicks; i++) {
+        const tickY = buretteTop + (buretteHeight / numTicks) * i;
+        const volVal = ((buretteCap / numTicks) * i).toFixed(0);
+        ctx.beginPath();
+        ctx.moveTo(centerX + buretteWidth/2, tickY);
+        ctx.lineTo(centerX + buretteWidth/2 - 4, tickY);
+        ctx.stroke();
+        ctx.fillText(volVal, centerX + buretteWidth/2 + 2, tickY + 2.5);
+      }
+
+      // Stopcock & Nozzle
+      const stopcockY = buretteTop + buretteHeight;
+      ctx.fillStyle = isDark ? '#94a3b8' : '#334155';
+      ctx.fillRect(centerX - 10, stopcockY + 4, 20, 5);
+      
+      ctx.beginPath();
+      ctx.moveTo(centerX - 3, stopcockY);
+      ctx.lineTo(centerX - 1.5, stopcockY + 20);
+      ctx.lineTo(centerX + 1.5, stopcockY + 20);
+      ctx.lineTo(centerX + 3, stopcockY);
+      ctx.closePath();
+      ctx.fillStyle = glassBorder;
+      ctx.fill();
+
+      // Dripping animation drop
+      if (state.animating && fillFraction > 0) {
+        const dropY = stopcockY + 20 + ((Date.now() % 600) / 600) * 28;
+        ctx.beginPath();
+        ctx.arc(centerX, dropY, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = buretteLiquidColor;
+        ctx.fill();
+      }
+
+      // Erlenmeyer Flask
+      const flaskTopY = stopcockY + 50;
+      const flaskHeight = h - flaskTopY - 25;
+      const flaskNeckW = 26;
+      const flaskBaseW = 88;
+      const flaskBottomY = flaskTopY + flaskHeight;
+
+      const currentTotalVol = state.titrateVol + state.currentV;
+      const flaskFillRatio = Math.min(0.85, (currentTotalVol / state.flaskCapacity) * 0.7);
+      const liquidLevelY = flaskBottomY - (flaskHeight * flaskFillRatio);
+
+      const liquidColor = getIndicatorColor(currentpH, isDark ? 0.8 : 0.65);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(centerX - flaskNeckW/2, flaskTopY);
+      ctx.lineTo(centerX + flaskNeckW/2, flaskTopY);
+      ctx.lineTo(centerX + flaskBaseW/2, flaskBottomY);
+      ctx.lineTo(centerX - flaskBaseW/2, flaskBottomY);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.fillStyle = liquidColor;
+      ctx.fillRect(centerX - flaskBaseW, liquidLevelY, flaskBaseW * 2, flaskBottomY - liquidLevelY + 10);
+      
+      ctx.beginPath();
+      ctx.ellipse(centerX, liquidLevelY, flaskBaseW * 0.4, 3.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.fill();
+      ctx.restore();
+
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = glassBorder;
+      ctx.beginPath();
+      ctx.moveTo(centerX - flaskNeckW/2, flaskTopY);
+      ctx.lineTo(centerX + flaskNeckW/2, flaskTopY);
+      ctx.lineTo(centerX + flaskBaseW/2, flaskBottomY);
+      ctx.lineTo(centerX - flaskBaseW/2, flaskBottomY);
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.fillStyle = textColor;
+      ctx.font = '9px Inter, sans-serif';
+      ctx.fillText(`${state.flaskCapacity} mL Flask`, centerX + flaskBaseW/2 - 30, flaskBottomY + 12);
+
+      // pH Probe Assembly
+      const probeX = centerX + 14;
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = isDark ? '#64748b' : '#475569';
+      ctx.beginPath();
+      ctx.moveTo(probeX, liquidLevelY - 15);
+      ctx.quadraticCurveTo(w - 25, flaskTopY - 15, w - 30, 20);
+      ctx.stroke();
+
+      ctx.fillStyle = isDark ? '#334155' : '#cbd5e1';
+      ctx.fillRect(probeX - 2.5, flaskTopY - 12, 5, liquidLevelY - flaskTopY + 24);
+      ctx.beginPath();
+      ctx.arc(probeX, liquidLevelY + 10, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.stroke();
+    }
+
+    function drawGraphCanvas() {
+      const canvas = document.getElementById('graphCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+
+      const isDark = state.theme === 'dark';
+      const bgColor = isDark ? '#020617' : '#ffffff';
+      const gridColor = isDark ? '#1e293b' : '#e2e8f0';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, w, h);
+
+      // Toggle initial overlay prompt based on V_current
+      const startPrompt = document.getElementById('graphStartPrompt');
+      if (state.currentV === 0) {
+        startPrompt.classList.remove('hidden');
+      } else {
+        startPrompt.classList.add('hidden');
+      }
+
+      const padding = { top: 30, right: 30, bottom: 45, left: 55 };
+      const graphW = w - padding.left - padding.right;
+      const graphH = h - padding.top - padding.bottom;
+
+      const xMin = state.zoomXMin;
+      const xMax = state.zoomXMax;
+
+      let yMin = 0;
+      let yMax = 14;
+      let yLabel = 'pH';
+      let curveColor = isDark ? '#38bdf8' : '#0284c7';
+
+      if (state.activeTab === 'd1') {
+        yLabel = 'dpH / dV';
+        curveColor = '#10b981';
+        let minD1 = 0;
+        let maxD1 = 0;
+        state.dataGrid.forEach(pt => {
+          if (pt.v >= xMin && pt.v <= xMax) {
+            if (pt.d1 < minD1) minD1 = pt.d1;
+            if (pt.d1 > maxD1) maxD1 = pt.d1;
+          }
+        });
+        
+        // Auto-scale correctly for positive OR negative peak values
+        if (minD1 < 0 && maxD1 <= 0) {
+          yMin = minD1 * 1.15;
+          yMax = Math.abs(minD1) * 0.15;
+        } else if (minD1 < 0 && maxD1 > 0) {
+          yMin = minD1 * 1.15;
+          yMax = maxD1 * 1.15;
+        } else {
+          yMin = 0;
+          yMax = (maxD1 > 0 ? maxD1 : 1) * 1.15;
+        }
+      } else if (state.activeTab === 'd2') {
+        yLabel = 'd²pH / dV²';
+        curveColor = '#f59e0b';
+        let maxAbsD2 = 1;
+        state.dataGrid.forEach(pt => {
+          if (pt.v >= xMin && pt.v <= xMax && Math.abs(pt.d2) > maxAbsD2) maxAbsD2 = Math.abs(pt.d2);
+        });
+        yMin = -maxAbsD2 * 1.15;
+        yMax = maxAbsD2 * 1.15;
+      }
+
+      const getXPx = (v) => padding.left + ((v - xMin) / (xMax - xMin)) * graphW;
+      const getYPx = (y) => padding.top + graphH - ((y - yMin) / (yMax - yMin)) * graphH;
+
+      // Draw Gridlines & Axes
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = gridColor;
+
+      const xTicks = 8;
+      for (let i = 0; i <= xTicks; i++) {
+        const vVal = xMin + ((xMax - xMin) / xTicks) * i;
+        const xPx = getXPx(vVal);
+
+        ctx.beginPath();
+        ctx.moveTo(xPx, padding.top);
+        ctx.lineTo(xPx, padding.top + graphH);
+        ctx.stroke();
+
+        ctx.fillStyle = textColor;
+        ctx.font = '10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(vVal.toFixed(1), xPx, padding.top + graphH + 15);
+      }
+
+      const yTicks = 6;
+      for (let i = 0; i <= yTicks; i++) {
+        const yVal = yMin + ((yMax - yMin) / yTicks) * i;
+        const yPx = getYPx(yVal);
+
+        ctx.beginPath();
+        ctx.moveTo(padding.left, yPx);
+        ctx.lineTo(padding.left + graphW, yPx);
+        ctx.stroke();
+
+        ctx.fillStyle = textColor;
+        ctx.font = '10px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(yVal.toFixed(1), padding.left - 8, yPx + 3.5);
+      }
+
+      // Titles
+      ctx.fillStyle = textColor;
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      
+      const titrantFormula = SPECIES_DATA[state.titrantRole === 'base' ? state.baseKey : state.acidKey].name;
+      ctx.fillText(`Volume of ${titrantFormula} Added (mL)`, padding.left + graphW / 2, h - 8);
+
+      ctx.save();
+      ctx.translate(15, padding.top + graphH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(yLabel, 0, 0);
+      ctx.restore();
+
+      // Zero Line for Derivatives
+      if (state.activeTab === 'd1' || state.activeTab === 'd2') {
+        const zeroY = getYPx(0);
+        ctx.strokeStyle = isDark ? '#94a3b8' : '#64748b';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, zeroY);
+        ctx.lineTo(padding.left + graphW, zeroY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Equivalence Volume Line
+      const veqPx = getXPx(state.veq);
+      if (veqPx >= padding.left && veqPx <= padding.left + graphW) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(veqPx, padding.top);
+        ctx.lineTo(veqPx, padding.top + graphH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Veq = ${state.veq.toFixed(2)} mL`, veqPx, padding.top - 8);
+      }
+
+      /* SYNCHRONIZED INCREMENTAL CURVE DRAWING: Only plot points where v <= currentV */
+      if (state.currentV > 0) {
+        ctx.beginPath();
+        let started = false;
+
+        state.dataGrid.forEach(pt => {
+          if (pt.v <= state.currentV && pt.v >= xMin && pt.v <= xMax) {
+            let val = pt.ph;
+            if (state.activeTab === 'd1') val = pt.d1;
+            if (state.activeTab === 'd2') val = pt.d2;
+
+            const xPx = getXPx(pt.v);
+            const yPx = getYPx(val);
+
+            if (!started) {
+              ctx.moveTo(xPx, yPx);
+              started = true;
+            } else {
+              ctx.lineTo(xPx, yPx);
+            }
+          }
+        });
+
+        ctx.strokeStyle = curveColor;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Current Titration Point Head Marker
+        if (state.currentV >= xMin && state.currentV <= xMax) {
+          const currX = getXPx(state.currentV);
+          const currpH = calculateExactpH(state.currentV);
+          let currYVal = currpH;
+
+          if (state.activeTab === 'd1' || state.activeTab === 'd2') {
+            const closest = state.dataGrid.reduce((prev, curr) => 
+              Math.abs(curr.v - state.currentV) < Math.abs(prev.v - state.currentV) ? curr : prev
+            );
+            currYVal = (state.activeTab === 'd1') ? closest.d1 : closest.d2;
+          }
+
+          const currY = getYPx(currYVal);
+
+          ctx.beginPath();
+          ctx.arc(currX, currY, 6, 0, Math.PI * 2);
+          ctx.fillStyle = curveColor;
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      // Drag selection zoom box
+      if (state.isDraggingZoom && state.dragStartX !== null && state.dragCurrentX !== null) {
+        const startPx = Math.max(padding.left, Math.min(padding.left + graphW, state.dragStartX));
+        const currentPx = Math.max(padding.left, Math.min(padding.left + graphW, state.dragCurrentX));
+        const boxX = Math.min(startPx, currentPx);
+        const boxW = Math.abs(currentPx - startPx);
+
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.2)';
+        ctx.fillRect(boxX, padding.top, boxW, graphH);
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(boxX, padding.top, boxW, graphH);
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('dataTableBody');
+      if (!tbody) return;
+
+      let html = '';
+      state.dataGrid.forEach((row) => {
+        const isEq = Math.abs(row.v - state.veq) < 0.001;
+        const rowBg = isEq ? 'bg-amber-500/10 font-bold text-amber-600 dark:text-amber-400' : 'hover:bg-slate-100/50 dark:hover:bg-slate-800/50';
+
+        html += `
+          <tr class="${rowBg} transition-colors">
+            <td class="py-2 px-4">${row.v.toFixed(2)}${isEq ? ' <span class="text-[10px] bg-amber-500/20 px-1 rounded">Veq</span>' : ''}</td>
+            <td class="py-2 px-4">${row.ph.toFixed(2)}</td>
+            <td class="py-2 px-4">${row.d1.toFixed(3)}</td>
+            <td class="py-2 px-4">${row.d2.toFixed(3)}</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function exportCSV() {
+      let csv = 'Volume (mL),pH,dpH/dV,d2pH/dV2\n';
+      state.dataGrid.forEach(row => {
+        csv += `${row.v.toFixed(3)},${row.ph.toFixed(3)},${row.d1.toFixed(4)},${row.d2.toFixed(4)}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `titration_data_${state.acidKey}_${state.baseKey}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function generateGraphImage(userName) {
+      const exportCanvas = document.getElementById('exportCanvas');
+      const ctx = exportCanvas.getContext('2d');
+
+      const w = 1200;
+      const h = 800;
+      exportCanvas.width = w;
+      exportCanvas.height = h;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+
+      const acidSpec = SPECIES_DATA[state.acidKey];
+      const baseSpec = SPECIES_DATA[state.baseKey];
+      const titrateSpec = state.titrantRole === 'base' ? acidSpec : baseSpec;
+      const titrantSpec = state.titrantRole === 'base' ? baseSpec : acidSpec;
+
+      const stripHTML = (html) => html.replace(/<[^>]*>?/gm, '');
+
+      let graphTypeTitle = 'pH Curve';
+      if (state.activeTab === 'd1') graphTypeTitle = 'First Derivative (dpH/dV)';
+      if (state.activeTab === 'd2') graphTypeTitle = 'Second Derivative (d²pH/dV²)';
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 28px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Titration of ${stripHTML(titrateSpec.name)} with ${stripHTML(titrantSpec.name)}`, w / 2, 55);
+
+      ctx.fillStyle = '#0284c7';
+      ctx.font = '600 20px Inter, sans-serif';
+      ctx.fillText(graphTypeTitle, w / 2, 90);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'italic 16px Inter, sans-serif';
+      ctx.fillText(`Prepared by ${userName || 'Anonymous'}`, w / 2, 120);
+
+      const padding = { top: 160, right: 60, bottom: 90, left: 100 };
+      const graphW = w - padding.left - padding.right;
+      const graphH = h - padding.top - padding.bottom;
+
+      const xMin = state.zoomXMin;
+      const xMax = state.zoomXMax;
+
+      let yMin = 0;
+      let yMax = 14;
+      let yLabel = 'pH';
+      let curveColor = '#0284c7';
+
+      if (state.activeTab === 'd1') {
+        yLabel = 'dpH / dV';
+        curveColor = '#059669';
+        let minD1 = 0;
+        let maxD1 = 0;
+        state.dataGrid.forEach(pt => {
+          if (pt.d1 < minD1) minD1 = pt.d1;
+          if (pt.d1 > maxD1) maxD1 = pt.d1;
+        });
+
+        if (minD1 < 0 && maxD1 <= 0) {
+          yMin = minD1 * 1.15;
+          yMax = Math.abs(minD1) * 0.15;
+        } else if (minD1 < 0 && maxD1 > 0) {
+          yMin = minD1 * 1.15;
+          yMax = maxD1 * 1.15;
+        } else {
+          yMin = 0;
+          yMax = (maxD1 > 0 ? maxD1 : 1) * 1.15;
+        }
+      } else if (state.activeTab === 'd2') {
+        yLabel = 'd²pH / dV²';
+        curveColor = '#d97706';
+        let maxAbsD2 = 1;
+        state.dataGrid.forEach(pt => { if (Math.abs(pt.d2) > maxAbsD2) maxAbsD2 = Math.abs(pt.d2); });
+        yMin = -maxAbsD2 * 1.15;
+        yMax = maxAbsD2 * 1.15;
+      }
+
+      const getXPx = (v) => padding.left + ((v - xMin) / (xMax - xMin)) * graphW;
+      const getYPx = (y) => padding.top + graphH - ((y - yMin) / (yMax - yMin)) * graphH;
+
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+
+      const xTicks = 10;
+      for (let i = 0; i <= xTicks; i++) {
+        const vVal = xMin + ((xMax - xMin) / xTicks) * i;
+        const xPx = getXPx(vVal);
+
+        ctx.beginPath();
+        ctx.moveTo(xPx, padding.top);
+        ctx.lineTo(xPx, padding.top + graphH);
+        ctx.stroke();
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '14px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(vVal.toFixed(1), xPx, padding.top + graphH + 25);
+      }
+
+      const yTicks = 8;
+      for (let i = 0; i <= yTicks; i++) {
+        const yVal = yMin + ((yMax - yMin) / yTicks) * i;
+        const yPx = getYPx(yVal);
+
+        ctx.beginPath();
+        ctx.moveTo(padding.left, yPx);
+        ctx.lineTo(padding.left + graphW, yPx);
+        ctx.stroke();
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '14px JetBrains Mono, monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(yVal.toFixed(1), padding.left - 12, yPx + 5);
+      }
+
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(padding.left, padding.top, graphW, graphH);
+
+      const veqPx = getXPx(state.veq);
+      if (veqPx >= padding.left && veqPx <= padding.left + graphW) {
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(veqPx, padding.top);
+        ctx.lineTo(veqPx, padding.top + graphH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#dc2626';
+        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Equivalence Volume (Veq = ${state.veq.toFixed(2)} mL)`, veqPx, padding.top - 12);
+      }
+
+      if (state.activeTab === 'd1' || state.activeTab === 'd2') {
+        const zeroY = getYPx(0);
+        ctx.strokeStyle = '#64748b';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, zeroY);
+        ctx.lineTo(padding.left + graphW, zeroY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      const maxPlotV = (state.currentV > 0) ? state.currentV : state.veq * 1.8;
+
+      ctx.beginPath();
+      let started = false;
+      state.dataGrid.forEach(pt => {
+        if (pt.v <= maxPlotV && pt.v >= xMin && pt.v <= xMax) {
+          let val = pt.ph;
+          if (state.activeTab === 'd1') val = pt.d1;
+          if (state.activeTab === 'd2') val = pt.d2;
+
+          const xPx = getXPx(pt.v);
+          const yPx = getYPx(val);
+
+          if (!started) {
+            ctx.moveTo(xPx, yPx);
+            started = true;
+          } else {
+            ctx.lineTo(xPx, yPx);
+          }
+        }
+      });
+      ctx.strokeStyle = curveColor;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 16px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Volume of ${stripHTML(titrantSpec.name)} Added (mL)`, padding.left + graphW / 2, h - 25);
+
+      ctx.save();
+      ctx.translate(35, padding.top + graphH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(yLabel, 0, 0);
+      ctx.restore();
+
+      const link = document.createElement('a');
+      link.download = `titration_graph_${state.acidKey}_${state.baseKey}.png`;
+      link.href = exportCanvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Reset zoom and active tab to pH vs V
+    function resetGraphTabAndZoom() {
+      state.isZoomed = false;
+      state.zoomXMin = 0;
+      state.zoomXMax = Math.ceil(state.veq * 1.8);
+
+      state.activeTab = 'ph';
+      const tabs = [
+        { id: 'tabPh', key: 'ph' },
+        { id: 'tabD1', key: 'd1' },
+        { id: 'tabD2', key: 'd2' }
+      ];
+      tabs.forEach(t => {
+        const btn = document.getElementById(t.id);
+        if (t.key === 'ph') {
+          btn.classList.add('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+          btn.classList.remove('text-slate-600', 'dark:text-slate-400');
+        } else {
+          btn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+          btn.classList.add('text-slate-600', 'dark:text-slate-400');
+        }
+      });
+    }
+
+    // Stop animation and reset V_current back to 0
+    function resetAnimationState() {
+      state.animating = false;
+      if (state.animFrameId) {
+        cancelAnimationFrame(state.animFrameId);
+        state.animFrameId = null;
+      }
+      state.currentV = 0.00;
+      updateStartPauseUI();
+    }
+
+    function syncParameters() {
+      // Acid Selection
+      const acidSelect = document.getElementById('acidSelect');
+      state.acidKey = acidSelect.value;
+      const acidOption = acidSelect.options[acidSelect.selectedIndex];
+      const acidType = acidOption.getAttribute('data-type');
+      const acidPkaElem = document.getElementById('acidPkaContainer');
+      const customPkaInput = document.getElementById('customPkaInput');
+      const acidPkaValSpan = document.getElementById('acidPkaVal');
+
+      if (acidType === 'custom_weak') {
+        acidPkaElem.classList.remove('hidden');
+        acidPkaValSpan.classList.add('hidden');
+        customPkaInput.classList.remove('hidden');
+
+        const pkaVal = parseFloat(customPkaInput.value) || 4.75;
+        SPECIES_DATA.CUSTOM_ACID.pKa = pkaVal;
+        SPECIES_DATA.CUSTOM_ACID.Ka = Math.pow(10, -pkaVal);
+      } else if (acidType === 'weak') {
+        acidPkaElem.classList.remove('hidden');
+        customPkaInput.classList.add('hidden');
+        acidPkaValSpan.classList.remove('hidden');
+        acidPkaValSpan.innerText = acidOption.getAttribute('data-pka');
+      } else {
+        acidPkaElem.classList.add('hidden');
+      }
+
+      // Base Selection
+      const baseSelect = document.getElementById('baseSelect');
+      state.baseKey = baseSelect.value;
+      const baseOption = baseSelect.options[baseSelect.selectedIndex];
+      const baseType = baseOption.getAttribute('data-type');
+      const basePkbElem = document.getElementById('basePkbContainer');
+      const customPkbInput = document.getElementById('customPkbInput');
+      const basePkbValSpan = document.getElementById('basePkbVal');
+
+      if (baseType === 'custom_weak') {
+        basePkbElem.classList.remove('hidden');
+        basePkbValSpan.classList.add('hidden');
+        customPkbInput.classList.remove('hidden');
+
+        const pkbVal = parseFloat(customPkbInput.value) || 4.75;
+        SPECIES_DATA.CUSTOM_BASE.pKb = pkbVal;
+        SPECIES_DATA.CUSTOM_BASE.Kb = Math.pow(10, -pkbVal);
+      } else if (baseType === 'weak') {
+        basePkbElem.classList.remove('hidden');
+        customPkbInput.classList.add('hidden');
+        basePkbValSpan.classList.remove('hidden');
+        basePkbValSpan.innerText = baseOption.getAttribute('data-pkb');
+      } else {
+        basePkbElem.classList.add('hidden');
+      }
+
+      state.titrantRole = document.getElementById('titrantRoleSelect').value;
+
+      state.titrantConc = parseFloat(document.getElementById('titrantConcInput').value) || 0.1;
+      state.titrateVol = parseFloat(document.getElementById('titrateVolInput').value) || 25.0;
+      state.veq = parseFloat(document.getElementById('veqInput').value) || 20.0;
+
+      // M_titrate = (M_titrant * V_eq) / V_titrate
+      state.titrateConc = (state.titrantConc * state.veq) / state.titrateVol;
+      document.getElementById('calculatedConcVal').innerText = `${state.titrateConc.toFixed(3)} M`;
+
+      if (state.veq <= 40) state.buretteCapacity = 50;
+      else if (state.veq <= 80) state.buretteCapacity = 100;
+      else state.buretteCapacity = 200;
+      document.getElementById('buretteSpecText').innerText = `${state.buretteCapacity} mL`;
+
+      const totalVolNeeded = state.titrateVol + state.veq;
+      if (totalVolNeeded <= 80) state.flaskCapacity = 100;
+      else if (totalVolNeeded <= 180) state.flaskCapacity = 200;
+      else state.flaskCapacity = 500;
+      document.getElementById('flaskSpecText').innerText = `${state.flaskCapacity} mL`;
+
+      generateSamplingGrid();
+
+      const eqpH = calculateExactpH(state.veq);
+      document.getElementById('eqPhText').innerText = eqpH.toFixed(2);
+
+      drawApparatusCanvas();
+      drawGraphCanvas();
+    }
+
+    // Handles species change event (resets graphics, zoom, active tab, and animation)
+    function handleSpeciesChange() {
+      resetAnimationState();
+      resetGraphTabAndZoom();
+      syncParameters();
+    }
+
+    // Full Application Hard Restart
+    function restartAll() {
+      resetAnimationState();
+
+      // Reset DOM Inputs to Default
+      document.getElementById('acidSelect').value = DEFAULT_STATE.acidKey;
+      document.getElementById('baseSelect').value = DEFAULT_STATE.baseKey;
+      document.getElementById('titrantRoleSelect').value = DEFAULT_STATE.titrantRole;
+      document.getElementById('titrantConcInput').value = DEFAULT_STATE.titrantConc.toFixed(3);
+      document.getElementById('titrateVolInput').value = DEFAULT_STATE.titrateVol.toFixed(2);
+      document.getElementById('veqInput').value = DEFAULT_STATE.veq.toFixed(2);
+
+      document.getElementById('customPkaInput').value = 4.75;
+      document.getElementById('customPkbInput').value = 4.75;
+
+      resetGraphTabAndZoom();
+      syncParameters();
+    }
+
+    function stepAnimation() {
+      if (!state.animating) return;
+
+      // Smooth 50% reduced-speed titration step
+      const deltaV = 0.04 * state.speedMultiplier;
+      state.currentV += deltaV;
+
+      if (state.currentV >= state.veq * 1.8) {
+        state.currentV = state.veq * 1.8;
+        state.animating = false;
+        updateStartPauseUI();
+      }
+
+      drawApparatusCanvas();
+      drawGraphCanvas();
+
+      state.animFrameId = requestAnimationFrame(stepAnimation);
+    }
+
+    function updateStartPauseUI() {
+      const icon = document.getElementById('startPauseIcon');
+      const text = document.getElementById('startPauseText');
+
+      if (state.animating) {
+        icon.className = 'fa-solid fa-pause';
+        text.innerText = 'Pause Titration';
+      } else {
+        icon.className = 'fa-solid fa-play';
+        text.innerText = 'Start Titration';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      
+      // Global Theme Toggle
+      document.getElementById('themeToggleBtn').addEventListener('click', () => {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        if (state.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        drawApparatusCanvas();
+        drawGraphCanvas();
+      });
+
+      // Global Restart Button
+      document.getElementById('globalRestartBtn').addEventListener('click', restartAll);
+
+      // Species Change listeners (Triggers reset of graph zoom, tab, and apparatus)
+      document.getElementById('acidSelect').addEventListener('change', handleSpeciesChange);
+      document.getElementById('baseSelect').addEventListener('change', handleSpeciesChange);
+
+      document.getElementById('customPkaInput').addEventListener('input', () => { resetAnimationState(); syncParameters(); });
+      document.getElementById('customPkbInput').addEventListener('input', () => { resetAnimationState(); syncParameters(); });
+
+      // Parameter Input listeners
+      const inputIds = ['titrantRoleSelect', 'titrantConcInput', 'titrateVolInput', 'veqInput'];
+      inputIds.forEach(id => {
+        document.getElementById(id).addEventListener('change', () => { resetAnimationState(); resetGraphTabAndZoom(); syncParameters(); });
+        document.getElementById(id).addEventListener('input', () => { resetAnimationState(); resetGraphTabAndZoom(); syncParameters(); });
+      });
+
+      // Animation Control Buttons
+      document.getElementById('startPauseBtn').addEventListener('click', () => {
+        if (state.currentV >= state.veq * 1.8) {
+          state.currentV = 0;
+        }
+        state.animating = !state.animating;
+        updateStartPauseUI();
+        if (state.animating) {
+          stepAnimation();
+        }
+      });
+
+      document.getElementById('resetAnimBtn').addEventListener('click', () => {
+        resetAnimationState();
+        resetGraphTabAndZoom();
+        drawApparatusCanvas();
+        drawGraphCanvas();
+      });
+
+      // Animation Speeds
+      const speedBtns = document.querySelectorAll('.speed-btn');
+      speedBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          speedBtns.forEach(b => {
+            b.classList.remove('active', 'bg-brand-500', 'text-white');
+            b.classList.add('bg-slate-200', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-300');
+          });
+          e.target.classList.add('active', 'bg-brand-500', 'text-white');
+          state.speedMultiplier = parseFloat(e.target.getAttribute('data-speed'));
+        });
+      });
+
+      // Graph Tabs Switch
+      const tabs = [
+        { id: 'tabPh', key: 'ph' },
+        { id: 'tabD1', key: 'd1' },
+        { id: 'tabD2', key: 'd2' }
+      ];
+
+      tabs.forEach(tab => {
+        document.getElementById(tab.id).addEventListener('click', () => {
+          tabs.forEach(t => {
+            const btn = document.getElementById(t.id);
+            btn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+            btn.classList.add('text-slate-600', 'dark:text-slate-400');
+          });
+          const activeBtn = document.getElementById(tab.id);
+          activeBtn.classList.add('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+          state.activeTab = tab.key;
+          drawGraphCanvas();
+        });
+      });
+
+      // Reset Zoom
+      document.getElementById('resetZoomBtn').addEventListener('click', () => {
+        state.isZoomed = false;
+        state.zoomXMin = 0;
+        state.zoomXMax = Math.ceil(state.veq * 1.8);
+        drawGraphCanvas();
+      });
+
+      // Export Actions
+      document.getElementById('exportCsvBtn').addEventListener('click', exportCSV);
+
+      const exportModal = document.getElementById('exportModal');
+      document.getElementById('exportGraphModalBtn').addEventListener('click', () => exportModal.classList.remove('hidden'));
+      document.getElementById('closeModalBtn').addEventListener('click', () => exportModal.classList.add('hidden'));
+      document.getElementById('cancelModalBtn').addEventListener('click', () => exportModal.classList.add('hidden'));
+      document.getElementById('confirmExportBtn').addEventListener('click', () => {
+        const name = document.getElementById('userNameInput').value.trim();
+        generateGraphImage(name);
+        exportModal.classList.add('hidden');
+      });
+
+      // Canvas Interactive Hover & Selection Zoom Dragging
+      const graphCanvas = document.getElementById('graphCanvas');
+      const coordOverlay = document.getElementById('graphCoordOverlay');
+      const coordX = document.getElementById('coordX');
+      const coordY = document.getElementById('coordY');
+
+      graphCanvas.addEventListener('mousedown', (e) => {
+        const rect = graphCanvas.getBoundingClientRect();
+        state.isDraggingZoom = true;
+        state.dragStartX = e.clientX - rect.left;
+        state.dragCurrentX = state.dragStartX;
+      });
+
+      graphCanvas.addEventListener('mousemove', (e) => {
+        const rect = graphCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+
+        const w = rect.width;
+        const padding = { top: 30, right: 30, bottom: 45, left: 55 };
+        const graphW = w - padding.left - padding.right;
+
+        if (state.isDraggingZoom) {
+          state.dragCurrentX = mouseX;
+          drawGraphCanvas();
+        }
+
+        if (mouseX >= padding.left && mouseX <= padding.left + graphW) {
+          const vHover = state.zoomXMin + ((mouseX - padding.left) / graphW) * (state.zoomXMax - state.zoomXMin);
+          const ypH = calculateExactpH(vHover);
+
+          coordOverlay.classList.remove('hidden');
+          coordX.innerText = vHover.toFixed(2);
+          coordY.innerText = ypH.toFixed(2);
+        } else {
+          coordOverlay.classList.add('hidden');
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (state.isDraggingZoom && state.dragStartX !== null && state.dragCurrentX !== null) {
+          const rect = graphCanvas.getBoundingClientRect();
+          const padding = { top: 30, right: 30, bottom: 45, left: 55 };
+          const graphW = rect.width - padding.left - padding.right;
+
+          const startPx = Math.max(padding.left, Math.min(padding.left + graphW, state.dragStartX));
+          const currentPx = Math.max(padding.left, Math.min(padding.left + graphW, state.dragCurrentX));
+
+          if (Math.abs(currentPx - startPx) > 15) {
+            const v1 = state.zoomXMin + ((startPx - padding.left) / graphW) * (state.zoomXMax - state.zoomXMin);
+            const v2 = state.zoomXMin + ((currentPx - padding.left) / graphW) * (state.zoomXMax - state.zoomXMin);
+
+            state.zoomXMin = Math.max(0, Math.min(v1, v2));
+            state.zoomXMax = Math.max(v1, v2);
+            state.isZoomed = true;
+          }
+
+          state.isDraggingZoom = false;
+          state.dragStartX = null;
+          state.dragCurrentX = null;
+          drawGraphCanvas();
+        }
+      });
+
+      graphCanvas.addEventListener('mouseleave', () => {
+        coordOverlay.classList.add('hidden');
+        if (state.isDraggingZoom) {
+          state.isDraggingZoom = false;
+          drawGraphCanvas();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        drawApparatusCanvas();
+        drawGraphCanvas();
+      });
+
+      // Initial Sync
+      syncParameters();
+    });
+  </script>
+</body>
+</html>
