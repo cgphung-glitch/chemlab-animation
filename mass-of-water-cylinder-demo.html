@@ -264,6 +264,15 @@
   button.ctrl:active{ background:#262d2a; }
   button.ctrl.primary{ border-color: var(--teal); color: var(--teal); }
 
+  select.ctrl{
+    max-width:200px; text-overflow:ellipsis; appearance:auto; padding:0 10px;
+  }
+  .narr-hint{
+    display:none; margin-top:10px; font-family:var(--mono); font-size:12px;
+    color:var(--amber); text-align:center; max-width:420px;
+  }
+  .narr-hint.show{ display:block; }
+
   .dots{
     display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; justify-content:center; max-width:420px;
   }
@@ -566,7 +575,10 @@
     <button class="ctrl primary" id="play-btn">⏸ Pause</button>
     <button class="ctrl" id="next-btn" aria-label="Next scene">Next ▶</button>
     <button class="ctrl" id="replay-btn" style="display:none;">↺ Replay</button>
+    <button class="ctrl" id="narr-btn" aria-pressed="true" title="Toggle spoken narration">🔊 Narration: On</button>
+    <select class="ctrl" id="voice-sel" aria-label="Narration voice" style="display:none;"></select>
   </div>
+  <div class="narr-hint" id="narr-hint">Your browser blocked automatic audio — press ▶ Play to start the narrated demo.</div>
 
   <div class="dots" id="dots"></div>
 </div>
@@ -666,6 +678,148 @@
   function stopFlicker(){
     if(flickerTimer){ clearInterval(flickerTimer); flickerTimer = null; }
   }
+
+  // ---------------------------------------------------------------
+  // Narration (Web Speech API text-to-speech)
+  // ---------------------------------------------------------------
+  const synth = ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) ? window.speechSynthesis : null;
+  const narrBtn = document.getElementById('narr-btn');
+  const voiceSel = document.getElementById('voice-sel');
+  const hintEl = document.getElementById('narr-hint');
+  let narrate = !!synth;       // narration on/off
+  let voice = null;            // chosen SpeechSynthesisVoice
+  let pendingSpeech = 0;       // utterances queued/speaking for the current scene
+  let narrToken = 0;           // bumps whenever speech is cancelled (ignores stale callbacks)
+  let sceneTimeUp = false;     // the scene's minimum duration has elapsed
+  let speechBlocked = false;   // browser refused to speak without a user gesture
+
+  if(!synth){
+    narrBtn.textContent = '🔇 Narration unavailable';
+    narrBtn.disabled = true;
+    narrBtn.style.opacity = .5;
+  }
+
+  function loadVoices(){
+    if(!synth) return;
+    const all = synth.getVoices();
+    const en = all.filter(v => /^en([-_]|$)/i.test(v.lang));
+    const list = en.length ? en : all;
+    if(!list.length) return;
+    voiceSel.innerHTML = '';
+    list.forEach((v,i)=>{
+      const o = document.createElement('option');
+      o.value = i; o.textContent = v.name + ' (' + v.lang + ')';
+      voiceSel.appendChild(o);
+    });
+    // prefer a natural-sounding US English voice when one is installed
+    const pref = [/natural|neural|online/i, /google us english/i, /samantha|aria|jenny|zira|alex/i, /en[-_]US/i];
+    let best = null;
+    for(const re of pref){ best = list.find(v => re.test(v.name) || re.test(v.lang)); if(best) break; }
+    voice = best || list[0];
+    voiceSel.value = String(list.indexOf(voice));
+    voiceSel.style.display = list.length > 1 ? '' : 'none';
+    voiceSel.onchange = ()=>{ voice = list[+voiceSel.value]; };
+  }
+  if(synth){
+    loadVoices();
+    if(synth.addEventListener) synth.addEventListener('voiceschanged', loadVoices);
+  }
+
+  function cancelSpeech(){
+    narrToken++;
+    pendingSpeech = 0;
+    if(synth){ synth.cancel(); synth.resume(); }
+  }
+
+  // queue one line of narration (lines play in order, never interrupting each other)
+  function say(text){
+    if(!narrate || !synth || !text) return;
+    const u = new SpeechSynthesisUtterance(text);
+    if(voice){ u.voice = voice; u.lang = voice.lang; } else { u.lang = 'en-US'; }
+    u.rate = 0.95;
+    const token = narrToken;
+    pendingSpeech++;
+    let done = false;
+    const finish = ()=>{
+      if(done || token !== narrToken) return;
+      done = true;
+      pendingSpeech = Math.max(0, pendingSpeech - 1);
+      maybeAdvance();
+    };
+    u.onend = finish;
+    u.onerror = (e)=>{
+      if(token !== narrToken) return;
+      if(e && e.error === 'not-allowed'){ onSpeechBlocked(); return; }
+      finish();
+    };
+    synth.speak(u);
+  }
+
+  function onSpeechBlocked(){
+    if(speechBlocked) return;
+    speechBlocked = true;
+    // wait for the viewer to press Play (a user gesture) so the narration is never skipped
+    playing = false;
+    clearTimers();
+    clearLater();
+    pendingSpeech = 0;
+    playBtn.textContent = '▶ Play';
+    hintEl.classList.add('show');
+  }
+
+  // a scene ends when its animation time is up AND its narration has finished
+  function maybeAdvance(){
+    if(playing && sceneTimeUp && pendingSpeech === 0 && current !== scenes.length-1){
+      goTo(current + 1);
+    }
+  }
+
+  function numWords(x){ return String(x); }
+
+  // [delay in ms after scene starts, text]. Readings are spoken at the moment they appear on the display.
+  const narration = [
+    ()=>[[0, "Welcome to this lab demonstration on measuring the mass of water with a graduated cylinder. On the bench you will find an Erlenmeyer flask holding fifty milliliters of water, a fifty-milliliter graduated cylinder, and an electronic scale."]],
+    ()=>[[0, "First, turn on the electronic scale. Notice that the display fluctuates for a moment while the balance settles."]],
+    ()=>[[0, "Now tare the scale to zero by pressing the tare button."],
+         [1000, "The display now reads zero grams."]],
+    ()=>[[0, "Carefully place the empty graduated cylinder on the scale."],
+         [2700, "Wait for the reading to stabilize. The empty graduated cylinder has a mass of " + values.empty + " grams. Record this value."]],
+    ()=>[[0, "Now pour ten milliliters of water from the flask into the graduated cylinder."],
+         [3100, "The scale reads " + values.m1 + " grams. Record the mass after the first addition."]],
+    ()=>[[0, "Pour another ten milliliters into the cylinder, for a total of twenty."],
+         [1600, "The scale reads " + values.m2 + " grams. Record the mass after the second addition."]],
+    ()=>[[0, "Add a third ten milliliters, bringing the total to thirty."],
+         [1600, "The scale reads " + values.m3 + " grams. Record the mass after the third addition."]],
+    ()=>[[0, "Finally, add a fourth ten milliliters, for a total of forty."],
+         [1600, "The scale reads " + values.m4 + " grams. Record the mass after the fourth addition."]],
+    ()=>[[0, "Here is the data you collected: the mass of the empty cylinder, and the mass after each of the four additions."],
+         [0, "Don't forget to record the data into your report file."],
+         [0, "This video was made by Doctor Cu Phung, of the Department of Chemistry and Physical Science at Methodist University."]]
+  ];
+
+  function narrateScene(i){
+    if(!narrate) return;
+    narration[i]().forEach(([ms, text])=>{
+      if(ms <= 0) say(text); else later(()=> say(text), ms);
+    });
+  }
+
+  narrBtn.addEventListener('click', ()=>{
+    if(!synth) return;
+    narrate = !narrate;
+    narrBtn.textContent = narrate ? '🔊 Narration: On' : '🔈 Narration: Off';
+    narrBtn.setAttribute('aria-pressed', String(narrate));
+    if(!narrate){
+      cancelSpeech();
+      maybeAdvance();          // don't leave the scene waiting on speech that was just switched off
+    } else {
+      speechBlocked = false;
+      hintEl.classList.remove('show');
+      goTo(current, true);     // restart this scene so it is narrated from the top
+    }
+  });
+
+  window.addEventListener('pagehide', ()=>{ if(synth) synth.cancel(); });
 
   const scenes = [
     { // 0
@@ -805,9 +959,12 @@
   }
 
   function goTo(index, userInitiated){
+    if(userInitiated && speechBlocked){ speechBlocked = false; hintEl.classList.remove('show'); }
     clearTimers();
     clearLater();
     stopFlicker();
+    cancelSpeech();
+    sceneTimeUp = false;
     pourStream.classList.remove('active');
     current = Math.max(0, Math.min(scenes.length-1, index));
 
@@ -832,10 +989,11 @@
     replayBtn.style.display = current === scenes.length-1 ? 'inline-flex' : 'none';
     progressFill.style.width = '0%';
     scenes[current].enter();
+    narrateScene(current);
     sceneStart = Date.now();
     if(current !== scenes.length-1){
       if(playing){
-        sceneTimer = setTimeout(()=> goTo(current+1), scenes[current].duration);
+        armSceneTimer(scenes[current].duration);
         progressRAF = requestAnimationFrame(updateProgress);
       }
     } else {
@@ -844,22 +1002,37 @@
     }
   }
 
+  function armSceneTimer(ms){
+    sceneTimer = setTimeout(()=>{ sceneTimer = null; sceneTimeUp = true; maybeAdvance(); }, ms);
+  }
+
   playBtn.addEventListener('click', ()=>{
     if(current === scenes.length-1){ return; }
+    if(speechBlocked){
+      // first real click after the browser blocked autoplay audio: restart this scene with sound
+      speechBlocked = false;
+      hintEl.classList.remove('show');
+      playing = true;
+      playBtn.textContent = '⏸ Pause';
+      goTo(current, true);
+      return;
+    }
     playing = !playing;
     playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
     if(playing){
+      if(synth) synth.resume();
       const remaining = Math.max(300, scenes[current].duration - (Date.now()-sceneStart));
-      sceneTimer = setTimeout(()=> goTo(current+1), remaining);
+      armSceneTimer(remaining);
       progressRAF = requestAnimationFrame(updateProgress);
     } else {
+      if(synth) synth.pause();
       clearTimers();
     }
   });
 
   document.getElementById('prev-btn').addEventListener('click', ()=> goTo(Math.max(0,current-1), true));
   document.getElementById('next-btn').addEventListener('click', ()=> goTo(Math.min(scenes.length-1,current+1), true));
-  replayBtn.addEventListener('click', ()=>{ playing = true; playBtn.textContent='⏸ Pause'; generateValues(); goTo(0); });
+  replayBtn.addEventListener('click', ()=>{ speechBlocked = false; hintEl.classList.remove('show'); playing = true; playBtn.textContent='⏸ Pause'; generateValues(); goTo(0); });
 
   goTo(0);
 })();
