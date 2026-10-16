@@ -57,6 +57,8 @@
   .orbital-name{
     font-family:var(--serif); font-size:26px; font-weight:700; color:var(--accent);
   }
+  .orbital-name sub{ font-size:0.58em; font-style:italic; vertical-align:-0.28em; line-height:0; }
+  .orbital-name sub sup{ font-size:0.75em; font-style:normal; vertical-align:0.6em; }
   .info-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-family:var(--mono); font-size:12.5px; }
   .info-grid div.k{ color:var(--text-dim); }
   .info-grid div.v{ text-align:right; color:var(--text); }
@@ -76,6 +78,18 @@
   #btnResetView{
     position:absolute; top:10px; right:12px; padding:5px 10px; font-size:11.5px;
     background:rgba(20,27,35,0.85);
+  }
+  .seg{ display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+  .seg button{
+    flex:1; border:0; border-radius:0; background:var(--panel-2); color:var(--text-dim);
+    padding:8px 6px; font-weight:500;
+  }
+  .seg button + button{ border-left:1px solid var(--border); }
+  .seg button:hover{ color:var(--text); }
+  .seg button.active, .seg button.active:hover{ background:var(--accent); color:#0d1117; font-weight:600; }
+  #axesScale{
+    position:absolute; bottom:10px; right:12px; font-size:11px; color:var(--text-dim);
+    font-family:var(--mono); pointer-events:none;
   }
   .hint{ color:var(--text-dim); font-size:11.5px; line-height:1.5; }
   .divider{ height:1px; background:var(--border); margin:2px 0; }
@@ -107,12 +121,20 @@
 
     <div class="divider"></div>
     <h2>Display</h2>
-    <label class="field">Point density
+    <div class="seg" id="viewSeg" role="group" aria-label="Orbital view">
+      <button type="button" id="viewCloud">Electron cloud</button>
+      <button type="button" id="viewSurface" class="active">Average surface</button>
+    </div>
+    <label class="field" id="densityField" style="display:none">Point density
       <input type="range" id="density" min="4000" max="60000" step="2000" value="26000">
+    </label>
+    <label class="field" id="probField">Enclosed probability: <span id="probVal">90</span>%
+      <input type="range" id="probSlider" min="50" max="99" step="1" value="90">
     </label>
     <label class="chk"><input type="checkbox" id="toggleRadialNodes"> Show radial nodes (spherical shells)</label>
     <label class="chk"><input type="checkbox" id="toggleAngularNodes"> Show angular nodes (planes / cones)</label>
     <label class="chk"><input type="checkbox" id="toggleNucleus" checked> Show nucleus</label>
+    <label class="chk"><input type="checkbox" id="toggleAxes" checked> Show axes (x, y, z)</label>
     <button id="btnRender">Render orbital</button>
 
     <div class="divider"></div>
@@ -120,7 +142,7 @@
       <div><span class="swatch" style="background:var(--pos-color)"></span>ψ &gt; 0</div>
       <div><span class="swatch" style="background:var(--neg-color)"></span>ψ &lt; 0</div>
     </div>
-    <div class="hint">Dot density is proportional to the actual quantum-mechanical probability |ψ|² (random-sampled "electron cloud" — the same style used in most textbooks), not a smoothed isosurface. Color shows the sign (phase) of the real wavefunction. mₗ selects the standard real orbital (e.g. l=1: mₗ=0 → pz, ±1 → px/py) rather than the complex e^{imφ} form, matching how these are drawn in general chemistry.</div>
+    <div class="hint">Dot density is proportional to the actual quantum-mechanical probability |ψ|² (random-sampled "electron cloud" — the same style used in most textbooks), not a smoothed isosurface. Color shows the sign (phase) of the real wavefunction. mₗ selects the standard real orbital (e.g. l=1: mₗ=0 → pz, ±1 → px/py) rather than the complex e^{imφ} form, matching how these are drawn in general chemistry.<br><br><b>Average surface</b> replaces the dots with smooth, translucent surfaces of constant |ψ|², chosen so that the surface encloses the selected percentage (default 90 %) of the electron probability. Orange and blue lobes again mark ψ &gt; 0 and ψ &lt; 0.</div>
 
     <div class="divider"></div>
     <button id="btnExportPNG">Export PNG</button>
@@ -131,6 +153,7 @@
     <div id="viewer-wrap">
       <canvas id="canvas3d"></canvas>
       <div id="status">Loading 3D engine…</div>
+      <div id="axesScale"></div>
       <button id="btnResetView" type="button" title="Restore the default orientation and zoom">Reset view</button>
     </div>
   </div>
@@ -297,6 +320,29 @@ function orbitalLabel(n,l,ml){
   return n+subshell+' (ml='+(ml>=0?'+':'')+ml+')';
 }
 
+// Typeset (HTML) orbital labels: subscripts for the Cartesian part, superscripts for exponents.
+const ORBITAL_HTML = {
+  '0_0':'s',
+  '1_0':'p<sub>z</sub>', '1_1':'p<sub>x</sub>', '1_-1':'p<sub>y</sub>',
+  '2_0':'d<sub>z<sup>2</sup></sub>', '2_1':'d<sub>xz</sub>', '2_-1':'d<sub>yz</sub>',
+  '2_2':'d<sub>x<sup>2</sup>\u2212y<sup>2</sup></sub>', '2_-2':'d<sub>xy</sub>',
+  '3_0':'f<sub>z<sup>3</sup></sub>', '3_1':'f<sub>xz<sup>2</sup></sub>', '3_-1':'f<sub>yz<sup>2</sup></sub>',
+  '3_2':'f<sub>z(x<sup>2</sup>\u2212y<sup>2</sup>)</sub>', '3_-2':'f<sub>xyz</sub>',
+  '3_3':'f<sub>x(x<sup>2</sup>\u22123y<sup>2</sup>)</sub>', '3_-3':'f<sub>y(3x<sup>2</sup>\u2212y<sup>2</sup>)</sub>'
+};
+function orbitalLabelHTML(n,l,ml){
+  const key = l+'_'+ml;
+  if(ORBITAL_HTML[key]) return n+ORBITAL_HTML[key];
+  const subshell = ['s','p','d','f','g','h','i'][l] || ('l='+l);
+  return n+subshell+' (m<sub>l</sub>='+(ml>=0?'+':'\u2212')+Math.abs(ml)+')';
+}
+// Plain-text version for <option> elements (which cannot hold markup): Unicode superscripts, no subscripts.
+function orbitalShortText(l,ml){
+  const h = ORBITAL_HTML[l+'_'+ml];
+  if(!h) return undefined;
+  return h.replace(/<sup>2<\/sup>/g,'\u00B2').replace(/<sup>3<\/sup>/g,'\u00B3').replace(/<\/?sub>/g,'');
+}
+
 // ---- Probability-density sampling (dot-density / "electron cloud" rendering) ----
 
 // Finds an upper bound for r^2 * R_nl(r)^2 by scanning, used for rejection sampling.
@@ -422,7 +468,7 @@ function populateML(){
     const opt = document.createElement('option');
     opt.value=ml;
     const key = l+'_'+ml;
-    const shortName = ORBITAL_NAMES[key]; // e.g. 'dxy', undefined for l>=4 (no common short name)
+    const shortName = orbitalShortText(l,ml); // e.g. 'dxy', 'dz\u00B2'; undefined for l>=4 (no common short name)
     opt.textContent = (ml>=0?'+':'')+ml+ (shortName? '  ('+shortName+')' : '');
     selML.appendChild(opt);
   }
@@ -492,7 +538,7 @@ function init3D(){
   });
   canvas.addEventListener('wheel', e=>{
     e.preventDefault();
-    cam.dist = Math.max(2, Math.min(300, cam.dist + e.deltaY*0.03));
+    cam.dist = Math.max(2, Math.min(2000, cam.dist + e.deltaY*0.03));
     updateCamera();
   }, { passive:false });
 
@@ -524,7 +570,7 @@ function init3D(){
     } else if(e.touches.length===2){
       const d = pinchDistance(e.touches);
       if(pinchDist>0){
-        cam.dist = Math.max(2, Math.min(300, cam.dist - (d-pinchDist)*0.05));
+        cam.dist = Math.max(2, Math.min(2000, cam.dist - (d-pinchDist)*0.05));
         updateCamera();
       }
       pinchDist = d;
@@ -568,11 +614,18 @@ function rotateView(dx, dy){
   orient.premultiply(qy.premultiply(qx)).normalize();   // net delta = qx * qy
   updateCamera();
 }
+// Camera distance at which a sphere of radius R is fully visible, in BOTH the vertical and the
+// horizontal field of view of the current canvas (perspective-correct: a sphere subtends asin(R/d)).
+function fitDistance(R){
+  const vHalf = THREE.MathUtils.degToRad(camera3d.fov/2);
+  const hHalf = Math.atan(Math.tan(vHalf)*camera3d.aspect);
+  return R / Math.sin(Math.min(vHalf, hHalf));
+}
 // Restore the default orientation and the auto-framed zoom for the current orbital.
 function resetView(){
   if(!orient || !homeOrient) return;
   orient.copy(homeOrient);
-  if(cam.homeDist) cam.dist = cam.homeDist;
+  if(cam.fitR){ cam.homeDist = fitDistance(cam.fitR); cam.dist = cam.homeDist; }
   updateCamera();
 }
 function animate3D(){
@@ -620,6 +673,246 @@ function makeNodalConeMesh(theta0, maxR, material){
 }
 
 // ============================================================
+// Coordinate axes (x, y, z) with arrowheads, labels and tick marks (1 tick = `step` a0)
+// ============================================================
+let axesGroup = null;
+function niceStep(raw){
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw/mag;
+  return (norm<=1 ? 1 : norm<=2 ? 2 : norm<=5 ? 5 : 10) * mag;
+}
+function makeAxisLabel(text, color, size){
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.font = 'italic 600 46px Georgia, serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = color;
+  g.fillText(text, 32, 34);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false }));
+  sp.scale.set(size, size, 1);
+  sp.renderOrder = 10;
+  return sp;
+}
+function makeAxes(L){
+  const grp = new THREE.Group();
+  const step = niceStep(L/6);
+  const head = L*0.07, headR = L*0.022, tick = L*0.016;
+  const defs = [
+    { name:'x', color:'#ff6b6b', dir:[1,0,0], perp:[0,1,0] },
+    { name:'y', color:'#7ee787', dir:[0,1,0], perp:[1,0,0] },
+    { name:'z', color:'#58d5f0', dir:[0,0,1], perp:[1,0,0] },
+  ];
+  defs.forEach(a=>{
+    const [dx,dy,dz] = a.dir, [px,py,pz] = a.perp;
+    const verts = [-L*dx,-L*dy,-L*dz,  L*dx,L*dy,L*dz];
+    for(let k=1; k*step<=L*1.0001; k++){
+      [k*step, -k*step].forEach(t=>{
+        verts.push(t*dx-tick*px, t*dy-tick*py, t*dz-tick*pz,
+                   t*dx+tick*px, t*dy+tick*py, t*dz+tick*pz);
+      });
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
+    grp.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color:a.color, transparent:true, opacity:0.9 })));
+
+    // arrowhead on the +axis end
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(headR, head, 14), new THREE.MeshBasicMaterial({ color:a.color }));
+    cone.position.set(dx*(L+head/2), dy*(L+head/2), dz*(L+head/2));
+    if(a.name==='x') cone.rotation.z = -Math.PI/2;
+    if(a.name==='z') cone.rotation.x =  Math.PI/2;
+    grp.add(cone);
+
+    // axis label beyond the arrowhead
+    const lab = makeAxisLabel(a.name, a.color, L*0.16);
+    const off = L + head + L*0.09;
+    lab.position.set(dx*off, dy*off, dz*off);
+    grp.add(lab);
+  });
+  grp.userData.step = step;
+  return grp;
+}
+function updateAxesVisibility(){
+  const on = document.getElementById('toggleAxes').checked;
+  if(axesGroup) axesGroup.visible = on;
+  const cap = document.getElementById('axesScale');
+  cap.textContent = (on && axesGroup) ? 'axis ticks: '+axesGroup.userData.step+' a₀' : '';
+}
+
+// ============================================================
+// Average surface view: smooth iso-surfaces |psi|^2 = c, with c chosen so that the surface encloses a
+// chosen fraction of the electron probability. The positive (psi = +sqrt(c)) and negative
+// (psi = -sqrt(c)) surfaces are extracted separately with marching tetrahedra on a 3D grid.
+// ============================================================
+let viewMode = 'surface'; // 'cloud' | 'surface'  (default: Average surface)
+let thrCache = null;      // cached, sorted |psi|^2 values of Monte-Carlo samples for the current orbital
+
+// Same real angular function as realAngular(), with the normalisation precomputed (fast inner loop).
+function makeAngularFn(l, ml){
+  const m = Math.abs(ml);
+  const norm = Math.sqrt((2*l+1)/(4*Math.PI) * factorial(l-m)/factorial(l+m));
+  return function(cosT, phi){
+    const P = associatedLegendre(l, m, cosT);
+    if(ml===0) return norm*P;
+    return Math.SQRT2*norm*P*(ml>0 ? Math.cos(m*phi) : Math.sin(m*phi));
+  };
+}
+
+// |psi|^2 value such that a fraction `prob` of the electron probability lies where |psi|^2 >= value.
+// Samples are distributed as |psi|^2, so this is the (1-prob) quantile of |psi|^2 over the samples.
+function getDensityThreshold(n, l, ml, prob){
+  const key = n+'_'+l+'_'+ml;
+  if(!thrCache || thrCache.key!==key){
+    const { points, count } = sampleOrbitalPoints(n,l,ml,40000);
+    const d = new Float64Array(count);
+    for(let i=0;i<count;i++){
+      const x=points[3*i], y=points[3*i+1], z=points[3*i+2];
+      const r = Math.sqrt(x*x+y*y+z*z);
+      const theta = r>1e-9 ? Math.acos(Math.max(-1, Math.min(1, z/r))) : 0;
+      const psi = fullWaveFunction(n,l,ml,r,theta,Math.atan2(y,x));
+      d[i] = psi*psi;
+    }
+    d.sort();
+    thrCache = { key, dens:d };
+  }
+  const d = thrCache.dens;
+  const idx = Math.min(d.length-1, Math.max(0, Math.floor((1-prob)*d.length)));
+  return d[idx];
+}
+
+// Marching tetrahedra on the scalar field sign*field with isolevel `level`. Triangles are wound so that
+// their normals point out of the region (sign*field > level); vertices are welded so normals are smooth.
+function marchTets(field, N, E, level, sign){
+  const h = 2*E/(N-1), N2 = N*N, TOTAL = N2*N;
+  const CX=[0,1,1,0,0,1,1,0], CY=[0,0,1,1,0,0,1,1], CZ=[0,0,0,0,1,1,1,1];
+  const OFF = CX.map((_,c)=> CX[c] + N*CY[c] + N2*CZ[c]);
+  const TETS = [[0,5,1,6],[0,1,2,6],[0,2,3,6],[0,3,7,6],[0,7,4,6],[0,4,5,6]]; // all share the 0-6 diagonal
+  const positions = [], indices = [];
+  const map = new Map();
+  const v = new Float64Array(8), px = new Float64Array(8), py = new Float64Array(8), pz = new Float64Array(8);
+
+  function vert(ca, cb, base){
+    let ga = base+OFF[ca], gb = base+OFF[cb], A = ca, B = cb;
+    if(ga>gb){ let t=ga; ga=gb; gb=t; t=A; A=B; B=t; }
+    const key = ga*TOTAL + gb;
+    let id = map.get(key);
+    if(id!==undefined) return id;
+    const t = (level - v[A]) / (v[B] - v[A]);
+    id = positions.length/3;
+    positions.push(px[A]+t*(px[B]-px[A]), py[A]+t*(py[B]-py[A]), pz[A]+t*(pz[B]-pz[A]));
+    map.set(key, id);
+    return id;
+  }
+  function emit(a, b, c, dx, dy, dz){
+    const ax=positions[3*a], ay=positions[3*a+1], az=positions[3*a+2];
+    const ux=positions[3*b]-ax, uy=positions[3*b+1]-ay, uz=positions[3*b+2]-az;
+    const wx=positions[3*c]-ax, wy=positions[3*c+1]-ay, wz=positions[3*c+2]-az;
+    const nx=uy*wz-uz*wy, ny=uz*wx-ux*wz, nz=ux*wy-uy*wx;
+    if(nx*dx+ny*dy+nz*dz < 0) indices.push(a,c,b); else indices.push(a,b,c);
+  }
+
+  for(let k=0;k<N-1;k++) for(let j=0;j<N-1;j++) for(let i=0;i<N-1;i++){
+    const base = i + N*j + N2*k;
+    let cnt = 0;
+    for(let c=0;c<8;c++){ const val = sign*field[base+OFF[c]]; v[c]=val; if(val>level) cnt++; }
+    if(cnt===0 || cnt===8) continue;
+    for(let c=0;c<8;c++){ px[c]=-E+(i+CX[c])*h; py[c]=-E+(j+CY[c])*h; pz[c]=-E+(k+CZ[c])*h; }
+    for(const t of TETS){
+      const ins=[], out=[];
+      for(const q of t) (v[q]>level ? ins : out).push(q);
+      if(!ins.length || !out.length) continue;
+      // direction from the inside corners towards the outside corners (= outward normal direction)
+      let ix=0,iy=0,iz=0,ox=0,oy=0,oz=0;
+      ins.forEach(q=>{ ix+=px[q]/ins.length; iy+=py[q]/ins.length; iz+=pz[q]/ins.length; });
+      out.forEach(q=>{ ox+=px[q]/out.length; oy+=py[q]/out.length; oz+=pz[q]/out.length; });
+      const dx=ox-ix, dy=oy-iy, dz=oz-iz;
+      if(ins.length===1){
+        const a=ins[0];
+        emit(vert(a,out[0],base), vert(a,out[1],base), vert(a,out[2],base), dx,dy,dz);
+      } else if(out.length===1){
+        const a=out[0];
+        emit(vert(a,ins[0],base), vert(a,ins[1],base), vert(a,ins[2],base), dx,dy,dz);
+      } else {
+        const [a,b]=ins, [c,d]=out;
+        const p0=vert(a,c,base), p1=vert(a,d,base), p2=vert(b,d,base), p3=vert(b,c,base);
+        emit(p0,p1,p2,dx,dy,dz);
+        emit(p0,p2,p3,dx,dy,dz);
+      }
+    }
+  }
+  return { positions:new Float32Array(positions), indices:new Uint32Array(indices) };
+}
+
+// Pure-math part: returns the +/- surfaces' mesh data, the iso-level and the farthest vertex radius.
+function computeAverageSurfaceData(n, l, ml, prob){
+  const c = getDensityThreshold(n,l,ml,prob);
+  const a = Math.sqrt(c);
+
+  // Bounding radius: beyond it |psi| can no longer reach the iso-level in any direction.
+  const rScan = 4*n*n+10, steps = 4000;
+  const angMax = Math.sqrt(angularDistMax(l,ml));
+  let rBound = 1;
+  for(let i=steps;i>=0;i--){
+    const r = (i/steps)*rScan;
+    if(Math.abs(radialWaveFunction(n,l,r))*angMax >= a){ rBound = r; break; }
+  }
+  const E = rBound*1.04 + 0.3;
+
+  // psi on an N^3 grid (radial part from a lookup table for speed)
+  const N = Math.min(96, 56+8*n), h = 2*E/(N-1);
+  const TAB = 8192, rTabMax = E*Math.sqrt(3)*1.001;
+  const rt = new Float64Array(TAB+1);
+  for(let i=0;i<=TAB;i++) rt[i] = radialWaveFunction(n,l,i*rTabMax/TAB);
+  const ang = makeAngularFn(l,ml), m = Math.abs(ml);
+  const field = new Float32Array(N*N*N);
+  let q = 0;
+  for(let k=0;k<N;k++){
+    const z = -E+k*h;
+    for(let j=0;j<N;j++){
+      const y = -E+j*h;
+      for(let i=0;i<N;i++){
+        const x = -E+i*h;
+        const r = Math.sqrt(x*x+y*y+z*z);
+        const u = r/rTabMax*TAB, i0 = Math.floor(u), f = u-i0;
+        const R = rt[i0]*(1-f) + rt[Math.min(i0+1,TAB)]*f;
+        field[q++] = R * ang(r>1e-12 ? z/r : 1, m>0 ? Math.atan2(y,x) : 0);
+      }
+    }
+  }
+
+  const pos = marchTets(field, N, E, a, +1);
+  const neg = marchTets(field, N, E, a, -1);
+  let maxR2 = 0;
+  [pos,neg].forEach(sf=>{
+    const P = sf.positions;
+    for(let i=0;i<P.length;i+=3){ const d=P[i]*P[i]+P[i+1]*P[i+1]+P[i+2]*P[i+2]; if(d>maxR2) maxR2=d; }
+  });
+  return { pos, neg, level:c, maxR:Math.sqrt(maxR2) };
+}
+
+function makeSurfaceMeshes(sf, color, opacity){
+  if(!sf.indices.length) return [];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(sf.positions,3));
+  geo.setIndex(new THREE.BufferAttribute(sf.indices,1));
+  geo.computeVertexNormals();
+  const opts = { color:color, transparent:true, opacity:opacity, depthWrite:false, shininess:55, specular:0x444444 };
+  // back faces first, then front faces, so the translucent surface reads as a solid-looking shell
+  const back  = new THREE.Mesh(geo, new THREE.MeshPhongMaterial(Object.assign({ side:THREE.BackSide  }, opts)));
+  const front = new THREE.Mesh(geo, new THREE.MeshPhongMaterial(Object.assign({ side:THREE.FrontSide }, opts)));
+  back.renderOrder = 1; front.renderOrder = 2;
+  return [back, front];
+}
+function buildAverageSurface(n, l, ml, prob){
+  const data = computeAverageSurfaceData(n,l,ml,prob);
+  const posCol = new THREE.Color(getComputedColor('--pos-color'));
+  const negCol = new THREE.Color(getComputedColor('--neg-color'));
+  const meshes = makeSurfaceMeshes(data.pos, posCol, 0.55).concat(makeSurfaceMeshes(data.neg, negCol, 0.55));
+  return { meshes, maxR:data.maxR, level:data.level };
+}
+
+// ============================================================
 // Orbital rendering
 // ============================================================
 function renderOrbital(){
@@ -630,32 +923,48 @@ function renderOrbital(){
 
   clearGroup(group3d);
 
-  // --- point cloud ---
-  const { points, signs, count:actualCount } = sampleOrbitalPoints(n,l,ml,count);
-  const colors = new Float32Array(actualCount*3);
-  const posCol = new THREE.Color(getComputedColor('--pos-color'));
-  const negCol = new THREE.Color(getComputedColor('--neg-color'));
-  for(let i=0;i<actualCount;i++){
-    const c = signs[i]>=0 ? posCol : negCol;
-    colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(points,3));
-  geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+  // --- orbital body: electron cloud (dots) or average surface (smooth iso-surface) ---
   const rExtent = effectiveRadius(n,l,0.95);
-  const mat = new THREE.PointsMaterial({
-    size: Math.max(0.08, rExtent*0.006),
-    vertexColors:true, transparent:true, opacity:0.85, depthWrite:false, sizeAttenuation:true
-  });
-  const cloud = new THREE.Points(geo, mat);
-  group3d.add(cloud);
+  let rView = rExtent, actualCount = 0, extraRows = null, probPct = 0;
+  let rFull = effectiveRadius(n,l,0.99);   // radius that must fit inside the display panel
+  if(viewMode==='surface'){
+    probPct = Number(document.getElementById('probSlider').value);
+    const surf = buildAverageSurface(n,l,ml,probPct/100);
+    surf.meshes.forEach(mesh=> group3d.add(mesh));
+    if(surf.maxR>0){ rView = surf.maxR*0.95; rFull = surf.maxR; }
+    extraRows = [['Enclosed prob.', probPct+'%'], ['Surface |ψ|²', surf.level.toExponential(2)+' a₀⁻³']];
+  } else {
+    const sampled = sampleOrbitalPoints(n,l,ml,count);
+    const points = sampled.points, signs = sampled.signs;
+    actualCount = sampled.count;
+    const colors = new Float32Array(actualCount*3);
+    const posCol = new THREE.Color(getComputedColor('--pos-color'));
+    const negCol = new THREE.Color(getComputedColor('--neg-color'));
+    for(let i=0;i<actualCount;i++){
+      const c = signs[i]>=0 ? posCol : negCol;
+      colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(points,3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+    const mat = new THREE.PointsMaterial({
+      size: Math.max(0.08, rExtent*0.006),
+      vertexColors:true, transparent:true, opacity:0.85, depthWrite:false, sizeAttenuation:true
+    });
+    group3d.add(new THREE.Points(geo, mat));
+  }
 
   // --- nucleus ---
   if(document.getElementById('toggleNucleus').checked){
-    const nucGeo = new THREE.SphereGeometry(Math.max(0.15, rExtent*0.01), 16, 12);
+    const nucGeo = new THREE.SphereGeometry(Math.max(0.15, rView*0.01), 16, 12);
     const nucMat = new THREE.MeshBasicMaterial({ color:0xffffff });
     group3d.add(new THREE.Mesh(nucGeo, nucMat));
   }
+
+  // --- coordinate axes ---
+  axesGroup = makeAxes(rFull*1.1);
+  group3d.add(axesGroup);
+  updateAxesVisibility();
 
   // --- radial nodes (spherical shells) ---
   if(document.getElementById('toggleRadialNodes').checked){
@@ -671,25 +980,30 @@ function renderOrbital(){
   if(document.getElementById('toggleAngularNodes').checked){
     const nodeMat = new THREE.MeshBasicMaterial({ color:0xc77dd6, transparent:true, opacity:0.22, side:THREE.DoubleSide });
     const planes = findAngularNodalPlanes(l, ml);
-    planes.forEach(phi0=> group3d.add(makeNodalPlaneMesh(phi0, rExtent*1.6, nodeMat)));
+    planes.forEach(phi0=> group3d.add(makeNodalPlaneMesh(phi0, rFull*1.1, nodeMat)));
     const cones = findAngularNodalCones(l, ml);
-    cones.forEach(theta0=> group3d.add(makeNodalConeMesh(theta0, rExtent*1.6, nodeMat)));
+    cones.forEach(theta0=> group3d.add(makeNodalConeMesh(theta0, rFull*1.1, nodeMat)));
   }
 
-  cam.dist = Math.max(4, rExtent*1.8);
-  cam.homeDist = cam.dist;
+  // Default framing: the orbital plus axes/labels (about 1.3 x rFull) fit entirely inside the panel,
+  // with a little margin, whatever the canvas aspect ratio.
+  cam.fitR = rFull*1.3*1.05;
+  cam.homeDist = fitDistance(cam.fitR);
+  cam.dist = cam.homeDist;
   updateCamera();
 
-  updateInfoPanel(n,l,ml);
-  document.getElementById('status').textContent = actualCount.toLocaleString()+' points rendered.';
+  updateInfoPanel(n,l,ml,extraRows);
+  document.getElementById('status').textContent = viewMode==='surface'
+    ? 'Average surface rendered ('+probPct+'% of the electron probability enclosed).'
+    : actualCount.toLocaleString()+' points rendered.';
 }
 function getComputedColor(varName){
   return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 }
 
-function updateInfoPanel(n,l,ml){
+function updateInfoPanel(n,l,ml,extra){
   const label = orbitalLabel(n,l,ml);
-  document.getElementById('orbitalName').textContent = label;
+  document.getElementById('orbitalName').innerHTML = orbitalLabelHTML(n,l,ml);
   const radialNodeCount = n-l-1;
   const angularNodeCount = l;
   const energyEV = -13.6/(n*n);
@@ -702,6 +1016,7 @@ function updateInfoPanel(n,l,ml){
     ['Total nodes', radialNodeCount+angularNodeCount],
     ['Energy Eₙ', energyEV.toFixed(3)+' eV'],
   ];
+  if(extra) extra.forEach(r=> rows.push(r));
   rows.forEach(([k,v])=>{
     const dk = document.createElement('div'); dk.className='k'; dk.textContent=k;
     const dv = document.createElement('div'); dv.className='v'; dv.textContent=v;
@@ -710,11 +1025,25 @@ function updateInfoPanel(n,l,ml){
 }
 
 document.getElementById('btnRender').addEventListener('click', renderOrbital);
+
+function setView(mode){
+  viewMode = mode;
+  document.getElementById('viewCloud').classList.toggle('active', mode==='cloud');
+  document.getElementById('viewSurface').classList.toggle('active', mode==='surface');
+  document.getElementById('densityField').style.display = mode==='cloud' ? '' : 'none';
+  document.getElementById('probField').style.display = mode==='surface' ? '' : 'none';
+  renderOrbital();
+}
+document.getElementById('viewCloud').addEventListener('click', ()=> setView('cloud'));
+document.getElementById('viewSurface').addEventListener('click', ()=> setView('surface'));
+document.getElementById('probSlider').addEventListener('input', e=>{ document.getElementById('probVal').textContent = e.target.value; });
+document.getElementById('probSlider').addEventListener('change', renderOrbital);
 document.getElementById('btnResetView').addEventListener('click', resetView);
 document.getElementById('canvas3d').addEventListener('dblclick', resetView);
 document.getElementById('toggleRadialNodes').addEventListener('change', renderOrbital);
 document.getElementById('toggleAngularNodes').addEventListener('change', renderOrbital);
 document.getElementById('toggleNucleus').addEventListener('change', renderOrbital);
+document.getElementById('toggleAxes').addEventListener('change', updateAxesVisibility);
 selML.addEventListener('change', renderOrbital);
 selL.addEventListener('change', ()=> setTimeout(renderOrbital, 0));
 selN.addEventListener('change', ()=> setTimeout(renderOrbital, 0));
