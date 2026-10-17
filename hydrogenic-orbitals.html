@@ -16,16 +16,38 @@
     --accent-2: #f2b84b;
     --pos-color: #ff9f43;
     --neg-color: #5b8def;
+    --input-bg: #0d1117;
+    --hdr-1: #121821;
+    --hdr-2: #0d1117;
+    --overlay: rgba(20,27,35,0.85);
+    --on-accent: #0d1117;
     --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
     --serif: Georgia, 'Times New Roman', serif;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  :root[data-theme="light"]{
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --panel-2: #f1f4f8;
+    --border: #cdd5df;
+    --text: #1b2430;
+    --text-dim: #5a6878;
+    --accent: #0f766e;
+    --accent-2: #b7791f;
+    --pos-color: #f28c28;
+    --neg-color: #3b6fd8;
+    --input-bg: #ffffff;
+    --hdr-1: #ffffff;
+    --hdr-2: #eef1f5;
+    --overlay: rgba(255,255,255,0.9);
+    --on-accent: #ffffff;
   }
   *{ box-sizing:border-box; }
   body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); font-size:14px; }
   header{
     display:flex; align-items:baseline; gap:14px; padding:16px 22px;
     border-bottom:1px solid var(--border);
-    background: linear-gradient(180deg, #121821, #0d1117);
+    background: linear-gradient(180deg, var(--hdr-1), var(--hdr-2));
   }
   header h1{ font-family:var(--serif); font-size:20px; font-weight:600; margin:0; }
   header .tag{ color:var(--text-dim); font-size:12.5px; font-family:var(--mono); }
@@ -43,7 +65,7 @@
   }
   label.field{ display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:var(--text-dim); }
   select, input[type=number], input[type=range]{
-    background:#0d1117; border:1px solid var(--border); color:var(--text);
+    background:var(--input-bg); border:1px solid var(--border); color:var(--text);
     border-radius:6px; padding:7px 9px; font-family:var(--mono); font-size:13px;
   }
   input[type=range]{ padding:0; }
@@ -77,7 +99,7 @@
   }
   #btnResetView{
     position:absolute; top:10px; right:12px; padding:5px 10px; font-size:11.5px;
-    background:rgba(20,27,35,0.85);
+    background:var(--overlay);
   }
   .seg{ display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
   .seg button{
@@ -86,11 +108,42 @@
   }
   .seg button + button{ border-left:1px solid var(--border); }
   .seg button:hover{ color:var(--text); }
-  .seg button.active, .seg button.active:hover{ background:var(--accent); color:#0d1117; font-weight:600; }
+  .seg button.active, .seg button.active:hover{ background:var(--accent); color:var(--on-accent); font-weight:600; }
   #axesScale{
     position:absolute; bottom:10px; right:12px; font-size:11px; color:var(--text-dim);
     font-family:var(--mono); pointer-events:none;
   }
+  .theme-seg{ margin-left:auto; align-self:center; width:170px; }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row button{ flex:1; }
+  button.primary{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:600; }
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:50;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal-backdrop[hidden]{ display:none; }
+  .modal{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px;
+    width:min(380px, calc(100vw - 32px)); display:flex; flex-direction:column; gap:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.35);
+  }
+  .modal h3{ margin:0; font-family:var(--serif); font-size:18px; }
+  .modal p{ margin:0; color:var(--text-dim); font-size:12.5px; line-height:1.5; }
+  .modal input[type=text]{
+    background:var(--input-bg); border:1px solid var(--border); color:var(--text);
+    border-radius:6px; padding:9px 10px; font-size:14px; font-family:var(--sans);
+  }
+  .modal input[type=text].invalid{ border-color:#e5534b; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; }
+  #recOverlay{
+    position:absolute; top:10px; left:12px; display:flex; align-items:center; gap:10px;
+    padding:6px 10px; border-radius:8px; background:var(--overlay); border:1px solid var(--border);
+    font-size:12px; color:var(--text);
+  }
+  #recOverlay[hidden]{ display:none; }
+  body.exporting .layout > .panel:first-child,
+  body.exporting header .theme-seg{ pointer-events:none; opacity:0.55; }
+  body.exporting #canvas3d{ pointer-events:none; }
   .hint{ color:var(--text-dim); font-size:11.5px; line-height:1.5; }
   .divider{ height:1px; background:var(--border); margin:2px 0; }
 </style>
@@ -100,6 +153,10 @@
 <header>
   <h1>Hydrogen Atomic Orbital Viewer</h1>
   <span class="tag">n, l, mₗ quantum numbers · radial &amp; angular nodes · electron-cloud dot density</span>
+  <div class="seg theme-seg" id="themeSeg" role="group" aria-label="Theme">
+    <button type="button" id="themeDark" class="active">☾ Dark</button>
+    <button type="button" id="themeLight">☀ Light</button>
+  </div>
 </header>
 
 <div class="layout">
@@ -145,7 +202,11 @@
     <div class="hint">Dot density is proportional to the actual quantum-mechanical probability |ψ|² (random-sampled "electron cloud" — the same style used in most textbooks), not a smoothed isosurface. Color shows the sign (phase) of the real wavefunction. mₗ selects the standard real orbital (e.g. l=1: mₗ=0 → pz, ±1 → px/py) rather than the complex e^{imφ} form, matching how these are drawn in general chemistry.<br><br><b>Average surface</b> replaces the dots with smooth, translucent surfaces of constant |ψ|², chosen so that the surface encloses the selected percentage (default 90 %) of the electron probability. Orange and blue lobes again mark ψ &gt; 0 and ψ &lt; 0.</div>
 
     <div class="divider"></div>
-    <button id="btnExportPNG">Export PNG</button>
+    <div class="btn-row">
+      <button id="btnExportPNG">Export PNG</button>
+      <button id="btnExportAnim">Export animation</button>
+    </div>
+    <div class="hint">Exports are always drawn in the light theme and include the orbital information and your name. The animation turns the orbital 360° about the panel's vertical axis, then 360° about its horizontal axis.</div>
   </div>
 
   <div class="panel">
@@ -155,6 +216,19 @@
       <div id="status">Loading 3D engine…</div>
       <div id="axesScale"></div>
       <button id="btnResetView" type="button" title="Restore the default orientation and zoom">Reset view</button>
+      <div id="recOverlay" hidden><span id="recText">Recording animation…</span><button type="button" id="recCancel">Cancel</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="nameModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+    <h3 id="nameModalTitle">Export</h3>
+    <p>Enter your name. It will be printed on the exported file together with the orbital information.</p>
+    <input type="text" id="exportName" maxlength="60" placeholder="Your name" autocomplete="name">
+    <div class="modal-actions">
+      <button type="button" id="nameCancel">Cancel</button>
+      <button type="button" id="nameOK" class="primary">Export</button>
     </div>
   </div>
 </div>
@@ -495,6 +569,22 @@ let homeOrient = null;   // the default orientation that Reset view returns to
 const ROT_SPEED = 0.01;  // radians of rotation per pixel dragged
 let threeReady = false;
 
+// Scene palettes. The page theme (uiTheme) normally drives the scene theme (sceneTheme); exports
+// temporarily force the light scene so that files are always drawn on white.
+const SCENE_PALETTES = {
+  dark:  { bg:0x0d1117, pos:'#ff9f43', neg:'#5b8def', axes:{x:'#ff6b6b', y:'#7ee787', z:'#58d5f0'},
+           nucleus:0xffffff, shell:0xffffff, shellOpacity:0.10, node:0xc77dd6, nodeOpacity:0.22,
+           surfaceOpacity:0.55, pointOpacity:0.85 },
+  light: { bg:0xffffff, pos:'#f28c28', neg:'#3b6fd8', axes:{x:'#d62839', y:'#2a9d3c', z:'#0b7fab'},
+           nucleus:0x222222, shell:0x333333, shellOpacity:0.18, node:0x9b4dca, nodeOpacity:0.25,
+           surfaceOpacity:0.62, pointOpacity:0.92 }
+};
+let uiTheme = 'dark', sceneTheme = 'dark', exportBusy = false;
+let lastInfo = null;      // label + info rows of the orbital currently shown (used by the exports)
+let cloudCache = null;    // last sampled electron cloud, so a theme change does not resample
+let surfCache = null;     // last computed average-surface mesh data
+function pal(){ return SCENE_PALETTES[sceneTheme]; }
+
 function init3D(){
   const canvas = document.getElementById('canvas3d');
   if(typeof THREE==='undefined'){
@@ -504,7 +594,7 @@ function init3D(){
   threeReady = true;
   renderer3d = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
   renderer3d.setPixelRatio(window.devicePixelRatio||1);
-  renderer3d.setClearColor(0x0d1117, 1);
+  renderer3d.setClearColor(pal().bg, 1);
   resize3D();
   scene3d = new THREE.Scene();
   camera3d = new THREE.PerspectiveCamera(45, canvas.clientWidth/canvas.clientHeight, 0.05, 2000);
@@ -538,6 +628,7 @@ function init3D(){
   });
   canvas.addEventListener('wheel', e=>{
     e.preventDefault();
+    if(exportBusy) return;
     cam.dist = Math.max(2, Math.min(2000, cam.dist + e.deltaY*0.03));
     updateCamera();
   }, { passive:false });
@@ -569,7 +660,7 @@ function init3D(){
       rotateView(dx, dy);
     } else if(e.touches.length===2){
       const d = pinchDistance(e.touches);
-      if(pinchDist>0){
+      if(pinchDist>0 && !exportBusy){
         cam.dist = Math.max(2, Math.min(2000, cam.dist - (d-pinchDist)*0.05));
         updateCamera();
       }
@@ -608,7 +699,7 @@ function updateCamera(){
 // a vertical drag about the screen's horizontal axis. Rotations are composed as quaternions, so
 // neither axis is limited (full 360 degrees and beyond, including over the poles).
 function rotateView(dx, dy){
-  if(!orient) return;
+  if(!orient || exportBusy) return;
   const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), -dx*ROT_SPEED);
   const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),  dy*ROT_SPEED);
   orient.premultiply(qy.premultiply(qx)).normalize();   // net delta = qx * qy
@@ -623,7 +714,7 @@ function fitDistance(R){
 }
 // Restore the default orientation and the auto-framed zoom for the current orbital.
 function resetView(){
-  if(!orient || !homeOrient) return;
+  if(!orient || !homeOrient || exportBusy) return;
   orient.copy(homeOrient);
   if(cam.fitR){ cam.homeDist = fitDistance(cam.fitR); cam.dist = cam.homeDist; }
   updateCamera();
@@ -632,7 +723,18 @@ function animate3D(){
   requestAnimationFrame(animate3D);
   if(renderer3d) renderer3d.render(scene3d, camera3d);
 }
-function clearGroup(g){ while(g.children.length) g.remove(g.children[0]); }
+function clearGroup(g){
+  while(g.children.length){
+    const o = g.children[0];
+    g.remove(o);
+    o.traverse(c=>{
+      if(c.geometry) c.geometry.dispose();
+      if(c.material){
+        (Array.isArray(c.material) ? c.material : [c.material]).forEach(m=>{ if(m.map) m.map.dispose(); m.dispose(); });
+      }
+    });
+  }
+}
 
 // ============================================================
 // Node overlay geometry helpers (built from first principles — no reliance on
@@ -699,10 +801,11 @@ function makeAxes(L){
   const grp = new THREE.Group();
   const step = niceStep(L/6);
   const head = L*0.07, headR = L*0.022, tick = L*0.016;
+  const AX = pal().axes;
   const defs = [
-    { name:'x', color:'#ff6b6b', dir:[1,0,0], perp:[0,1,0] },
-    { name:'y', color:'#7ee787', dir:[0,1,0], perp:[1,0,0] },
-    { name:'z', color:'#58d5f0', dir:[0,0,1], perp:[1,0,0] },
+    { name:'x', color:AX.x, dir:[1,0,0], perp:[0,1,0] },
+    { name:'y', color:AX.y, dir:[0,1,0], perp:[1,0,0] },
+    { name:'z', color:AX.z, dir:[0,0,1], perp:[1,0,0] },
   ];
   defs.forEach(a=>{
     const [dx,dy,dz] = a.dir, [px,py,pz] = a.perp;
@@ -905,21 +1008,25 @@ function makeSurfaceMeshes(sf, color, opacity){
   return [back, front];
 }
 function buildAverageSurface(n, l, ml, prob){
-  const data = computeAverageSurfaceData(n,l,ml,prob);
-  const posCol = new THREE.Color(getComputedColor('--pos-color'));
-  const negCol = new THREE.Color(getComputedColor('--neg-color'));
-  const meshes = makeSurfaceMeshes(data.pos, posCol, 0.55).concat(makeSurfaceMeshes(data.neg, negCol, 0.55));
+  const key = n+'_'+l+'_'+ml+'_'+prob;
+  if(!surfCache || surfCache.key!==key) surfCache = { key, data:computeAverageSurfaceData(n,l,ml,prob) };
+  const data = surfCache.data, P = pal();
+  const posCol = new THREE.Color(P.pos), negCol = new THREE.Color(P.neg);
+  const meshes = makeSurfaceMeshes(data.pos, posCol, P.surfaceOpacity).concat(makeSurfaceMeshes(data.neg, negCol, P.surfaceOpacity));
   return { meshes, maxR:data.maxR, level:data.level };
 }
 
 // ============================================================
 // Orbital rendering
 // ============================================================
-function renderOrbital(){
+function renderOrbital(opts){
   if(!threeReady) return;
+  const keepView = !!(opts && opts.keepView===true);   // true: only rebuild the scene (e.g. theme change)
+  const P = pal();
+  renderer3d.setClearColor(P.bg, 1);
   const n = Number(selN.value), l = Number(selL.value), ml = Number(selML.value);
   const count = Number(document.getElementById('density').value);
-  document.getElementById('status').textContent = 'Sampling '+count.toLocaleString()+' points…';
+  if(!keepView) document.getElementById('status').textContent = 'Sampling '+count.toLocaleString()+' points…';
 
   clearGroup(group3d);
 
@@ -934,12 +1041,13 @@ function renderOrbital(){
     if(surf.maxR>0){ rView = surf.maxR*0.95; rFull = surf.maxR; }
     extraRows = [['Enclosed prob.', probPct+'%'], ['Surface |ψ|²', surf.level.toExponential(2)+' a₀⁻³']];
   } else {
-    const sampled = sampleOrbitalPoints(n,l,ml,count);
-    const points = sampled.points, signs = sampled.signs;
-    actualCount = sampled.count;
+    const ckey = n+'_'+l+'_'+ml+'_'+count;
+    if(!cloudCache || cloudCache.key!==ckey) cloudCache = { key:ckey, sampled:sampleOrbitalPoints(n,l,ml,count) };
+    const points = cloudCache.sampled.points, signs = cloudCache.sampled.signs;
+    actualCount = cloudCache.sampled.count;
     const colors = new Float32Array(actualCount*3);
-    const posCol = new THREE.Color(getComputedColor('--pos-color'));
-    const negCol = new THREE.Color(getComputedColor('--neg-color'));
+    const posCol = new THREE.Color(P.pos);
+    const negCol = new THREE.Color(P.neg);
     for(let i=0;i<actualCount;i++){
       const c = signs[i]>=0 ? posCol : negCol;
       colors[i*3]=c.r; colors[i*3+1]=c.g; colors[i*3+2]=c.b;
@@ -949,7 +1057,7 @@ function renderOrbital(){
     geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
     const mat = new THREE.PointsMaterial({
       size: Math.max(0.08, rExtent*0.006),
-      vertexColors:true, transparent:true, opacity:0.85, depthWrite:false, sizeAttenuation:true
+      vertexColors:true, transparent:true, opacity:P.pointOpacity, depthWrite:false, sizeAttenuation:true
     });
     group3d.add(new THREE.Points(geo, mat));
   }
@@ -957,7 +1065,7 @@ function renderOrbital(){
   // --- nucleus ---
   if(document.getElementById('toggleNucleus').checked){
     const nucGeo = new THREE.SphereGeometry(Math.max(0.15, rView*0.01), 16, 12);
-    const nucMat = new THREE.MeshBasicMaterial({ color:0xffffff });
+    const nucMat = new THREE.MeshBasicMaterial({ color:P.nucleus });
     group3d.add(new THREE.Mesh(nucGeo, nucMat));
   }
 
@@ -969,7 +1077,7 @@ function renderOrbital(){
   // --- radial nodes (spherical shells) ---
   if(document.getElementById('toggleRadialNodes').checked){
     const radialNodes = findRadialNodes(n,l);
-    const shellMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.10, wireframe:true });
+    const shellMat = new THREE.MeshBasicMaterial({ color:P.shell, transparent:true, opacity:P.shellOpacity, wireframe:true });
     radialNodes.forEach(r=>{
       const geo = new THREE.SphereGeometry(r, 32, 24);
       group3d.add(new THREE.Mesh(geo, shellMat));
@@ -978,7 +1086,7 @@ function renderOrbital(){
 
   // --- angular nodes (planes / cones) ---
   if(document.getElementById('toggleAngularNodes').checked){
-    const nodeMat = new THREE.MeshBasicMaterial({ color:0xc77dd6, transparent:true, opacity:0.22, side:THREE.DoubleSide });
+    const nodeMat = new THREE.MeshBasicMaterial({ color:P.node, transparent:true, opacity:P.nodeOpacity, side:THREE.DoubleSide });
     const planes = findAngularNodalPlanes(l, ml);
     planes.forEach(phi0=> group3d.add(makeNodalPlaneMesh(phi0, rFull*1.1, nodeMat)));
     const cones = findAngularNodalCones(l, ml);
@@ -986,14 +1094,20 @@ function renderOrbital(){
   }
 
   // Default framing: the orbital plus axes/labels (about 1.3 x rFull) fit entirely inside the panel,
-  // with a little margin, whatever the canvas aspect ratio.
+  // with a little margin, whatever the canvas aspect ratio. A scene rebuild keeps the user's zoom.
   cam.fitR = rFull*1.3*1.05;
   cam.homeDist = fitDistance(cam.fitR);
-  cam.dist = cam.homeDist;
+  if(!keepView) cam.dist = cam.homeDist;
   updateCamera();
 
+  lastInfo = {
+    labelHTML: orbitalLabelHTML(n,l,ml),
+    rows: getInfoRows(n,l,ml,extraRows),
+    view: viewMode==='surface' ? 'Average surface' : 'Electron cloud',
+    dots: actualCount
+  };
   updateInfoPanel(n,l,ml,extraRows);
-  document.getElementById('status').textContent = viewMode==='surface'
+  if(!exportBusy) document.getElementById('status').textContent = viewMode==='surface'
     ? 'Average surface rendered ('+probPct+'% of the electron probability enclosed).'
     : actualCount.toLocaleString()+' points rendered.';
 }
@@ -1001,14 +1115,10 @@ function getComputedColor(varName){
   return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 }
 
-function updateInfoPanel(n,l,ml,extra){
-  const label = orbitalLabel(n,l,ml);
-  document.getElementById('orbitalName').innerHTML = orbitalLabelHTML(n,l,ml);
+function getInfoRows(n,l,ml,extra){
   const radialNodeCount = n-l-1;
   const angularNodeCount = l;
   const energyEV = -13.6/(n*n);
-  const grid = document.getElementById('infoGrid');
-  grid.innerHTML = '';
   const rows = [
     ['n', n], ['l', l], ['mₗ', (ml>=0?'+':'')+ml],
     ['Radial nodes', radialNodeCount],
@@ -1017,14 +1127,21 @@ function updateInfoPanel(n,l,ml,extra){
     ['Energy Eₙ', energyEV.toFixed(3)+' eV'],
   ];
   if(extra) extra.forEach(r=> rows.push(r));
-  rows.forEach(([k,v])=>{
+  return rows;
+}
+function updateInfoPanel(n,l,ml,extra){
+  document.getElementById('orbitalName').innerHTML = orbitalLabelHTML(n,l,ml);
+  const grid = document.getElementById('infoGrid');
+  grid.innerHTML = '';
+  getInfoRows(n,l,ml,extra).forEach(([k,v])=>{
     const dk = document.createElement('div'); dk.className='k'; dk.textContent=k;
     const dv = document.createElement('div'); dv.className='v'; dv.textContent=v;
     grid.appendChild(dk); grid.appendChild(dv);
   });
 }
 
-document.getElementById('btnRender').addEventListener('click', renderOrbital);
+// "Render orbital" always draws a fresh random cloud / recomputes the surface.
+document.getElementById('btnRender').addEventListener('click', ()=>{ cloudCache = null; surfCache = null; renderOrbital(); });
 
 function setView(mode){
   viewMode = mode;
@@ -1059,14 +1176,281 @@ function download(filename, blob){
   a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
-document.getElementById('btnExportPNG').addEventListener('click', ()=>{
+const SANS_STACK = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const MONO_STACK = '"IBM Plex Mono", "SFMono-Regular", Consolas, Menlo, monospace';
+const SERIF_STACK = 'Georgia, "Times New Roman", serif';
+
+// Draw a label containing <sub>/<sup> markup (nesting allowed) on a 2D canvas; returns the end x.
+function drawRichLabel(ctx, html, x, y, size, color, family, weight){
+  const stack = [{ scale:1, dy:0, italic:false }];
+  const re = /<(\/?)(sub|sup)>|([^<]+)/g;
+  let m;
+  ctx.fillStyle = color; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  while((m = re.exec(html))){
+    if(m[2]){
+      if(m[1]){ if(stack.length>1) stack.pop(); }
+      else {
+        const cur = stack[stack.length-1];
+        if(m[2]==='sub') stack.push({ scale:cur.scale*0.6, dy:cur.dy+0.2*size*cur.scale, italic:true });
+        else stack.push({ scale:cur.scale*(cur.italic?0.75:0.6), dy:cur.dy-(cur.italic?0.45:0.4)*size*cur.scale, italic:false });
+      }
+    } else {
+      const f = stack[stack.length-1];
+      ctx.font = (f.italic?'italic ':'')+weight+' '+(size*f.scale)+'px '+family;
+      ctx.fillText(m[3], x, y+f.dy);
+      x += ctx.measureText(m[3]).width;
+    }
+  }
+  return x;
+}
+function fitText(ctx, text, maxW){
+  if(ctx.measureText(text).width<=maxW) return text;
+  while(text.length>1 && ctx.measureText(text+'…').width>maxW) text = text.slice(0,-1);
+  return text+'…';
+}
+
+// Information panel drawn next to the 3D image in exports: always light, always the same layout.
+// (x0,y0,w,h) in canvas pixels, s = pixels per layout unit.
+function drawInfoPanel(ctx, x0, y0, w, h, s, userName){
+  const info = lastInfo;
+  if(!info) return;
+  const LP = SCENE_PALETTES.light;
+  const pad = 22*s, right = x0+w-pad;
+  ctx.save();
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x0,y0,w,h);
+  ctx.strokeStyle = '#cdd5df'; ctx.lineWidth = Math.max(1,s);
+  ctx.beginPath(); ctx.moveTo(x0+0.5,y0); ctx.lineTo(x0+0.5,y0+h); ctx.stroke();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+  let y = y0 + pad + 10*s;
+  ctx.fillStyle = '#5a6878'; ctx.font = '600 '+(11*s)+'px '+SANS_STACK;
+  if('letterSpacing' in ctx) ctx.letterSpacing = (1.2*s)+'px';
+  ctx.fillText('HYDROGEN ATOMIC ORBITAL', x0+pad, y);
+  if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+  y += 54*s;
+  drawRichLabel(ctx, info.labelHTML, x0+pad, y, 46*s, '#0f766e', SERIF_STACK, '700');
+
+  y += 22*s;
+  ctx.beginPath(); ctx.moveTo(x0+pad,y); ctx.lineTo(right,y); ctx.stroke();
+  y += 28*s;
+
+  const rows = [['View', info.view]].concat(info.rows);
+  if(info.view==='Electron cloud') rows.push(['Dots', info.dots.toLocaleString()]);
+  if(document.getElementById('toggleAxes').checked && axesGroup) rows.push(['Axis ticks', axesGroup.userData.step+' a₀']);
+  ctx.font = (13*s)+'px '+MONO_STACK;
+  rows.forEach(([k,v])=>{
+    ctx.textAlign = 'left';  ctx.fillStyle = '#5a6878'; ctx.fillText(String(k), x0+pad, y);
+    ctx.textAlign = 'right'; ctx.fillStyle = '#1b2430'; ctx.fillText(String(v), right, y);
+    y += 25*s;
+  });
+  ctx.textAlign = 'left';
+
+  // legend (colours match the light-theme orbital)
+  y += 8*s;
+  const sw = 14*s;
+  ctx.fillStyle = LP.pos; ctx.fillRect(x0+pad, y-sw+3*s, sw, sw);
+  ctx.fillStyle = LP.neg; ctx.fillRect(x0+pad+92*s, y-sw+3*s, sw, sw);
+  ctx.fillStyle = '#5a6878'; ctx.font = (12.5*s)+'px '+SANS_STACK;
+  ctx.fillText('ψ > 0', x0+pad+sw+6*s, y);
+  ctx.fillText('ψ < 0', x0+pad+92*s+sw+6*s, y);
+
+  // footer: name + date
+  const fy = y0+h-pad;
+  ctx.strokeStyle = '#cdd5df';
+  ctx.beginPath(); ctx.moveTo(x0+pad,fy-82*s); ctx.lineTo(right,fy-82*s); ctx.stroke();
+  ctx.fillStyle = '#5a6878'; ctx.font = '600 '+(10.5*s)+'px '+SANS_STACK;
+  if('letterSpacing' in ctx) ctx.letterSpacing = (1.1*s)+'px';
+  ctx.fillText('PREPARED BY', x0+pad, fy-56*s);
+  if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  ctx.fillStyle = '#1b2430'; ctx.font = '700 '+(18*s)+'px '+SANS_STACK;
+  ctx.fillText(fitText(ctx, userName, w-2*pad), x0+pad, fy-30*s);
+  ctx.fillStyle = '#5a6878'; ctx.font = (12*s)+'px '+SANS_STACK;
+  ctx.fillText(new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}), x0+pad, fy);
+  ctx.restore();
+}
+
+// Exports always show the light scene: rebuild it as light if needed, then restore afterwards.
+function enterLightScene(){
+  const prev = sceneTheme;
+  if(prev!=='light'){ sceneTheme = 'light'; renderOrbital({ keepView:true }); }
+  return prev;
+}
+function leaveLightScene(prev){
+  if(prev!=='light'){ sceneTheme = prev; renderOrbital({ keepView:true }); }
+}
+function safeLabel(){
+  return orbitalLabel(Number(selN.value),Number(selL.value),Number(selML.value)).replace(/[^\w.-]+/g,'_');
+}
+
+function exportPNG(userName){
   if(!renderer3d){ alert('3D view is not available.'); return; }
-  renderer3d.render(scene3d, camera3d);
-  renderer3d.domElement.toBlob(blob=>{
-    const n=selN.value, l=selL.value, ml=selML.value;
-    download('orbital-'+orbitalLabel(Number(n),Number(l),Number(ml))+'.png', blob);
-  }, 'image/png');
+  const cv = renderer3d.domElement;
+  const prevTheme = enterLightScene();
+  const oldPR = renderer3d.getPixelRatio();
+  const cssW = cv.clientWidth, cssH = cv.clientHeight;
+  try{
+    renderer3d.setPixelRatio(Math.max(2, oldPR));          // crisp output even on 1x screens
+    renderer3d.setSize(cssW, cssH, false);
+    renderer3d.render(scene3d, camera3d);
+    const W = cv.width, H = cv.height, s = H/cssH;
+    const sideW = Math.round(340*s);
+    const out = document.createElement('canvas');
+    out.width = W+sideW; out.height = H;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,out.width,out.height);
+    ctx.drawImage(cv, 0, 0);
+    drawInfoPanel(ctx, W, 0, sideW, H, s, userName);
+    out.toBlob(blob=> download('orbital-'+safeLabel()+'.png', blob), 'image/png');
+  } finally {
+    renderer3d.setPixelRatio(oldPR);
+    renderer3d.setSize(cssW, cssH, false);
+    leaveLightScene(prevTheme);
+  }
+}
+
+function pickVideoMime(){
+  const cands = ['video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  for(const t of cands){ try{ if(MediaRecorder.isTypeSupported(t)) return t; }catch(e){} }
+  return '';
+}
+// Records the orbital turning 360 degrees about the panel's vertical axis, then 360 degrees about its
+// horizontal axis (light scene, with the information panel and the user's name).
+function exportAnimation(userName){
+  if(!renderer3d){ alert('3D view is not available.'); return; }
+  if(typeof MediaRecorder==='undefined' || !HTMLCanvasElement.prototype.captureStream){
+    alert('Animation export needs a browser with video recording support (a recent Chrome, Edge, Firefox or Safari).');
+    return;
+  }
+  const prevTheme = enterLightScene();
+  exportBusy = true; document.body.classList.add('exporting');
+
+  const cv = renderer3d.domElement;
+  const even = v=> Math.max(2, Math.round(v/2)*2);
+  const k = 720/cv.clientHeight;                          // output is 720 px tall
+  const imgW = even(cv.clientWidth*k), imgH = 720, sideW = even(340*k);
+  const out = document.createElement('canvas'); out.width = imgW+sideW; out.height = imgH;
+  const ctx = out.getContext('2d');
+  const panelCv = document.createElement('canvas'); panelCv.width = sideW; panelCv.height = imgH;
+  drawInfoPanel(panelCv.getContext('2d'), 0, 0, sideW, imgH, k, userName);
+
+  const mime = pickVideoMime();
+  const stream = out.captureStream(30);
+  let rec;
+  try{
+    rec = new MediaRecorder(stream, mime ? { mimeType:mime, videoBitsPerSecond:8000000 } : { videoBitsPerSecond:8000000 });
+  } catch(e){
+    exportBusy = false; document.body.classList.remove('exporting'); leaveLightScene(prevTheme);
+    alert('Could not start video recording in this browser.');
+    return;
+  }
+  const chunks = [];
+  rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+
+  const overlay = document.getElementById('recOverlay'), txt = document.getElementById('recText');
+  overlay.hidden = false;
+  const q0 = orient.clone();
+  const HOLD = 0.4, T = 5, TOTAL = 2*HOLD+2*T;            // seconds
+  const yAxis = new THREE.Vector3(0,1,0), xAxis = new THREE.Vector3(1,0,0), tmpQ = new THREE.Quaternion();
+  let cancelled = false;
+  document.getElementById('recCancel').onclick = ()=>{ cancelled = true; };
+
+  function setPose(t){
+    if(t>=HOLD && t<HOLD+T){
+      tmpQ.setFromAxisAngle(yAxis, (t-HOLD)/T*Math.PI*2); orient.copy(q0).premultiply(tmpQ);       // vertical axis
+    } else if(t>=HOLD+T && t<HOLD+2*T){
+      tmpQ.setFromAxisAngle(xAxis, (t-HOLD-T)/T*Math.PI*2); orient.copy(q0).premultiply(tmpQ);     // horizontal axis
+    } else orient.copy(q0);
+    updateCamera();
+  }
+  function drawFrame(){
+    renderer3d.render(scene3d, camera3d);
+    ctx.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, imgW, imgH);
+    ctx.drawImage(panelCv, imgW, 0);
+  }
+  function cleanup(){
+    stream.getTracks().forEach(tr=> tr.stop());
+    orient.copy(q0); updateCamera();
+    overlay.hidden = true;
+    exportBusy = false; document.body.classList.remove('exporting');
+    leaveLightScene(prevTheme);
+  }
+  rec.onstop = ()=>{
+    if(!cancelled && chunks.length){
+      const type = rec.mimeType || mime || 'video/webm';
+      download('orbital-'+safeLabel()+'-rotation.'+(type.indexOf('mp4')>=0 ? 'mp4' : 'webm'), new Blob(chunks, { type }));
+    }
+    cleanup();
+  };
+  rec.onerror = ()=>{ cancelled = true; try{ rec.stop(); }catch(e){ cleanup(); } };
+
+  setPose(0); drawFrame();
+  rec.start();
+  const t0 = performance.now();
+  function frame(now){
+    const t = (now-t0)/1000;
+    if(cancelled || t>=TOTAL){
+      setPose(TOTAL); drawFrame();
+      setTimeout(()=>{ try{ rec.stop(); }catch(e){ cleanup(); } }, 200);   // let the last frame be captured
+      return;
+    }
+    setPose(t); drawFrame();
+    txt.textContent = 'Recording animation… '+Math.round(t/TOTAL*100)+'%';
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// --- ask for the user's name before exporting ---
+const nameModal = document.getElementById('nameModal'), nameInput = document.getElementById('exportName');
+let pendingExport = null;
+function askName(kind){
+  pendingExport = kind;
+  document.getElementById('nameModalTitle').textContent = kind==='png' ? 'Export PNG' : 'Export animation';
+  document.getElementById('nameOK').textContent = 'Export';
+  let saved = ''; try{ saved = localStorage.getItem('orbitalExportName') || ''; }catch(e){}
+  if(!nameInput.value) nameInput.value = saved;
+  nameInput.classList.remove('invalid');
+  nameModal.hidden = false;
+  nameInput.focus(); nameInput.select();
+}
+function closeNameModal(){ nameModal.hidden = true; pendingExport = null; }
+function confirmName(){
+  const name = nameInput.value.trim();
+  if(!name){ nameInput.classList.add('invalid'); nameInput.focus(); return; }
+  try{ localStorage.setItem('orbitalExportName', name); }catch(e){}
+  const kind = pendingExport;
+  closeNameModal();
+  setTimeout(()=>{ if(kind==='png') exportPNG(name); else if(kind==='anim') exportAnimation(name); }, 30);
+}
+document.getElementById('btnExportPNG').addEventListener('click', ()=>{ if(!exportBusy) askName('png'); });
+document.getElementById('btnExportAnim').addEventListener('click', ()=>{ if(!exportBusy) askName('anim'); });
+document.getElementById('nameOK').addEventListener('click', confirmName);
+document.getElementById('nameCancel').addEventListener('click', closeNameModal);
+nameInput.addEventListener('input', ()=> nameInput.classList.remove('invalid'));
+nameInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); confirmName(); }
+  else if(e.key==='Escape'){ closeNameModal(); }
 });
+
+// ============================================================
+// Light / dark theme
+// ============================================================
+function applyTheme(t, rebuild){
+  if(exportBusy) return;
+  uiTheme = t; sceneTheme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeDark').classList.toggle('active', t==='dark');
+  document.getElementById('themeLight').classList.toggle('active', t==='light');
+  try{ localStorage.setItem('orbitalTheme', t); }catch(e){}
+  if(rebuild && threeReady) renderOrbital({ keepView:true });
+}
+document.getElementById('themeDark').addEventListener('click', ()=> applyTheme('dark', true));
+document.getElementById('themeLight').addEventListener('click', ()=> applyTheme('light', true));
+(function(){
+  let saved = null; try{ saved = localStorage.getItem('orbitalTheme'); }catch(e){}
+  if(saved==='light' || saved==='dark') applyTheme(saved, false);
+})();
 
 // ============================================================
 // Boot
