@@ -114,6 +114,7 @@
     font-family:var(--mono); pointer-events:none;
   }
   .theme-seg{ margin-left:auto; align-self:center; width:170px; }
+  .export-bar{ display:flex; flex-direction:column; gap:8px; }
   .btn-row{ display:flex; gap:8px; }
   .btn-row button{ flex:1; }
   button.primary{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:600; }
@@ -144,6 +145,7 @@
   body.exporting .layout > .panel:first-child,
   body.exporting header .theme-seg{ pointer-events:none; opacity:0.55; }
   body.exporting #canvas3d{ pointer-events:none; }
+  body.exporting .export-bar{ pointer-events:none; opacity:0.55; }
   .hint{ color:var(--text-dim); font-size:11.5px; line-height:1.5; }
   .divider{ height:1px; background:var(--border); margin:2px 0; }
 </style>
@@ -201,12 +203,6 @@
     </div>
     <div class="hint">Dot density is proportional to the actual quantum-mechanical probability |ψ|² (random-sampled "electron cloud" — the same style used in most textbooks), not a smoothed isosurface. Color shows the sign (phase) of the real wavefunction. mₗ selects the standard real orbital (e.g. l=1: mₗ=0 → pz, ±1 → px/py) rather than the complex e^{imφ} form, matching how these are drawn in general chemistry.<br><br><b>Average surface</b> replaces the dots with smooth, translucent surfaces of constant |ψ|², chosen so that the surface encloses the selected percentage (default 90 %) of the electron probability. Orange and blue lobes again mark ψ &gt; 0 and ψ &lt; 0.</div>
 
-    <div class="divider"></div>
-    <div class="btn-row">
-      <button id="btnExportPNG">Export PNG</button>
-      <button id="btnExportAnim">Export animation</button>
-    </div>
-    <div class="hint">Exports are always drawn in the light theme and include the orbital information and your name. The animation turns the orbital 360° about the panel's vertical axis, then 360° about its horizontal axis.</div>
   </div>
 
   <div class="panel">
@@ -217,6 +213,13 @@
       <div id="axesScale"></div>
       <button id="btnResetView" type="button" title="Restore the default orientation and zoom">Reset view</button>
       <div id="recOverlay" hidden><span id="recText">Recording animation…</span><button type="button" id="recCancel">Cancel</button></div>
+    </div>
+    <div class="export-bar">
+      <div class="btn-row">
+        <button id="btnExportPNG">Export PNG</button>
+        <button id="btnExportAnim">Export animation</button>
+      </div>
+      <div class="hint">Exports are always drawn in the light theme and include the orbital information and your name. The animation turns the orbital 360° about the panel's vertical axis, then 360° about its horizontal axis.</div>
     </div>
   </div>
 </div>
