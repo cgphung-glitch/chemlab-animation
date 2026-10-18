@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Polyprotic Acid Speciation</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#eef2f4;--card:#ffffff;--ink:#14212b;--mut:#5d6b77;--line:#d3dbe1;--acc:#0b7a75;--on:#ffffff;--bad:#c0392b;color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e171d;--card:#16232d;--ink:#e8eef2;--mut:#9fb0bc;--line:#2a3d4a;--acc:#3cc4bb;--on:#062a28;--bad:#ff8a7a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e171d;--card:#16232d;--ink:#e8eef2;--mut:#9fb0bc;--line:#2a3d4a;--acc:#3cc4bb;--on:#062a28;--bad:#ff8a7a;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+h1{margin:0;font:600 1.5rem "Iowan Old Style",Georgia,serif}
+.sub{margin:2px 0 0;color:var(--mut);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+button{font:inherit;cursor:pointer}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.seg button{flex:1;padding:10px;background:none;border:0;color:var(--ink)}
+.seg .on{background:var(--acc);color:var(--on);font-weight:600}
+label{display:block;font-size:.85rem;color:var(--mut)}
+select,input{width:100%;padding:10px;font:inherit;font-size:16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin-top:4px}
+.pk{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.pk label{flex:1 1 90px}
+.note{flex-basis:100%;margin:0;font-size:.8rem;color:var(--mut)}
+.bad{border-color:var(--bad)}
+canvas{display:block;width:100%;touch-action:pan-y;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.bar{display:flex;gap:8px;margin-top:10px}
+.b{padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.b.pri{background:var(--acc);color:var(--on);border-color:var(--acc);font-weight:600}
+.b:disabled{opacity:.45;cursor:default}
+.hint{margin:10px 0 0;font-size:.85rem;color:var(--mut)}
+#ro{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:10px;min-height:2.6em;font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.92rem}
+.chip i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.mut{color:var(--mut);font-size:.9rem}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+.ov[hidden]{display:none}
+.dlg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:380px;width:100%}
+.dlg h2{margin:0 0 4px;font:600 1.15rem "Iowan Old Style",Georgia,serif}
+.dlg p{margin:0 0 10px;color:var(--mut);font-size:.9rem}
+.der summary{cursor:pointer;font-weight:600}
+.der h3{margin:16px 0 4px;font:600 1.02rem "Iowan Old Style",Georgia,serif}
+.der p,.der li{margin:6px 0;font-size:.92rem}
+.der ul{padding-left:20px;margin:6px 0}
+.eq{font:1.02rem/1.9 "Iowan Old Style",Georgia,serif;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:8px 0;overflow-x:auto;white-space:nowrap}
+.err{color:var(--bad);font-size:.85rem;min-height:1.2em;margin:6px 0 0}
+.dlg .bar{justify-content:flex-end}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>Acid speciation</h1><p class="sub">Fraction of species, α, versus pH</p></div>
+  <button class="b" id="th" aria-label="Toggle dark or light theme"></button>
+</header>
+
+<section class="card">
+  <div class="seg" id="seg">
+    <button data-t="di" class="on">Diprotic acid</button>
+    <button data-t="tri">Triprotic acid</button>
+  </div>
+  <label>Acid<select id="ac"></select></label>
+  <div class="pk" id="cu" hidden></div>
+</section>
+
+<section class="card">
+  <div id="wrap"><canvas id="cv"></canvas></div>
+  <div class="bar">
+    <button class="b" id="rs" disabled>Reset zoom</button>
+    <button class="b pri" id="ex">Export PNG</button>
+  </div>
+  <p class="hint">Drag across the plot to zoom into a pH range. Hover or tap to read values.</p>
+  <div id="ro"></div>
+</section>
+
+<section class="card der">
+<details>
+<summary>Reference: derivation of the speciation equations</summary>
+
+<h3>Setup</h3>
+<p>Let <i>C</i> be the total (analytical) concentration of all forms of the acid, and define the fraction of species <i>i</i> as α<sub><i>i</i></sub> = [species <i>i</i>] / <i>C</i>. The two assumptions are that concentrations stand in for activities and that no other reactions (such as metal binding) involve the acid. Under these assumptions α depends only on [H⁺] and the <i>K</i><sub>a</sub> values, and not on <i>C</i>. The plot uses pH = −log[H⁺] and p<i>K</i><sub>a</sub> = −log <i>K</i><sub>a</sub>.</p>
+
+<h3>Diprotic acid, H₂A</h3>
+<p>Acid–base equilibria:</p>
+<div class="eq">H₂A ⇌ H⁺ + HA⁻ &nbsp;&nbsp; <i>K</i><sub>a1</sub> = [H⁺][HA⁻] / [H₂A]<br>HA⁻ ⇌ H⁺ + A²⁻ &nbsp;&nbsp; <i>K</i><sub>a2</sub> = [H⁺][A²⁻] / [HA⁻]</div>
+<p>Mass balance:</p>
+<div class="eq"><i>C</i> = [H₂A] + [HA⁻] + [A²⁻]</div>
+<p>Rearrange each equilibrium expression to write every species in terms of [H₂A]:</p>
+<div class="eq">[HA⁻] = <i>K</i><sub>a1</sub>[H₂A] / [H⁺]<br>[A²⁻] = <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub>[H₂A] / [H⁺]²</div>
+<p>Substitute into the mass balance and multiply through by [H⁺]²:</p>
+<div class="eq"><i>C</i> = [H₂A] ( 1 + <i>K</i><sub>a1</sub>/[H⁺] + <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub>/[H⁺]² )<br>[H₂A] / <i>C</i> = [H⁺]² / <i>D</i>, &nbsp; <i>D</i> = [H⁺]² + <i>K</i><sub>a1</sub>[H⁺] + <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub></div>
+<p>Dividing each species by <i>C</i> gives:</p>
+<div class="eq">α₀ (H₂A) = [H⁺]² / <i>D</i><br>α₁ (HA⁻) = <i>K</i><sub>a1</sub>[H⁺] / <i>D</i><br>α₂ (A²⁻) = <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub> / <i>D</i></div>
+
+<h3>Triprotic acid, H₃A</h3>
+<p>A third equilibrium, HA²⁻ ⇌ H⁺ + A³⁻ with <i>K</i><sub>a3</sub> = [H⁺][A³⁻] / [HA²⁻], is added, and the mass balance becomes <i>C</i> = [H₃A] + [H₂A⁻] + [HA²⁻] + [A³⁻]. The same steps (write each species in terms of [H₃A], substitute, multiply through by [H⁺]³) give:</p>
+<div class="eq"><i>D</i> = [H⁺]³ + <i>K</i><sub>a1</sub>[H⁺]² + <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub>[H⁺] + <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub><i>K</i><sub>a3</sub></div>
+<div class="eq">α₀ (H₃A) = [H⁺]³ / <i>D</i><br>α₁ (H₂A⁻) = <i>K</i><sub>a1</sub>[H⁺]² / <i>D</i><br>α₂ (HA²⁻) = <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub>[H⁺] / <i>D</i><br>α₃ (A³⁻) = <i>K</i><sub>a1</sub><i>K</i><sub>a2</sub><i>K</i><sub>a3</sub> / <i>D</i></div>
+
+<h3>General pattern</h3>
+<p>For an acid with <i>n</i> ionizable protons, the denominator is the sum of <i>n</i> + 1 terms. The term for the species that has lost <i>i</i> protons is <i>K</i><sub>a1</sub>⋯<i>K</i><sub>a<i>i</i></sub>[H⁺]<sup><i>n</i>−<i>i</i></sup>, with the empty product equal to 1 when <i>i</i> = 0. Each α<sub><i>i</i></sub> is that term divided by <i>D</i>, so Σα<sub><i>i</i></sub> = 1 at every pH. This is the calculation the app performs.</p>
+
+<h3>Features you can check on the plot</h3>
+<ul>
+<li>At pH = p<i>K</i><sub>a1</sub>, [H₂A] = [HA⁻] exactly, because <i>K</i><sub>a1</sub> = [H⁺][HA⁻]/[H₂A]. The same holds at each later p<i>K</i><sub>a</sub> for the neighboring pair. This is why the dashed p<i>K</i><sub>a</sub> lines pass through the crossings of neighboring curves when the p<i>K</i><sub>a</sub> values are well separated.</li>
+<li>When successive p<i>K</i><sub>a</sub> values are close (for example citric acid, p<i>K</i><sub>a1</sub> = 3.13 and p<i>K</i><sub>a2</sub> = 4.76), the intermediate species never reaches α = 1 and the neighboring forms overlap.</li>
+<li>At very low pH, α₀ → 1. At very high pH, the fully deprotonated form → 1.</li>
+</ul>
+
+<h3>Further reading</h3>
+<p>This derivation is the standard treatment of polyprotic systems in analytical chemistry texts, for example in the chapters on polyprotic acids and bases in Harris, <i>Quantitative Chemical Analysis</i>, and in Skoog et al., <i>Fundamentals of Analytical Chemistry</i>.</p>
+</details>
+</section>
+</div>
+
+<div class="ov" id="md" hidden>
+  <div class="dlg" role="dialog" aria-labelledby="mt">
+    <h2 id="mt">Export plot</h2>
+    <p>Your name appears in the footer of the image. The export always uses the light theme.</p>
+    <label>Your name<input id="nm" type="text" autocomplete="name" maxlength="60"></label>
+    <p class="err" id="ne"></p>
+    <div class="bar"><button class="b" id="mc">Cancel</button><button class="b pri" id="mo">Export PNG</button></div>
+  </div>
+</div>
+
+<script>
+const ACIDS={
+ di:[
+  {n:'Carbonic acid',f:'H₂CO₃',p:[6.35,10.33],s:['H₂CO₃','HCO₃⁻','CO₃²⁻']},
+  {n:'Sulfurous acid',f:'H₂SO₃',p:[1.85,7.20],s:['H₂SO₃','HSO₃⁻','SO₃²⁻']},
+  {n:'Oxalic acid',f:'H₂C₂O₄',p:[1.23,4.19],s:['H₂C₂O₄','HC₂O₄⁻','C₂O₄²⁻']},
+  {n:'Malonic acid',f:'C₃H₄O₄',p:[2.83,5.69],s:['C₃H₄O₄','C₃H₃O₄⁻','C₃H₂O₄²⁻']}],
+ tri:[
+  {n:'Phosphoric acid',f:'H₃PO₄',p:[2.16,7.21,12.32],s:['H₃PO₄','H₂PO₄⁻','HPO₄²⁻','PO₄³⁻']},
+  {n:'Citric acid',f:'C₆H₈O₇',p:[3.13,4.76,6.40],s:['C₆H₈O₇','C₆H₇O₇⁻','C₆H₆O₇²⁻','C₆H₅O₇³⁻']}]};
+const GEN={di:['H₂A','HA⁻','A²⁻'],tri:['H₃A','H₂A⁻','HA²⁻','A³⁻']};
+const PAL={
+ light:{card:'#ffffff',ink:'#14212b',mut:'#5d6b77',grid:'#e3e8ec',axis:'#9aa7b2',sel:'rgba(11,122,117,.18)',cols:['#0072B2','#D55E00','#009E73','#B8458E']},
+ dark:{card:'#16232d',ink:'#e8eef2',mut:'#9fb0bc',grid:'#243743',axis:'#5e7482',sel:'rgba(60,196,187,.22)',cols:['#56B4E9','#F0A030','#3DDC97','#E58BC0']}};
+const SANS='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif',SERIF='"Iowan Old Style",Georgia,serif';
+const $=id=>document.getElementById(id),sub=n=>'₀₁₂₃'[n];
+const S={type:'di',idx:0,pk:[],sp:[],title:'',sub:'',pks:'',xr:[0,14],cur:null,sel:null,theme:'light',cust:{di:[4,9],tri:[3,7,11]}};
+let G={l:0,r:1,t:0,b:1},drag=null;
+const cv=$('cv'),wrap=$('wrap');
+
+function alphas(pH,pk){
+ const h=Math.pow(10,-pH),n=pk.length,t=[];let pr=1;
+ for(let i=0;i<=n;i++){if(i)pr*=Math.pow(10,-pk[i-1]);t.push(pr*Math.pow(h,n-i));}
+ const s=t.reduce((a,b)=>a+b,0);return t.map(x=>x/s);
+}
+const fmt=p=>{let s=String(+p.toFixed(3));if(!s.includes('.'))s+='.00';else if(s.split('.')[1].length<2)s+='0';return s};
+const nice=s=>{const p=Math.pow(10,Math.floor(Math.log10(s))),m=s/p;return(m<1.5?1:m<3.5?2:m<7.5?5:10)*p};
+
+function render(c,W,H,P,k,o){
+ c.clearRect(0,0,W,H);c.fillStyle=P.card;c.fillRect(0,0,W,H);
+ let y=24*k;
+ c.textAlign='center';c.fillStyle=P.ink;c.font=`600 ${19*k}px ${SERIF}`;c.fillText(S.title,W/2,y);
+ c.font=`${12.5*k}px ${SANS}`;c.fillStyle=P.mut;
+ y+=18*k;c.fillText(S.sub,W/2,y);
+ y+=16*k;c.fillText(S.pks,W/2,y);
+ // legend
+ c.font=`${13*k}px ${SANS}`;
+ const gap=14*k,items=S.sp.map((t,i)=>({t,i,w:30*k+c.measureText(t).width})),rows=[[]];let rw=0;
+ items.forEach(it=>{if(rw+it.w>W-24*k&&rows[rows.length-1].length){rows.push([]);rw=0}rows[rows.length-1].push(it);rw+=it.w+gap});
+ y+=6*k;
+ rows.forEach(r=>{
+  y+=19*k;let x=(W-r.reduce((a,b)=>a+b.w+gap,-gap))/2;
+  r.forEach(it=>{
+   c.strokeStyle=P.cols[it.i];c.lineWidth=3*k;c.beginPath();c.moveTo(x,y-4*k);c.lineTo(x+22*k,y-4*k);c.stroke();
+   c.fillStyle=P.ink;c.textAlign='left';c.fillText(it.t,x+28*k,y);x+=it.w+gap;
+  });
+ });
+ const l=48*k,r=W-14*k,t=y+14*k,b=H-(o.foot?74:48)*k;
+ G={l,r,t,b};
+ const [x0,x1]=S.xr,X=v=>l+(v-x0)/(x1-x0)*(r-l),Y=v=>b-v*(b-t);
+ // grid + ticks
+ c.font=`${11.5*k}px ${SANS}`;c.lineWidth=1*k;
+ const st=nice((x1-x0)/7);
+ for(let i=Math.ceil(x0/st-1e-9);i*st<=x1+1e-9;i++){
+  const v=i*st,xx=X(v);
+  c.strokeStyle=P.grid;c.beginPath();c.moveTo(xx,t);c.lineTo(xx,b);c.stroke();
+  c.fillStyle=P.mut;c.textAlign='center';c.fillText(String(+v.toFixed(3)),xx,b+16*k);
+ }
+ for(let i=0;i<=5;i++){
+  const v=i/5,yy=Y(v);
+  c.strokeStyle=P.grid;c.beginPath();c.moveTo(l,yy);c.lineTo(r,yy);c.stroke();
+  c.fillStyle=P.mut;c.textAlign='right';c.fillText(v.toFixed(1),l-7*k,yy+4*k);
+ }
+ c.fillStyle=P.ink;c.font=`${13*k}px ${SANS}`;c.textAlign='center';
+ c.fillText('pH',(l+r)/2,b+36*k);
+ c.save();c.translate(14*k,(t+b)/2);c.rotate(-Math.PI/2);c.fillText('Fraction of species, α',0,0);c.restore();
+ // curves
+ c.save();c.beginPath();c.rect(l,t,r-l,b-t);c.clip();
+ const N=Math.max(200,Math.round(r-l)),A=S.sp.map(()=>[]);
+ for(let j=0;j<=N;j++){const a=alphas(x0+(x1-x0)*j/N,S.pk);a.forEach((v,i)=>A[i].push(v))}
+ A.forEach((arr,i)=>{
+  c.strokeStyle=P.cols[i];c.lineWidth=2.6*k;c.lineJoin='round';c.beginPath();
+  arr.forEach((v,j)=>{const px=l+j/N*(r-l);j?c.lineTo(px,Y(v)):c.moveTo(px,Y(v))});c.stroke();
+ });
+ // pKa markers
+ S.pk.forEach((p,i)=>{
+  if(p<x0||p>x1)return;
+  const xx=X(p);
+  c.strokeStyle=P.mut;c.lineWidth=1.2*k;c.setLineDash([5*k,4*k]);c.beginPath();c.moveTo(xx,t);c.lineTo(xx,b);c.stroke();c.setLineDash([]);
+  c.save();c.translate(xx-4*k,t+6*k);c.rotate(-Math.PI/2);c.textAlign='right';c.font=`600 ${11.5*k}px ${SANS}`;
+  const lab=`pKa${sub(i+1)} = ${fmt(p)}`;
+  c.lineWidth=4*k;c.strokeStyle=P.card;c.strokeText(lab,0,0);c.fillStyle=P.ink;c.fillText(lab,0,0);c.restore();
+ });
+ if(o.live){
+  if(S.cur!=null&&S.cur>=x0&&S.cur<=x1){
+   const xx=X(S.cur),a=alphas(S.cur,S.pk);
+   c.strokeStyle=P.ink;c.globalAlpha=.55;c.lineWidth=1;c.beginPath();c.moveTo(xx,t);c.lineTo(xx,b);c.stroke();c.globalAlpha=1;
+   a.forEach((v,i)=>{c.beginPath();c.arc(xx,Y(v),4.5,0,7);c.fillStyle=P.cols[i];c.fill();c.lineWidth=2;c.strokeStyle=P.card;c.stroke()});
+   // on-plot tooltip: pH and α of every species
+   c.font=`${12*k}px ${SANS}`;
+   const vals=a.map(v=>v.toFixed(4)),head=`pH ${S.cur.toFixed(2)}`;
+   const lh=17*k,pad=8*k,sw=10*k;
+   const nw=Math.max(...S.sp.map(s=>c.measureText(s).width)),vw=c.measureText('0.0000').width;
+   const bw=Math.max(nw+vw+sw+pad*2+16*k,c.measureText(head).width+pad*2),bh=(S.sp.length+1)*lh+pad*2-4*k;
+   let bx=xx+12*k;if(bx+bw>r-4*k)bx=xx-12*k-bw;if(bx<l+4*k)bx=l+4*k;
+   const by=t+8*k;
+   c.globalAlpha=.94;c.fillStyle=P.card;c.fillRect(bx,by,bw,bh);c.globalAlpha=1;
+   c.strokeStyle=P.axis;c.lineWidth=1;c.strokeRect(bx,by,bw,bh);
+   c.textAlign='left';c.fillStyle=P.ink;c.font=`600 ${12*k}px ${SANS}`;c.fillText(head,bx+pad,by+pad+9*k);
+   c.font=`${12*k}px ${SANS}`;
+   S.sp.forEach((s,i)=>{
+    const ty=by+pad+9*k+(i+1)*lh;
+    c.fillStyle=P.cols[i];c.fillRect(bx+pad,ty-sw+1*k,sw,sw);
+    c.fillStyle=P.ink;c.textAlign='left';c.fillText(s,bx+pad+sw+6*k,ty);
+    c.textAlign='right';c.fillText(vals[i],bx+bw-pad,ty);
+   });
+  }
+  if(S.sel){
+   const a=Math.min(...S.sel),b2=Math.max(...S.sel);
+   c.fillStyle=P.sel;c.fillRect(a,t,b2-a,b-t);
+   c.strokeStyle=P.ink;c.lineWidth=1;c.globalAlpha=.6;c.beginPath();c.moveTo(a,t);c.lineTo(a,b);c.moveTo(b2,t);c.lineTo(b2,b);c.stroke();c.globalAlpha=1;
+  }
+ }
+ c.restore();
+ c.strokeStyle=P.axis;c.lineWidth=1.2*k;c.strokeRect(l,t,r-l,b-t);
+ if(o.foot){c.fillStyle=P.mut;c.textAlign='left';c.font=`${12*k}px ${SANS}`;c.fillText(o.foot,16*k,H-14*k)}
+}
+
+let cw=0,ch=0;
+function draw(){
+ const w=wrap.clientWidth;if(!w)return;
+ const k=w<480?.88:1,h=Math.round(Math.max(420,Math.min(620,w*.95+60))),d=window.devicePixelRatio||1;
+ if(cw!==w||ch!==h){cv.width=Math.round(w*d);cv.height=Math.round(h*d);cv.style.height=h+'px';cw=w;ch=h}
+ const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);
+ render(c,w,h,PAL[S.theme],k,{live:true});
+}
+new ResizeObserver(()=>{if(wrap.clientWidth!==cw)draw()}).observe(wrap);
+
+function ro(){
+ const el=$('ro');
+ if(S.cur==null){el.innerHTML='<span class="mut">Move the cursor over the plot, or tap it, to see α for each species.</span>';return}
+ const a=alphas(S.cur,S.pk),P=PAL[S.theme];
+ el.innerHTML=`<b>pH ${S.cur.toFixed(2)}</b>`+S.sp.map((t,i)=>`<span class="chip"><i style="background:${P.cols[i]}"></i>${t} <b>${a[i].toFixed(4)}</b></span>`).join('');
+}
+function upd(){
+ S.pks=S.pk.map((p,i)=>`pKa${sub(i+1)} = ${fmt(p)}`).join('     ');
+ $('rs').disabled=S.xr[0]===0&&S.xr[1]===14;
+ draw();ro();
+}
+function buildCustom(){
+ const el=$('cu');el.hidden=S.idx>=0;if(S.idx>=0)return;
+ el.innerHTML=S.pk.map((p,i)=>`<label>pKa${sub(i+1)}<input type="number" inputmode="decimal" step="0.01" value="${p}"></label>`).join('')+'<p class="note" id="pw"></p>';
+}
+function setAcid(){
+ S.title=S.type==='di'?'Diprotic Acid':'Triprotic Acid';
+ if(S.idx<0){S.pk=S.cust[S.type].slice();S.sp=GEN[S.type];S.sub=`Custom acid (${GEN[S.type][0]})`}
+ else{const a=ACIDS[S.type][S.idx];S.pk=a.p;S.sp=a.s;S.sub=`${a.n} (${a.f})`}
+ S.xr=[0,14];S.cur=null;S.sel=null;buildCustom();upd();
+}
+function setType(t){
+ S.type=t;S.idx=0;
+ document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+ $('ac').innerHTML=ACIDS[t].map((a,i)=>`<option value="${i}">${a.n}, ${a.f}</option>`).join('')+'<option value="-1">Custom (enter your own pKa values)</option>';
+ $('ac').value='0';setAcid();
+}
+document.querySelectorAll('#seg button').forEach(b=>b.onclick=()=>setType(b.dataset.t));
+$('ac').onchange=e=>{S.idx=+e.target.value;setAcid()};
+$('cu').addEventListener('input',()=>{
+ const ins=[...$('cu').querySelectorAll('input')],v=ins.map(i=>parseFloat(i.value));
+ ins.forEach((i,j)=>i.classList.toggle('bad',!isFinite(v[j])));
+ $('pw').textContent=v.every((x,j)=>!j||x>v[j-1])?'':'The pKa values are usually increasing (pKa₁ < pKa₂ < pKa₃). The plot uses them as entered.';
+ if(v.every(isFinite)){S.cust[S.type]=v;S.pk=v;upd()}
+});
+$('rs').onclick=()=>{S.xr=[0,14];S.sel=null;upd()};
+
+// pointer interaction
+const pxOf=e=>Math.max(G.l,Math.min(G.r,e.clientX-cv.getBoundingClientRect().left));
+const phOf=x=>S.xr[0]+(x-G.l)/(G.r-G.l)*(S.xr[1]-S.xr[0]);
+cv.addEventListener('pointerdown',e=>{
+ cv.setPointerCapture(e.pointerId);const x=pxOf(e);
+ drag=x;S.sel=[x,x];S.cur=phOf(x);draw();ro();
+});
+cv.addEventListener('pointermove',e=>{
+ const x=pxOf(e);S.cur=phOf(x);
+ if(drag!==null)S.sel=[drag,x];
+ draw();ro();
+});
+cv.addEventListener('pointerup',e=>{
+ if(drag===null)return;
+ const x=pxOf(e),a=Math.min(drag,x),b=Math.max(drag,x);drag=null;S.sel=null;
+ if(b-a>8){
+  let lo=phOf(a),hi=phOf(b);
+  if(hi-lo<0.1){const m=(lo+hi)/2;lo=m-.05;hi=m+.05}
+  S.xr=[lo,hi];
+ }
+ upd();
+});
+cv.addEventListener('pointercancel',()=>{drag=null;S.sel=null;draw()});
+cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'&&drag===null){S.cur=null;draw();ro()}});
+cv.addEventListener('dblclick',()=>{S.xr=[0,14];upd()});
+
+// export
+$('ex').onclick=()=>{$('ne').textContent='';$('md').hidden=false;$('nm').focus()};
+$('mc').onclick=()=>{$('md').hidden=true};
+$('nm').addEventListener('keydown',e=>{if(e.key==='Enter')doExport();if(e.key==='Escape')$('md').hidden=true});
+$('mo').onclick=doExport;
+async function doExport(){
+ const name=$('nm').value.trim();
+ if(!name){$('ne').textContent='Enter your name to export the plot.';return}
+ $('md').hidden=true;
+ const W=1400,H=920,e=document.createElement('canvas');e.width=W;e.height=H;
+ render(e.getContext('2d'),W,H,PAL.light,1.7,{foot:`Exported by ${name} on ${new Date().toLocaleDateString()}`});
+ const blob=await new Promise(r=>e.toBlob(r,'image/png'));
+ const fn=(S.idx<0?'custom-'+S.type+'protic-acid':S.sub.split(' (')[0].toLowerCase().replace(/\s+/g,'-'))+'-speciation.png';
+ try{
+  const dl=window.claude&&await claude.use('downloads');
+  if(dl){await dl.save({filename:fn,data:blob});return}
+ }catch(err){if(err&&err.code==='declined')return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();a.remove();
+}
+
+// theme
+function applyTheme(t){
+ S.theme=t;document.documentElement.dataset.theme=t;
+ $('th').textContent=t==='dark'?'Light mode':'Dark mode';
+ try{localStorage.setItem('pp-theme',t)}catch(_){}
+ draw();ro();
+}
+$('th').onclick=()=>applyTheme(S.theme==='dark'?'light':'dark');
+let t0=null;try{t0=localStorage.getItem('pp-theme')}catch(_){}
+S.theme=t0||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+document.documentElement.dataset.theme=S.theme;$('th').textContent=S.theme==='dark'?'Light mode':'Dark mode';
+setType('di');
+</script>
+</body>
+</html>
