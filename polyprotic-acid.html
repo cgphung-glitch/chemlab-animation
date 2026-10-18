@@ -70,8 +70,9 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <button data-m="calc">pH calculator</button>
   </div>
   <div class="seg" id="seg">
-    <button data-t="di" class="on">Diprotic acid</button>
-    <button data-t="tri">Triprotic acid</button>
+    <button data-t="mono">Monoprotic</button>
+    <button data-t="di" class="on">Diprotic</button>
+    <button data-t="tri">Triprotic</button>
   </div>
   <label>Acid<select id="ac"></select></label>
   <div class="pk" id="cu" hidden></div>
@@ -102,6 +103,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 
 <h3>Setup</h3>
 <p>Let <i>C</i> be the total (analytical) concentration of all forms of the acid, and define the fraction of species <i>i</i> as α<sub><i>i</i></sub> = [species <i>i</i>] / <i>C</i>. The two assumptions are that concentrations stand in for activities and that no other reactions (such as metal binding) involve the acid. Under these assumptions α depends only on [H⁺] and the <i>K</i><sub>a</sub> values, and not on <i>C</i>. The plot uses pH = −log[H⁺] and p<i>K</i><sub>a</sub> = −log <i>K</i><sub>a</sub>.</p>
+
+<h3>Monoprotic acid, HA</h3>
+<p>A single equilibrium is involved, HA ⇌ H⁺ + A⁻ with <i>K</i><sub>a</sub> = [H⁺][A⁻] / [HA], and the mass balance is <i>C</i> = [HA] + [A⁻]. Writing [A⁻] = <i>K</i><sub>a</sub>[HA] / [H⁺] and substituting gives:</p>
+<div class="eq">α₀ (HA) = [H⁺] / ([H⁺] + <i>K</i><sub>a</sub>)<br>α₁ (A⁻) = <i>K</i><sub>a</sub> / ([H⁺] + <i>K</i><sub>a</sub>)</div>
+<p>The two curves cross at α = 0.5 when pH = p<i>K</i><sub>a</sub>. Taking logarithms of the ratio α₁/α₀ = <i>K</i><sub>a</sub>/[H⁺] gives the Henderson–Hasselbalch equation, pH = p<i>K</i><sub>a</sub> + log([A⁻]/[HA]).</p>
 
 <h3>Diprotic acid, H₂A</h3>
 <p>Acid–base equilibria:</p>
@@ -153,6 +159,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 
 <script>
 const ACIDS={
+ mono:[
+  {n:'Acetic acid',f:'CH₃COOH',p:[4.76],s:['CH₃COOH','CH₃COO⁻']},
+  {n:'Formic acid',f:'HCOOH',p:[3.75],s:['HCOOH','HCOO⁻']},
+  {n:'Lactic acid',f:'C₃H₆O₃',p:[3.86],s:['C₃H₆O₃','C₃H₅O₃⁻']},
+  {n:'Benzoic acid',f:'C₆H₅COOH',p:[4.20],s:['C₆H₅COOH','C₆H₅COO⁻']},
+  {n:'Nitrous acid',f:'HNO₂',p:[3.40],s:['HNO₂','NO₂⁻']},
+  {n:'Hydrofluoric acid',f:'HF',p:[3.17],s:['HF','F⁻']},
+  {n:'Hypochlorous acid',f:'HOCl',p:[7.53],s:['HOCl','OCl⁻']},
+  {n:'Hydrocyanic acid',f:'HCN',p:[9.21],s:['HCN','CN⁻']}],
  di:[
   {n:'Carbonic acid',f:'H₂CO₃',p:[6.35,10.33],s:['H₂CO₃','HCO₃⁻','CO₃²⁻']},
   {n:'Sulfurous acid',f:'H₂SO₃',p:[1.85,7.20],s:['H₂SO₃','HSO₃⁻','SO₃²⁻']},
@@ -161,13 +176,13 @@ const ACIDS={
  tri:[
   {n:'Phosphoric acid',f:'H₃PO₄',p:[2.16,7.21,12.32],s:['H₃PO₄','H₂PO₄⁻','HPO₄²⁻','PO₄³⁻']},
   {n:'Citric acid',f:'C₆H₈O₇',p:[3.13,4.76,6.40],s:['C₆H₈O₇','C₆H₇O₇⁻','C₆H₆O₇²⁻','C₆H₅O₇³⁻']}]};
-const GEN={di:['H₂A','HA⁻','A²⁻'],tri:['H₃A','H₂A⁻','HA²⁻','A³⁻']};
+const GEN={mono:['HA','A⁻'],di:['H₂A','HA⁻','A²⁻'],tri:['H₃A','H₂A⁻','HA²⁻','A³⁻']};
 const PAL={
  light:{card:'#ffffff',ink:'#14212b',mut:'#5d6b77',grid:'#e3e8ec',axis:'#9aa7b2',sel:'rgba(11,122,117,.18)',cols:['#0072B2','#D55E00','#009E73','#B8458E']},
  dark:{card:'#16232d',ink:'#e8eef2',mut:'#9fb0bc',grid:'#243743',axis:'#5e7482',sel:'rgba(60,196,187,.22)',cols:['#56B4E9','#F0A030','#3DDC97','#E58BC0']}};
 const SANS='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif',SERIF='"Iowan Old Style",Georgia,serif';
 const $=id=>document.getElementById(id),sub=n=>'₀₁₂₃'[n];
-const S={type:'di',idx:0,pk:[],sp:[],title:'',sub:'',pks:'',xr:[0,14],cur:null,sel:null,theme:'light',cust:{di:[4,9],tri:[3,7,11]},mode:'plot',C:0.1,form:0,pH:null};
+const S={type:'di',idx:0,pk:[],sp:[],title:'',sub:'',pks:'',xr:[0,14],cur:null,sel:null,theme:'light',cust:{mono:[5],di:[4,9],tri:[3,7,11]},mode:'plot',C:0.1,form:0,pH:null};
 let G={l:0,r:1,t:0,b:1},drag=null;
 const cv=$('cv'),wrap=$('wrap');
 
@@ -176,6 +191,7 @@ function alphas(pH,pk){
  for(let i=0;i<=n;i++){if(i)pr*=Math.pow(10,-pk[i-1]);t.push(pr*Math.pow(h,n-i));}
  const s=t.reduce((a,b)=>a+b,0);return t.map(x=>x/s);
 }
+const pkl=i=>S.pk.length>1?'pKa'+sub(i+1):'pKa';
 const fmt=p=>{let s=String(+p.toFixed(3));if(!s.includes('.'))s+='.00';else if(s.split('.')[1].length<2)s+='0';return s};
 const nice=s=>{const p=Math.pow(10,Math.floor(Math.log10(s))),m=s/p;return(m<1.5?1:m<3.5?2:m<7.5?5:10)*p};
 
@@ -231,7 +247,7 @@ function render(c,W,H,P,k,o){
   const xx=X(p);
   c.strokeStyle=P.mut;c.lineWidth=1.2*k;c.setLineDash([5*k,4*k]);c.beginPath();c.moveTo(xx,t);c.lineTo(xx,b);c.stroke();c.setLineDash([]);
   c.save();c.translate(xx-4*k,t+6*k);c.rotate(-Math.PI/2);c.textAlign='right';c.font=`600 ${11.5*k}px ${SANS}`;
-  const lab=`pKa${sub(i+1)} = ${fmt(p)}`;
+  const lab=`${pkl(i)} = ${fmt(p)}`;
   c.lineWidth=4*k;c.strokeStyle=P.card;c.strokeText(lab,0,0);c.fillStyle=P.ink;c.fillText(lab,0,0);c.restore();
  });
  if(S.mode==='calc'&&S.pH!=null&&S.pH>=x0&&S.pH<=x1){
@@ -294,7 +310,7 @@ function ro(){
  el.innerHTML=`<b>pH ${S.cur.toFixed(2)}</b>`+S.sp.map((t,i)=>`<span class="chip"><i style="background:${P.cols[i]}"></i>${t} <b>${a[i].toFixed(4)}</b></span>`).join('');
 }
 function upd(){
- S.pks=S.pk.map((p,i)=>`pKa${sub(i+1)} = ${fmt(p)}`).join('     ');
+ S.pks=S.pk.map((p,i)=>`${pkl(i)} = ${fmt(p)}`).join('     ');
  $('rs').disabled=S.xr[0]===0&&S.xr[1]===14;
  calc();draw();ro();
 }
@@ -334,10 +350,10 @@ $('cC').addEventListener('input',upd);
 $('cF').onchange=e=>{S.form=+e.target.value;upd()};
 function buildCustom(){
  const el=$('cu');el.hidden=S.idx>=0;if(S.idx>=0)return;
- el.innerHTML=S.pk.map((p,i)=>`<label>pKa${sub(i+1)}<input type="number" inputmode="decimal" step="0.01" value="${p}"></label>`).join('')+'<p class="note" id="pw"></p>';
+ el.innerHTML=S.pk.map((p,i)=>`<label>${pkl(i)}<input type="number" inputmode="decimal" step="0.01" value="${p}"></label>`).join('')+'<p class="note" id="pw"></p>';
 }
 function setAcid(){
- S.title=S.type==='di'?'Diprotic Acid':'Triprotic Acid';
+ S.title={mono:'Monoprotic Acid',di:'Diprotic Acid',tri:'Triprotic Acid'}[S.type];
  if(S.idx<0){S.pk=S.cust[S.type].slice();S.sp=GEN[S.type];S.sub=`Custom acid (${GEN[S.type][0]})`}
  else{const a=ACIDS[S.type][S.idx];S.pk=a.p;S.sp=a.s;S.sub=`${a.n} (${a.f})`}
  S.xr=[0,14];S.cur=null;S.sel=null;S.form=0;buildForms();buildCustom();upd();
