@@ -41,6 +41,12 @@ canvas{display:block;width:100%;touch-action:pan-y;cursor:crosshair;user-select:
 .dlg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:380px;width:100%}
 .dlg h2{margin:0 0 4px;font:600 1.15rem "Iowan Old Style",Georgia,serif}
 .dlg p{margin:0 0 10px;color:var(--mut);font-size:.9rem}
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:12px}
+.res div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-variant-numeric:tabular-nums}
+.res small{display:block;color:var(--mut);font-size:.78rem}
+.res b{font-size:1.02rem}
+.res .big b{font-size:1.5rem;color:var(--acc)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
 .der summary{cursor:pointer;font-weight:600}
 .der h3{margin:16px 0 4px;font:600 1.02rem "Iowan Old Style",Georgia,serif}
 .der p,.der li{margin:6px 0;font-size:.92rem}
@@ -59,12 +65,25 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 </header>
 
 <section class="card">
+  <div class="seg" id="mseg">
+    <button data-m="plot" class="on">Speciation plot</button>
+    <button data-m="calc">pH calculator</button>
+  </div>
   <div class="seg" id="seg">
     <button data-t="di" class="on">Diprotic acid</button>
     <button data-t="tri">Triprotic acid</button>
   </div>
   <label>Acid<select id="ac"></select></label>
   <div class="pk" id="cu" hidden></div>
+</section>
+
+<section class="card" id="cc" hidden>
+  <div class="pk" style="margin-top:0">
+    <label>Total concentration, C (mol/L)<input id="cC" type="number" inputmode="decimal" step="any" min="0" value="0.100"></label>
+    <label>Species dissolved<select id="cF"></select></label>
+  </div>
+  <div class="res" id="cr"></div>
+  <p class="hint" id="cn"></p>
 </section>
 
 <section class="card">
@@ -103,6 +122,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 
 <h3>General pattern</h3>
 <p>For an acid with <i>n</i> ionizable protons, the denominator is the sum of <i>n</i> + 1 terms. The term for the species that has lost <i>i</i> protons is <i>K</i><sub>a1</sub>⋯<i>K</i><sub>a<i>i</i></sub>[H⁺]<sup><i>n</i>−<i>i</i></sup>, with the empty product equal to 1 when <i>i</i> = 0. Each α<sub><i>i</i></sub> is that term divided by <i>D</i>, so Σα<sub><i>i</i></sub> = 1 at every pH. This is the calculation the app performs.</p>
+
+<h3>pH calculator (charge balance)</h3>
+<p>For a total concentration <i>C</i> of the acid or of one of its sodium salts, [Na⁺] = <i>iC</i>, where <i>i</i> is the number of protons already removed from the parent acid (0 for the acid itself, 1 for NaHA, 2 for Na₂A, and so on). The solution must be electrically neutral:</p>
+<div class="eq">[H⁺] + <i>iC</i> = <i>K</i><sub>w</sub> / [H⁺] + <i>C</i> Σ <i>j</i> α<sub><i>j</i></sub>([H⁺])</div>
+<p>Here <i>j</i> is the number of protons lost by species <i>j</i> (equal to its negative charge), and <i>K</i><sub>w</sub> = 1.0×10⁻¹⁴ at 25 °C. The left side minus the right side decreases steadily as pH rises, so there is exactly one root. The app finds it by bisection between pH −2 and 16, then reports [H⁺], pOH and each species concentration as α<sub><i>j</i></sub><i>C</i>. No shortcuts such as ignoring water or assuming a small extent of ionization are used.</p>
 
 <h3>Features you can check on the plot</h3>
 <ul>
@@ -143,7 +167,7 @@ const PAL={
  dark:{card:'#16232d',ink:'#e8eef2',mut:'#9fb0bc',grid:'#243743',axis:'#5e7482',sel:'rgba(60,196,187,.22)',cols:['#56B4E9','#F0A030','#3DDC97','#E58BC0']}};
 const SANS='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif',SERIF='"Iowan Old Style",Georgia,serif';
 const $=id=>document.getElementById(id),sub=n=>'₀₁₂₃'[n];
-const S={type:'di',idx:0,pk:[],sp:[],title:'',sub:'',pks:'',xr:[0,14],cur:null,sel:null,theme:'light',cust:{di:[4,9],tri:[3,7,11]}};
+const S={type:'di',idx:0,pk:[],sp:[],title:'',sub:'',pks:'',xr:[0,14],cur:null,sel:null,theme:'light',cust:{di:[4,9],tri:[3,7,11]},mode:'plot',C:0.1,form:0,pH:null};
 let G={l:0,r:1,t:0,b:1},drag=null;
 const cv=$('cv'),wrap=$('wrap');
 
@@ -210,6 +234,14 @@ function render(c,W,H,P,k,o){
   const lab=`pKa${sub(i+1)} = ${fmt(p)}`;
   c.lineWidth=4*k;c.strokeStyle=P.card;c.strokeText(lab,0,0);c.fillStyle=P.ink;c.fillText(lab,0,0);c.restore();
  });
+ if(S.mode==='calc'&&S.pH!=null&&S.pH>=x0&&S.pH<=x1){
+  const xx=X(S.pH),a=alphas(S.pH,S.pk),mk=P===PAL.dark?'#ff8a7a':'#c0392b';
+  c.strokeStyle=mk;c.lineWidth=2*k;c.beginPath();c.moveTo(xx,t);c.lineTo(xx,b);c.stroke();
+  a.forEach((v,i)=>{c.beginPath();c.arc(xx,Y(v),5*k,0,7);c.fillStyle=P.card;c.fill();c.lineWidth=2.2*k;c.strokeStyle=P.cols[i];c.stroke()});
+  const lab=`solution pH = ${S.pH.toFixed(2)}`,lf=xx<l+90*k,rt=xx>r-90*k,lx=xx+(lf?6*k:rt?-6*k:0);
+  c.font=`600 ${12*k}px ${SANS}`;c.textAlign=lf?'left':rt?'right':'center';
+  c.lineWidth=4*k;c.strokeStyle=P.card;c.strokeText(lab,lx,b-8*k);c.fillStyle=mk;c.fillText(lab,lx,b-8*k);
+ }
  if(o.live){
   if(S.cur!=null&&S.cur>=x0&&S.cur<=x1){
    const xx=X(S.cur),a=alphas(S.cur,S.pk);
@@ -264,8 +296,42 @@ function ro(){
 function upd(){
  S.pks=S.pk.map((p,i)=>`pKa${sub(i+1)} = ${fmt(p)}`).join('     ');
  $('rs').disabled=S.xr[0]===0&&S.xr[1]===14;
- draw();ro();
+ calc();draw();ro();
 }
+function solvePH(C,Cb,pk){
+ const Kw=1e-14;
+ const f=ph=>{const h=Math.pow(10,-ph),a=alphas(ph,pk);let q=0;a.forEach((v,i)=>q+=i*v);return h+Cb-Kw/h-C*q};
+ let lo=-2,hi=16;
+ for(let i=0;i<80;i++){const m=(lo+hi)/2;if(f(m)>0)lo=m;else hi=m}
+ return (lo+hi)/2;
+}
+const saltName=(s,i)=>i?'Na'+(i>1?sub(i):'')+s.replace(/[²³]?⁻$/,''):s;
+function buildForms(){
+ const el=$('cF');
+ el.innerHTML=S.sp.map((s,i)=>`<option value="${i}">${saltName(s,i)}${i?'':' (the acid)'}</option>`).join('');
+ if(S.form>=S.sp.length)S.form=0;
+ el.value=S.form;
+}
+function calc(){
+ const on=S.mode==='calc';$('cc').hidden=!on;
+ if(!on){S.pH=null;return}
+ const C=parseFloat($('cC').value),inv=!(C>0&&C<=20);
+ $('cC').classList.toggle('bad',inv);
+ if(inv){S.pH=null;$('cr').innerHTML='';$('cn').textContent='Enter a concentration greater than 0 and no more than 20 mol/L.';return}
+ S.C=C;
+ const pH=solvePH(C,S.form*C,S.pk),a=alphas(pH,S.pk),P=PAL[S.theme],ex=v=>v.toExponential(2);
+ S.pH=pH;
+ $('cr').innerHTML=`<div class="big"><small>pH</small><b>${pH.toFixed(2)}</b></div><div><small>[H⁺] (mol/L)</small><b>${ex(Math.pow(10,-pH))}</b></div><div><small>pOH</small><b>${(14-pH).toFixed(2)}</b></div>`
+  +S.sp.map((s,j)=>`<div><small><span class="sw" style="background:${P.cols[j]}"></span>[${s}] (mol/L)</small><b>${ex(a[j]*C)}</b></div>`).join('');
+ $('cn').textContent=`Exact charge-balance solution at 25 °C with [Na⁺] = ${S.form?(S.form>1?S.form:'')+'C':'0'}, treating concentrations as activities.`+(pH<0||pH>14?' The pH is outside the plotted 0 to 14 range.':'');
+}
+document.querySelectorAll('#mseg button').forEach(b=>b.onclick=()=>{
+ S.mode=b.dataset.m;
+ document.querySelectorAll('#mseg button').forEach(x=>x.classList.toggle('on',x===b));
+ upd();
+});
+$('cC').addEventListener('input',upd);
+$('cF').onchange=e=>{S.form=+e.target.value;upd()};
 function buildCustom(){
  const el=$('cu');el.hidden=S.idx>=0;if(S.idx>=0)return;
  el.innerHTML=S.pk.map((p,i)=>`<label>pKa${sub(i+1)}<input type="number" inputmode="decimal" step="0.01" value="${p}"></label>`).join('')+'<p class="note" id="pw"></p>';
@@ -274,7 +340,7 @@ function setAcid(){
  S.title=S.type==='di'?'Diprotic Acid':'Triprotic Acid';
  if(S.idx<0){S.pk=S.cust[S.type].slice();S.sp=GEN[S.type];S.sub=`Custom acid (${GEN[S.type][0]})`}
  else{const a=ACIDS[S.type][S.idx];S.pk=a.p;S.sp=a.s;S.sub=`${a.n} (${a.f})`}
- S.xr=[0,14];S.cur=null;S.sel=null;buildCustom();upd();
+ S.xr=[0,14];S.cur=null;S.sel=null;S.form=0;buildForms();buildCustom();upd();
 }
 function setType(t){
  S.type=t;S.idx=0;
@@ -343,7 +409,7 @@ function applyTheme(t){
  S.theme=t;document.documentElement.dataset.theme=t;
  $('th').textContent=t==='dark'?'Light mode':'Dark mode';
  try{localStorage.setItem('pp-theme',t)}catch(_){}
- draw();ro();
+ calc();draw();ro();
 }
 $('th').onclick=()=>applyTheme(S.theme==='dark'?'light':'dark');
 let t0=null;try{t0=localStorage.getItem('pp-theme')}catch(_){}
