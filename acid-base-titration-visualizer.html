@@ -687,6 +687,63 @@
       return `rgba(236, 72, 153, ${alpha})`;
     }
 
+    // ---- Realistic titration apparatus (same design as titration.html, drawn on canvas) ----
+    // Design units: x 0..260, y -16..380; scaled uniformly to fit the canvas.
+    const AP = {
+      CX: 130, BUR_RIM: 3, BUR_TOP: 14, BUR_BOTTOM: 196, BUR_W: 26, BUR_WALL: 2.6,   // BUR_TOP = 0 mL, BUR_BOTTOM = full-scale mark
+      COCK_Y: 206, TIP_Y: 238, RIM_Y: 232,
+      NECK_TOP: 240, NECK_BOTTOM: 268, NECK_W: 36,                                   // NECK_TOP = liquid level of a completely full flask
+      BODY_BOTTOM: 340, BASE_W: 104, FLASK_WALL: 2.4, FLASK_R: 10, PROBE_SLOPE: 0.075
+    };
+    const AP_THEMES = {
+      dark: {
+        glass:'#4a5568', label:'#7a8494', flask:'#6b778c',
+        probeFill:'rgba(210,220,235,0.6)', probeStroke:'#8a94a6', probeTip:'rgba(230,240,255,0.75)', probeCap:'#2b3242',
+        tint:'255,255,255', shine:'255,255,255', shineOp:0.38, tick:'#aab3c2', menisc:'rgba(0,0,0,0.5)',
+        metalHi:'#7d889c', metalMid:'#566074', metalLo:'#374052', cock:'#9aa5b8', knob:'#cfd6e2', cork:'#8a6d45',
+        ripple:'223,230,238'
+      },
+      light: {
+        glass:'#8a94a6', label:'#5a6475', flask:'#7b8597',
+        probeFill:'rgba(120,135,160,0.35)', probeStroke:'#6b7588', probeTip:'rgba(120,135,160,0.55)', probeCap:'#4a5568',
+        tint:'70,100,140', shine:'255,255,255', shineOp:0.95, tick:'#2f3745', menisc:'rgba(0,0,0,0.35)',
+        metalHi:'#d5dbe5', metalMid:'#aeb7c6', metalLo:'#8b95a7', cock:'#8591a6', knob:'#4b5568', cork:'#b08d57',
+        ripple:'74,85,104'
+      }
+    };
+
+    function apProbeX(y) { return AP.CX + 18.6 - AP.PROBE_SLOPE * (y - 168); }
+
+    // Half-width of the flask profile (straight neck, then a cone) at height y
+    function apFlaskHalfWidth(y, nw, hwb, yb, r) {
+      if (y <= AP.NECK_BOTTOM) return nw;
+      const t = Math.min(1, (y - AP.NECK_BOTTOM) / ((yb - r) - AP.NECK_BOTTOM));
+      return nw + (hwb - nw) * t;
+    }
+
+    // Open outline (SVG path data) of an Erlenmeyer flask: neck -> filleted shoulder -> cone -> rounded flat bottom
+    function apFlaskPath(nw, hwb, yTop, yb, r) {
+      const CX = AP.CX, NB = AP.NECK_BOTTOM, yc = yb - r, f = 8;
+      const dx = hwb - nw, dy = yc - NB, L = Math.hypot(dx, dy);
+      const sx = nw + (dx / L) * f, sy = NB + (dy / L) * f;
+      return `M ${CX-nw},${yTop} L ${CX-nw},${NB-f}
+        Q ${CX-nw},${NB} ${CX-sx},${sy}
+        L ${CX-hwb},${yc} Q ${CX-hwb},${yb} ${CX-hwb+r},${yb}
+        L ${CX+hwb-r},${yb} Q ${CX+hwb},${yb} ${CX+hwb},${yc}
+        L ${CX+sx},${sy} Q ${CX+nw},${NB} ${CX+nw},${NB-f}
+        L ${CX+nw},${yTop}`;
+    }
+
+    function apRRect(ctx, x, y, w, h, r) {
+      r = Math.min(r, w / 2, h / 2);
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
     function drawApparatusCanvas() {
       const canvas = document.getElementById('apparatusCanvas');
       if (!canvas) return;
@@ -702,189 +759,234 @@
       const h = rect.height;
 
       const isDark = state.theme === 'dark';
-      const bgColor = isDark ? '#020617' : '#f8fafc';
-      const glassBorder = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)';
-      const glassFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.6)';
-      const textColor = isDark ? '#94a3b8' : '#475569';
-
-      ctx.fillStyle = bgColor;
+      ctx.fillStyle = isDark ? '#020617' : '#f8fafc';
       ctx.fillRect(0, 0, w, h);
-
-      const centerX = w * 0.45;
-      const buretteTop = 15;
-      const buretteHeight = h * 0.44;
-      const buretteWidth = 18;
 
       const currentpH = calculateExactpH(state.currentV);
       document.getElementById('digitalPhDisplay').innerText = currentpH.toFixed(2);
       document.getElementById('currentVolumeText').innerText = state.currentV.toFixed(2);
 
-      // Stand & Clamp
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = isDark ? '#475569' : '#94a3b8';
-      ctx.beginPath();
-      ctx.moveTo(centerX - 65, h - 15);
-      ctx.lineTo(centerX + 65, h - 15);
-      ctx.stroke();
+      const T = AP_THEMES[isDark ? 'dark' : 'light'];
+      const { CX, BUR_RIM, BUR_TOP, BUR_BOTTOM, BUR_W, BUR_WALL, COCK_Y, TIP_Y, RIM_Y,
+              NECK_TOP, NECK_BOTTOM, NECK_W, BODY_BOTTOM, BASE_W, FLASK_WALL, FLASK_R } = AP;
+      const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
-      ctx.beginPath();
-      ctx.moveTo(centerX - 50, h - 15);
-      ctx.lineTo(centerX - 50, 20);
-      ctx.stroke();
+      // Fit the design into the canvas; keep the apparatus left of the HTML pH meter
+      const sc = Math.min((h - 10) / 396, (w * 0.92) / 260);
+      const ox = w * 0.45 - CX * sc;
+      const oy = 5 + 16 * sc;
+      const tx = (x) => ox + x * sc;
+      const ty = (y) => oy + y * sc;
 
-      ctx.beginPath();
-      ctx.moveTo(centerX - 50, buretteTop + 45);
-      ctx.lineTo(centerX, buretteTop + 45);
-      ctx.stroke();
-
-      // Burette Body
-      const buretteCap = state.buretteCapacity;
-      const fillFraction = Math.max(0, 1 - (state.currentV / buretteCap));
-
-      ctx.fillStyle = glassFill;
-      ctx.fillRect(centerX - buretteWidth/2, buretteTop, buretteWidth, buretteHeight);
-      
-      const liquidH = buretteHeight * fillFraction;
-      const liquidTop = buretteTop + (buretteHeight - liquidH);
-
-      const titrantIsBase = state.titrantRole === 'base';
-      const buretteLiquidColor = titrantIsBase 
-        ? (isDark ? 'rgba(56, 189, 248, 0.65)' : 'rgba(2, 132, 199, 0.65)')
-        : (isDark ? 'rgba(244, 63, 94, 0.65)' : 'rgba(225, 29, 72, 0.65)');
-
-      ctx.fillStyle = buretteLiquidColor;
-      ctx.fillRect(centerX - buretteWidth/2 + 1.5, liquidTop, buretteWidth - 3, liquidH);
-
-      if (fillFraction > 0) {
-        ctx.beginPath();
-        ctx.ellipse(centerX, liquidTop, buretteWidth/2 - 1.5, 2.5, 0, 0, Math.PI);
-        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)';
-        ctx.fill();
-      }
-
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = glassBorder;
-      ctx.strokeRect(centerX - buretteWidth/2, buretteTop, buretteWidth, buretteHeight);
-
-      // Scale Ticks
-      ctx.fillStyle = textColor;
-      ctx.font = '7.5px monospace';
-      const numTicks = 5;
-      for (let i = 0; i <= numTicks; i++) {
-        const tickY = buretteTop + (buretteHeight / numTicks) * i;
-        const volVal = ((buretteCap / numTicks) * i).toFixed(0);
-        ctx.beginPath();
-        ctx.moveTo(centerX + buretteWidth/2, tickY);
-        ctx.lineTo(centerX + buretteWidth/2 - 4, tickY);
-        ctx.stroke();
-        ctx.fillText(volVal, centerX + buretteWidth/2 + 2, tickY + 2.5);
-      }
-
-      // Stopcock & Nozzle
-      const stopcockY = buretteTop + buretteHeight;
-      ctx.fillStyle = isDark ? '#94a3b8' : '#334155';
-      ctx.fillRect(centerX - 10, stopcockY + 4, 20, 5);
-      
-      ctx.beginPath();
-      ctx.moveTo(centerX - 3, stopcockY);
-      ctx.lineTo(centerX - 1.5, stopcockY + 20);
-      ctx.lineTo(centerX + 1.5, stopcockY + 20);
-      ctx.lineTo(centerX + 3, stopcockY);
-      ctx.closePath();
-      ctx.fillStyle = glassBorder;
-      ctx.fill();
-
-      // Dripping animation drop
-      if (state.animating && fillFraction > 0) {
-        const dropY = stopcockY + 20 + ((Date.now() % 600) / 600) * 28;
-        ctx.beginPath();
-        ctx.arc(centerX, dropY, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = buretteLiquidColor;
-        ctx.fill();
-      }
-
-      // Erlenmeyer Flask
-      const flaskTopY = stopcockY + 50;
-      const flaskHeight = h - flaskTopY - 25;
-      const flaskNeckW = 30;
-      const flaskBaseW = 88;
-      const flaskBottomY = flaskTopY + flaskHeight;
-      const flaskNeckH = flaskHeight * 0.26;
-      const flaskShoulderY = flaskTopY + flaskNeckH;
-
-      // Erlenmeyer outline: straight neck, conical body, rounded base corners (open at the mouth)
-      const traceFlask = () => {
-        ctx.moveTo(centerX - flaskNeckW/2, flaskTopY);
-        ctx.lineTo(centerX - flaskNeckW/2, flaskShoulderY);
-        ctx.arcTo(centerX - flaskBaseW/2, flaskBottomY, centerX + flaskBaseW/2, flaskBottomY, 7);
-        ctx.arcTo(centerX + flaskBaseW/2, flaskBottomY, centerX + flaskNeckW/2, flaskShoulderY, 7);
-        ctx.lineTo(centerX + flaskNeckW/2, flaskShoulderY);
-        ctx.lineTo(centerX + flaskNeckW/2, flaskTopY);
+      // ----- small drawing helpers (design units) -----
+      const lin = (x0, y0, x1, y1, stops) => {
+        const g = ctx.createLinearGradient(x0, y0, x1, y1);
+        stops.forEach(st => g.addColorStop(st[0], st[1]));
+        return g;
+      };
+      const tint = (a) => `rgba(${T.tint},${a})`;
+      const shine = (k) => `rgba(${T.shine},${(T.shineOp * k).toFixed(2)})`;
+      const glassGrad = (x0, x1) => lin(x0, 0, x1, 0, [[0, tint(0.26)], [0.2, tint(0.07)], [0.55, tint(0.04)], [0.85, tint(0.09)], [1, tint(0.28)]]);
+      const metalV = (y0, y1) => lin(0, y0, 0, y1, [[0, T.metalHi], [0.5, T.metalMid], [1, T.metalLo]]);
+      const box = (x, y, bw, bh, r, fill, stroke, lw) => {
+        ctx.beginPath(); apRRect(ctx, x, y, bw, bh, r);
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+      };
+      const seg = (x1, y1, x2, y2, col, lw, cap) => {
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = cap || 'butt'; ctx.stroke(); ctx.lineCap = 'butt';
+      };
+      const poly = (pts, fill, stroke, lw) => {
+        ctx.beginPath(); pts.forEach((pt, i) => i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1])); ctx.closePath();
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
       };
 
-      const currentTotalVol = state.titrateVol + state.currentV;
-      const flaskFillRatio = Math.min(0.85, (currentTotalVol / state.flaskCapacity) * 0.7);
-      const liquidLevelY = flaskBottomY - (flaskHeight * flaskFillRatio);
+      // ----- state -----
+      const titrantIsBase = state.titrantRole === 'base';
+      const tcol = titrantIsBase
+        ? (isDark ? 'rgba(56,189,248,0.82)' : 'rgba(2,132,199,0.80)')
+        : (isDark ? 'rgba(244,63,94,0.82)' : 'rgba(225,29,72,0.80)');
 
+      const buretteCap = state.buretteCapacity;
+      const remainFrac = Math.max(0, 1 - (state.currentV / buretteCap));
+      const mTop = BUR_TOP + (1 - remainFrac) * (BUR_BOTTOM - BUR_TOP);     // reading = bottom of the meniscus
+      const mEdge = mTop - 3.6;
+
+      const flaskCap = state.flaskCapacity;
+      const totalVol = state.titrateVol + state.currentV;
+      const fFrac = Math.min(1, totalVol / flaskCap);
+      const liquidY = Math.max(NECK_TOP, Math.min(BODY_BOTTOM, BODY_BOTTOM - fFrac * (BODY_BOTTOM - NECK_TOP)));
       const liquidColor = getIndicatorColor(currentpH, isDark ? 0.8 : 0.65);
 
-      ctx.save();
-      ctx.beginPath();
-      traceFlask();
-      ctx.closePath();
-      ctx.clip();
+      const bx0 = CX - BUR_W / 2, bx1 = CX + BUR_W / 2;
+      const ix0 = bx0 + BUR_WALL, ix1 = bx1 - BUR_WALL;
+      const span = BUR_BOTTOM - BUR_TOP;
 
-      ctx.fillStyle = liquidColor;
-      ctx.fillRect(centerX - flaskBaseW, liquidLevelY, flaskBaseW * 2, flaskBottomY - liquidLevelY + 10);
-      
-      ctx.beginPath();
-      ctx.ellipse(centerX, liquidLevelY, flaskBaseW * 0.4, 3.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.fill();
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.scale(sc, sc);
+      ctx.lineJoin = 'round';
+
+      // ===== stand: rod + stir-plate base =====
+      box(17, -2, 6, BODY_BOTTOM + 6, 2, lin(17, 0, 23, 0, [[0, T.metalLo], [0.35, T.metalHi], [0.7, T.metalMid], [1, T.metalLo]]), T.glass, 0.6);
+      box(6, BODY_BOTTOM + 1, 232, 13, 3.5, metalV(BODY_BOTTOM + 1, BODY_BOTTOM + 14), T.glass, 1);
+      seg(10, BODY_BOTTOM + 2.6, 234, BODY_BOTTOM + 2.6, shine(0.5), 1);
+      ctx.beginPath(); ctx.arc(218, BODY_BOTTOM + 8, 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = T.cock; ctx.fill(); ctx.strokeStyle = T.glass; ctx.lineWidth = 0.8; ctx.stroke();
+      seg(218, BODY_BOTTOM + 8, 218, BODY_BOTTOM + 5.4, T.metalLo, 1.2, 'round');
+
+      // ===== burette: glass, titrant, meniscus, graduations =====
+      poly([[bx0, BUR_RIM], [bx1, BUR_RIM], [bx1, BUR_BOTTOM], [CX + 4.5, COCK_Y], [CX - 4.5, COCK_Y], [bx0, BUR_BOTTOM]], glassGrad(bx0, bx1));
+
+      if (remainFrac > 0) {
+        ctx.beginPath();
+        ctx.moveTo(ix0, mEdge);
+        ctx.quadraticCurveTo(CX, mTop + 3.6, ix1, mEdge);
+        ctx.lineTo(ix1, BUR_BOTTOM); ctx.lineTo(CX + 2, COCK_Y); ctx.lineTo(CX - 2, COCK_Y); ctx.lineTo(ix0, BUR_BOTTOM);
+        ctx.closePath(); ctx.fillStyle = tcol; ctx.fill();
+        poly([[CX - 1.6, COCK_Y + 10], [CX + 1.6, COCK_Y + 10], [CX + 0.8, TIP_Y], [CX - 0.8, TIP_Y]], tcol);
+        ctx.beginPath(); ctx.moveTo(ix0, mEdge); ctx.quadraticCurveTo(CX, mTop + 3.6, ix1, mEdge);
+        ctx.strokeStyle = T.menisc; ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      // graduations: 100 divisions; long tick + numeral every 10 %, labelled in mL for the selected burette
+      let tMinor = '', tMid = '', tMajor = '';
+      const nums = [];
+      for (let i = 0; i <= 100; i++) {
+        const y = (BUR_TOP + (i / 100) * span).toFixed(2);
+        if (i % 10 === 0) { tMajor += `M${ix0},${y}h12 `; nums.push([Math.round(buretteCap * i / 100), +y]); }
+        else if (i % 5 === 0) tMid += `M${ix0},${y}h8 `;
+        else tMinor += `M${ix0},${y}h4.5 `;
+      }
+      ctx.strokeStyle = T.tick;
+      ctx.globalAlpha = 0.7;  ctx.lineWidth = 0.55; ctx.stroke(new Path2D(tMinor));
+      ctx.globalAlpha = 0.85; ctx.lineWidth = 0.8;  ctx.stroke(new Path2D(tMid));
+      ctx.globalAlpha = 1;    ctx.lineWidth = 1;    ctx.stroke(new Path2D(tMajor));
+      ctx.fillStyle = T.label; ctx.font = `8px ${MONO}`; ctx.textAlign = 'right';
+      nums.forEach(n => ctx.fillText(String(n[0]), bx0 - 5, n[1] + 2.8));
+
+      ctx.strokeStyle = T.glass; ctx.lineWidth = 1.3;
+      ctx.stroke(new Path2D(`M ${bx0},${BUR_RIM} L ${bx0},${BUR_BOTTOM} L ${CX - 4.5},${COCK_Y} M ${bx1},${BUR_RIM} L ${bx1},${BUR_BOTTOM} L ${CX + 4.5},${COCK_Y}`));
+      ctx.globalAlpha = 0.4; ctx.lineWidth = 0.5;
+      ctx.strokeRect(ix0, BUR_RIM + 1, ix1 - ix0, BUR_BOTTOM - BUR_RIM - 1);
+      ctx.globalAlpha = 1;
+      seg(bx0 + 4, BUR_RIM + 6, bx0 + 4, BUR_BOTTOM - 8, shine(0.55), 1.6, 'round');
+      seg(bx1 - 3.5, BUR_RIM + 10, bx1 - 3.5, BUR_BOTTOM - 14, shine(0.3), 0.8, 'round');
+      box(bx0 - 2, BUR_RIM - 1.6, BUR_W + 4, 3.8, 1.9, glassGrad(bx0 - 2, bx1 + 2), T.glass, 1.1);
+
+      // ===== clamp holding the burette (sits between the 20 % and 30 % marks) =====
+      ctx.save();
+      ctx.translate(0, 12);
+      box(25, 43.2, bx0 - 25, 5.6, 2, metalV(43.2, 48.8), T.glass, 0.7);
+      box(12, 38.5, 16, 15, 3, metalV(38.5, 53.5), T.glass, 0.9);
+      ctx.beginPath(); ctx.arc(20, 46, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = T.metalLo; ctx.fill(); ctx.strokeStyle = T.glass; ctx.lineWidth = 0.6; ctx.stroke();
+      box(bx0 - 3, 38, BUR_W + 6, 16, 4, metalV(38, 54), T.glass, 1);
+      ctx.globalAlpha = 0.9; box(bx0 + 1, 42.5, BUR_W - 2, 7, 2, T.cork); ctx.globalAlpha = 1;
       ctx.restore();
 
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = glassBorder;
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      traceFlask();
-      ctx.stroke();
-      // Rim / lip at the mouth
-      ctx.beginPath();
-      ctx.moveTo(centerX - flaskNeckW/2 - 3, flaskTopY);
-      ctx.lineTo(centerX + flaskNeckW/2 + 3, flaskTopY);
-      ctx.stroke();
-      ctx.lineJoin = 'miter';
+      // ===== stopcock + tip =====
+      poly([[CX - 4, COCK_Y + 12], [CX - 1.8, TIP_Y], [CX + 1.8, TIP_Y], [CX + 4, COCK_Y + 12]], glassGrad(CX - 4, CX + 4), T.glass, 0.9);
+      box(CX - 4.8, COCK_Y, 9.6, 12, 1.5, glassGrad(CX - 4.8, CX + 4.8), T.glass, 1);
+      box(CX - 27, COCK_Y + 4.3, 19, 3, 1.5, T.cock, T.glass, 0.7);
+      box(CX - 32, COCK_Y + 1.2, 6.5, 9.2, 2.6, T.knob, T.glass, 0.8);
+      box(CX - 9, COCK_Y + 2.6, 18, 6.4, 2.2, T.cock, T.glass, 0.8);
+      ctx.beginPath(); ctx.arc(CX + 9.6, COCK_Y + 5.8, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = T.knob; ctx.fill(); ctx.strokeStyle = T.glass; ctx.lineWidth = 0.7; ctx.stroke();
 
-      ctx.fillStyle = textColor;
-      ctx.font = '9px Inter, sans-serif';
-      ctx.fillText(`${state.flaskCapacity} mL Flask`, centerX + flaskBaseW/2 - 30, flaskBottomY + 12);
+      // ===== flask: glass body, liquid, stir bar, graduations, lip =====
+      const nwO = NECK_W / 2, hwbO = BASE_W / 2;
+      const nwI = nwO - FLASK_WALL, hwbI = hwbO - FLASK_WALL * 1.13, ybI = BODY_BOTTOM - 3, rI = FLASK_R - 2.5;
+      const outerD = apFlaskPath(nwO, hwbO, RIM_Y + 3, BODY_BOTTOM, FLASK_R);
+      const innerD = apFlaskPath(nwI, hwbI, RIM_Y + 7, ybI, rI);
+      const innerClip = new Path2D(innerD + ' Z');
+      const surfW = apFlaskHalfWidth(liquidY, nwI, hwbI, ybI, rI);
+      const surfRy = Math.max(1.6, Math.min(4, surfW * 0.12));
 
-      // pH Probe Assembly
-      const probeX = centerX + 8;
-      const probeTopY = flaskTopY - 12;
-      const probeBottomY = liquidLevelY + 12;
+      ctx.fillStyle = glassGrad(CX - hwbO, CX + hwbO);
+      ctx.fill(new Path2D(outerD + ' Z'));
 
-      // Probe body
-      ctx.fillStyle = isDark ? '#334155' : '#cbd5e1';
-      ctx.fillRect(probeX - 2.5, probeTopY, 5, probeBottomY - probeTopY);
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = isDark ? '#64748b' : '#475569';
-      ctx.strokeRect(probeX - 2.5, probeTopY, 5, probeBottomY - probeTopY);
+      ctx.save();
+      ctx.clip(innerClip);
+      const lw = 120, lx = CX - lw / 2, lh = BODY_BOTTOM - liquidY + 2;
+      ctx.fillStyle = liquidColor;
+      ctx.fillRect(lx, liquidY, lw, lh);
+      ctx.beginPath(); ctx.ellipse(CX, liquidY, surfW + 2, surfRy, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = lin(0, liquidY, 0, BODY_BOTTOM + 2, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.24)']]);
+      ctx.fillRect(lx, liquidY, lw, lh);
+      ctx.fillStyle = lin(CX - hwbO, 0, CX + hwbO, 0, [[0, 'rgba(0,0,0,0.28)'], [0.22, 'rgba(0,0,0,0)'], [0.78, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.28)']]);
+      ctx.fillRect(lx, liquidY, lw, lh);
+      ctx.beginPath(); ctx.ellipse(CX, liquidY, surfW, surfRy, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 0.7; ctx.stroke();
+      // magnetic stir bar
+      ctx.globalAlpha = 0.78;
+      box(CX - 24, ybI - 6.5, 22, 5.2, 2.6, '#f2f5f8', 'rgba(0,0,0,0.3)', 0.5);
+      ctx.globalAlpha = 1;
+      ctx.restore();
 
-      // Sensing bulb
-      ctx.beginPath();
-      ctx.arc(probeX, liquidLevelY + 10, 4, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
-      ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.stroke();
+      // flask graduations at 20/40/60/80 % of the selected flask's capacity
+      [0.2, 0.4, 0.6, 0.8].forEach((f, i) => {
+        const y = BODY_BOTTOM - f * (BODY_BOTTOM - NECK_TOP);
+        const wI = apFlaskHalfWidth(y, nwI, hwbI, ybI, rI), wO = apFlaskHalfWidth(y, nwO, hwbO, BODY_BOTTOM, FLASK_R);
+        seg(CX - wI + 1.2, y, CX - wI + 1.2 + (i % 2 ? 9 : 6), y, T.tick, 1);
+        ctx.fillStyle = T.label; ctx.font = `7px ${MONO}`; ctx.textAlign = 'right';
+        ctx.fillText(String(Math.round(flaskCap * f)), CX - wO - 4, y + 2.5);
+      });
 
-      // Probe cap (cable connector at the very top of the probe)
-      ctx.fillStyle = isDark ? '#94a3b8' : '#334155';
-      ctx.fillRect(probeX - 4, probeTopY - 4, 8, 5);
+      ctx.strokeStyle = T.flask; ctx.lineWidth = 1.5; ctx.stroke(new Path2D(outerD));
+      ctx.globalAlpha = 0.4; ctx.lineWidth = 0.7; ctx.stroke(new Path2D(innerD)); ctx.globalAlpha = 1;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = shine(0.6); ctx.lineWidth = 2.6;
+      ctx.stroke(new Path2D(`M ${CX - nwO + 4.8},${NECK_TOP + 4} L ${CX - nwO + 4.8},${NECK_BOTTOM - 4} L ${CX - hwbO + 10},${BODY_BOTTOM - 20}`));
+      ctx.strokeStyle = shine(0.32); ctx.lineWidth = 1.1;
+      ctx.stroke(new Path2D(`M ${CX + nwO - 4.2},${NECK_TOP + 6} L ${CX + nwO - 4.2},${NECK_BOTTOM - 4} L ${CX + hwbO - 9},${BODY_BOTTOM - 22}`));
+      ctx.lineCap = 'butt';
+      box(CX - nwO - 3, RIM_Y, NECK_W + 6, 5.4, 2.7, glassGrad(CX - hwbO, CX + hwbO), T.flask, 1.2);
 
-      // Meter terminal position (bottom-center of the HTML meter overlay)
+      // ===== continuous drip: drop falls from the tip to the surface, then a ripple spreads =====
+      if (state.animating && remainFrac > 0) {
+        const phase = (Date.now() % 600) / 600;
+        const startY = TIP_Y + 3.5;
+        if (phase < 0.78) {
+          if (liquidY > startY + 2) {
+            const p = phase / 0.78;
+            const dy = startY + (liquidY - startY - 1) * p * p;
+            ctx.beginPath(); ctx.ellipse(CX, dy, 2.2, 3, 0, 0, Math.PI * 2);
+            ctx.fillStyle = tcol; ctx.fill();
+          }
+        } else {
+          const t = (phase - 0.78) / 0.22;
+          ctx.save();
+          ctx.clip(innerClip);
+          const rx = 3 + t * 26;
+          ctx.beginPath(); ctx.ellipse(CX, liquidY, rx, rx * 0.3, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${T.ripple},${Math.min(1, (1 - t * 0.6) * 0.95).toFixed(2)})`; ctx.lineWidth = 1.5; ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // ===== labels =====
+      ctx.fillStyle = T.label; ctx.font = `9px ${MONO}`; ctx.textAlign = 'center';
+      ctx.fillText(`${buretteCap} mL burette`, CX, -5);
+      ctx.fillText(`${flaskCap} mL flask`, CX, BODY_BOTTOM + 30);
+      ctx.textAlign = 'left';
+
+      // ===== pH probe leaning into the flask mouth =====
+      const pTop = 176, pCapTop = 162;
+      const probeTipY = Math.max(NECK_TOP + 20, Math.min(BODY_BOTTOM - 8, liquidY + 12));
+      const p0x = apProbeX(pTop), p1x = apProbeX(probeTipY);
+      seg(p0x, pTop, p1x, probeTipY, T.probeStroke, 4.4, 'round');
+      seg(p0x, pTop, p1x, probeTipY, T.probeFill, 2.6, 'round');
+      ctx.beginPath(); ctx.arc(p1x, probeTipY + 1, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = T.probeTip; ctx.fill(); ctx.strokeStyle = T.probeStroke; ctx.lineWidth = 0.8; ctx.stroke();
+      seg(apProbeX(pCapTop), pCapTop, apProbeX(pTop + 6), pTop + 6, T.probeCap, 7.5);
+
+      ctx.restore();   // back to canvas pixel space
+
+      // ===== cable from the probe cap to the HTML pH meter's terminal =====
       const meterEl = document.getElementById('phMeterBox');
       let meterX = w - 40;
       let meterY = 34;
@@ -895,16 +997,15 @@
           meterY = mr.bottom - rect.top;
         }
       }
-
-      // Cable: from top of probe to the meter terminal
-      const cableStartY = probeTopY - 4;
+      const cableStartX = tx(apProbeX(pCapTop));
+      const cableStartY = ty(pCapTop) - 1;
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
       ctx.strokeStyle = isDark ? '#94a3b8' : '#1e293b';
       ctx.beginPath();
-      ctx.moveTo(probeX, cableStartY);
+      ctx.moveTo(cableStartX, cableStartY);
       ctx.bezierCurveTo(
-        probeX, cableStartY - 38,
+        cableStartX, cableStartY - 38,
         meterX, Math.max(meterY + 40, cableStartY - 10),
         meterX, meterY + 3
       );
