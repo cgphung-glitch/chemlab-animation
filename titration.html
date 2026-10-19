@@ -480,18 +480,20 @@ let currentTheme = document.documentElement.getAttribute('data-theme') === 'ligh
 // Colors for the apparatus SVG (attributes are built from JS, so they can't use CSS vars)
 const APP_THEMES = {
   dark: {
-    stand:'#3a4356', glass:'#4a5568', glassFill:'rgba(255,255,255,0.03)', glassFill2:'rgba(255,255,255,0.05)',
-    label:'#7a8494', flask:'#5c6675', flaskBase:'#3a4150', wire:'#6b7588',
-    probeFill:'rgba(210,220,235,0.6)', probeStroke:'#8a94a6', probeTip:'rgba(230,240,255,0.75)',
-    meterBody:'#1a2030', idle:'#586273', led:'#6fcf8a', liquidIdle:'rgba(95,208,200,0.12)',
-    acid:'#e2685f', base:'#5fd0c8', ripple:'#dfe6ee'
+    glass:'#4a5568', label:'#7a8494', flask:'#6b778c', wire:'#6b7588',
+    probeFill:'rgba(210,220,235,0.6)', probeStroke:'#8a94a6', probeTip:'rgba(230,240,255,0.75)', probeCap:'#2b3242',
+    meterBody:'#1a2030', idle:'#586273', led:'#6fcf8a',
+    acid:'#e2685f', base:'#5fd0c8', ripple:'#dfe6ee',
+    tint:'255,255,255', shine:'255,255,255', shineOp:0.38, tick:'#aab3c2', menisc:'rgba(0,0,0,0.5)',
+    metalHi:'#7d889c', metalMid:'#566074', metalLo:'#374052', cock:'#9aa5b8', knob:'#cfd6e2', cork:'#8a6d45'
   },
   light: {
-    stand:'#9aa3b2', glass:'#8a94a6', glassFill:'rgba(60,80,110,0.05)', glassFill2:'rgba(60,80,110,0.08)',
-    label:'#5a6475', flask:'#7b8597', flaskBase:'#a9b1be', wire:'#7b8597',
-    probeFill:'rgba(120,135,160,0.35)', probeStroke:'#6b7588', probeTip:'rgba(120,135,160,0.55)',
-    meterBody:'#e9edf3', idle:'#a3acbb', led:'#2fa84f', liquidIdle:'rgba(15,118,110,0.10)',
-    acid:'#d6453b', base:'#12a79b', ripple:'#4a5568'
+    glass:'#8a94a6', label:'#5a6475', flask:'#7b8597', wire:'#7b8597',
+    probeFill:'rgba(120,135,160,0.35)', probeStroke:'#6b7588', probeTip:'rgba(120,135,160,0.55)', probeCap:'#4a5568',
+    meterBody:'#e9edf3', idle:'#a3acbb', led:'#2fa84f',
+    acid:'#d6453b', base:'#12a79b', ripple:'#4a5568',
+    tint:'70,100,140', shine:'255,255,255', shineOp:0.95, tick:'#2f3745', menisc:'rgba(0,0,0,0.35)',
+    metalHi:'#d5dbe5', metalMid:'#aeb7c6', metalLo:'#8b95a7', cock:'#8591a6', knob:'#4b5568', cork:'#b08d57'
   }
 };
 
@@ -1017,95 +1019,186 @@ function pHToColor(pH) {
 }
 
 // ---- Apparatus SVG (burette + Erlenmeyer flask) ---------------------------
-const CX = 130;                 // horizontal center for flask/burette
-const BUR_TOP = 14, BUR_BOTTOM = 210, BUR_W = 34;   // burette tube bounds
-const NECK_TOP = 232, NECK_BOTTOM = 258, NECK_W = 24;
-const BODY_BOTTOM = 336, BASE_W = 101;   // base width reduced 40% from original 168
+const CX = 130;                                          // horizontal center for flask/burette
+const BUR_RIM = 3, BUR_TOP = 14, BUR_BOTTOM = 196, BUR_W = 26;   // BUR_TOP = 0 mL mark, BUR_BOTTOM = 100 mL mark
+const BUR_WALL = 2.6;
+const COCK_Y = 206;                                      // top of the stopcock housing
+const TIP_Y = 238;                                       // burette tip (just inside the flask mouth)
+const RIM_Y = 232;                                       // top of the flask's rolled lip
+const NECK_TOP = 240, NECK_BOTTOM = 268, NECK_W = 36;    // NECK_TOP = liquid level of a full (250 mL) flask
+const BODY_BOTTOM = 340, BASE_W = 104;
+const FLASK_WALL = 2.4, FLASK_R = 10;                    // glass thickness, bottom corner radius
+const PROBE_SLOPE = 0.075;                               // the pH probe leans slightly so it clears the burette tip
+function probeX(y) { return CX + 18.6 - PROBE_SLOPE * (y - 168); }
 
-function flaskHalfWidthAt(y) {
-  if (y <= NECK_BOTTOM) return NECK_W / 2;
-  const t = (y - NECK_BOTTOM) / (BODY_BOTTOM - NECK_BOTTOM);
-  return (NECK_W + (BASE_W - NECK_W) * t) / 2;
+// Half-width of the flask profile (straight neck, then a cone) at height y
+function flaskHalfWidth(y, nw, hwb, yb, r) {
+  if (y <= NECK_BOTTOM) return nw;
+  const t = Math.min(1, (y - NECK_BOTTOM) / ((yb - r) - NECK_BOTTOM));
+  return nw + (hwb - nw) * t;
+}
+
+// Open outline of an Erlenmeyer flask: neck -> filleted shoulder -> cone -> rounded flat bottom
+function flaskPath(nw, hwb, yTop, yb, r) {
+  const yc = yb - r, f = 8;
+  const dx = hwb - nw, dy = yc - NECK_BOTTOM, L = Math.hypot(dx, dy);
+  const sx = nw + (dx / L) * f, sy = NECK_BOTTOM + (dy / L) * f;
+  return `M ${CX-nw},${yTop} L ${CX-nw},${NECK_BOTTOM-f}
+    Q ${CX-nw},${NECK_BOTTOM} ${CX-sx},${sy}
+    L ${CX-hwb},${yc} Q ${CX-hwb},${yb} ${CX-hwb+r},${yb}
+    L ${CX+hwb-r},${yb} Q ${CX+hwb},${yb} ${CX+hwb},${yc}
+    L ${CX+sx},${sy} Q ${CX+nw},${NECK_BOTTOM} ${CX+nw},${NECK_BOTTOM-f}
+    L ${CX+nw},${yTop}`;
+}
+
+function flaskLiquidY() {
+  const vol = state.started ? (state.analyteVolume + state.Vwater + state.Vtitrant) : 0;
+  const frac = Math.min(1, vol / FLASK_CAPACITY);
+  const y = Math.max(NECK_TOP, Math.min(BODY_BOTTOM, BODY_BOTTOM - frac * (BODY_BOTTOM - NECK_TOP)));
+  return { vol, y };
 }
 
 function renderApparatus() {
   const A = APP_THEMES[currentTheme];
+  const MONO = 'JetBrains Mono, monospace';
+  const stop = (o, c, op) => `<stop offset="${o}" stop-color="${c}" stop-opacity="${op}"/>`;
+  const glassStops = `${stop(0,`rgb(${A.tint})`,0.26)}${stop(0.2,`rgb(${A.tint})`,0.07)}${stop(0.55,`rgb(${A.tint})`,0.04)}${stop(0.85,`rgb(${A.tint})`,0.09)}${stop(1,`rgb(${A.tint})`,0.28)}`;
+  const shine = (k) => `rgba(${A.shine},${(A.shineOp * k).toFixed(2)})`;
+
+  // ----- state -----
   const remaining = state.started ? Math.max(0, BURETTE_CAPACITY - state.Vtitrant) : BURETTE_CAPACITY;
-  const burFrac = remaining / BURETTE_CAPACITY;
-  const burLiquidTopY = BUR_TOP + (1 - burFrac) * (BUR_BOTTOM - BUR_TOP);
-
-  const totalFlaskVol = state.started ? (state.analyteVolume + state.Vwater + state.Vtitrant) : 0;
-  const flaskFrac = Math.min(1, totalFlaskVol / FLASK_CAPACITY);
-  let liquidY = BODY_BOTTOM - flaskFrac * (BODY_BOTTOM - NECK_TOP);
-  liquidY = Math.max(NECK_TOP, Math.min(BODY_BOTTOM, liquidY));
-  const hw = flaskHalfWidthAt(liquidY);
-  const hwBase = BASE_W / 2;
-
+  const burLiquidTopY = BUR_TOP + (1 - remaining / BURETTE_CAPACITY) * (BUR_BOTTOM - BUR_TOP);
+  const { vol: totalFlaskVol, y: liquidY } = flaskLiquidY();
   const pH = state.started ? pHAtCurrentState() : null;
-  const liquidColor = state.started && totalFlaskVol > 0 ? pHToColor(pH) : A.liquidIdle;
+  const liquidColor = pHToColor(pH);
   const probeTipY = Math.max(NECK_TOP + 20, Math.min(BODY_BOTTOM - 8, liquidY + 12));
   const meterText = (state.started && pH != null) ? pH.toFixed(2) : '\u2014';
   const titrantColor = state.started ? (state.titrantIs === 'acid' ? A.acid : A.base) : A.idle;
 
-  // graduation marks on burette (every 10 mL of its 100 mL span)
-  let grads = '';
-  for (let m = 0; m <= 100; m += 10) {
-    const y = BUR_TOP + (m / 100) * (BUR_BOTTOM - BUR_TOP);
-    const len = (m % 50 === 0) ? 10 : 6;
-    grads += `<line x1="${CX + BUR_W/2}" y1="${y}" x2="${CX + BUR_W/2 + len}" y2="${y}" stroke="${A.glass}" stroke-width="1"/>`;
-    if (m % 50 === 0) grads += `<text x="${CX + BUR_W/2 + 14}" y="${y+3}" font-size="8" fill="${A.label}" font-family="JetBrains Mono, monospace">${m}</text>`;
+  // ----- burette -----
+  const bx0 = CX - BUR_W / 2, bx1 = CX + BUR_W / 2;
+  const ix0 = bx0 + BUR_WALL, ix1 = bx1 - BUR_WALL;
+  const span = BUR_BOTTOM - BUR_TOP;
+  let tMinor = '', tMid = '', tMajor = '', nums = '';
+  for (let m = 0; m <= 100; m++) {
+    const y = (BUR_TOP + (m / 100) * span).toFixed(2);
+    if (m % 10 === 0) {
+      tMajor += `M${ix0},${y}h12 `;
+      nums += `<text x="${bx0 - 5}" y="${(+y + 2.8).toFixed(2)}" text-anchor="end" font-size="7.5" fill="${A.label}" font-family="${MONO}">${m}</text>`;
+    } else if (m % 5 === 0) tMid += `M${ix0},${y}h8 `;
+    else tMinor += `M${ix0},${y}h4.5 `;
   }
+  const mTop = burLiquidTopY, mEdge = mTop - 3.6;     // reading is taken at the bottom of the meniscus
+  const burLiquid = remaining > 0 ? `
+    <path class="burette-fill" d="M ${ix0},${mEdge} Q ${CX},${mTop + 3.6} ${ix1},${mEdge} L ${ix1},${BUR_BOTTOM} L ${CX+2},${COCK_Y} L ${CX-2},${COCK_Y} L ${ix0},${BUR_BOTTOM} Z" fill="${titrantColor}" opacity="0.85"/>
+    <path d="M ${CX-1.6},${COCK_Y+10} L ${CX+1.6},${COCK_Y+10} L ${CX+0.8},${TIP_Y} L ${CX-0.8},${TIP_Y} Z" fill="${titrantColor}" opacity="0.85"/>
+    <path d="M ${ix0},${mEdge} Q ${CX},${mTop + 3.6} ${ix1},${mEdge}" fill="none" stroke="${A.menisc}" stroke-width="1"/>` : '';
 
-  const liquidPath = `M ${CX-hwBase},${BODY_BOTTOM}
-    L ${CX+hwBase},${BODY_BOTTOM}
-    L ${CX+hw},${liquidY}
-    L ${CX-hw},${liquidY} Z`;
+  // ----- flask -----
+  const nwO = NECK_W / 2, hwbO = BASE_W / 2;
+  const nwI = nwO - FLASK_WALL, hwbI = hwbO - FLASK_WALL * 1.13, ybI = BODY_BOTTOM - 3, rI = FLASK_R - 2.5;
+  const outerD = flaskPath(nwO, hwbO, RIM_Y + 3, BODY_BOTTOM, FLASK_R);
+  const innerD = flaskPath(nwI, hwbI, RIM_Y + 7, ybI, rI);
+  const surfW = flaskHalfWidth(liquidY, nwI, hwbI, ybI, rI);
+  const surfRy = Math.max(1.6, Math.min(4, surfW * 0.12));
+  let fgrad = '';
+  [50, 100, 150, 200].forEach(v => {
+    const y = BODY_BOTTOM - (v / FLASK_CAPACITY) * (BODY_BOTTOM - NECK_TOP);
+    const wI = flaskHalfWidth(y, nwI, hwbI, ybI, rI), wO = flaskHalfWidth(y, nwO, hwbO, BODY_BOTTOM, FLASK_R);
+    const len = (v % 100 === 0) ? 9 : 6;
+    fgrad += `<line x1="${CX - wI + 1.2}" y1="${y}" x2="${CX - wI + 1.2 + len}" y2="${y}" stroke="${A.tick}" stroke-width="1" opacity="0.85"/>`;
+    fgrad += `<text x="${CX - wO - 4}" y="${y + 2.5}" text-anchor="end" font-size="7" fill="${A.label}" font-family="${MONO}">${v}</text>`;
+  });
+  const lw = 120, lx = CX - lw / 2, lh = BODY_BOTTOM - liquidY + 2;
+  const flaskLiquid = totalFlaskVol > 0 ? `
+      <rect class="liquid-fill" x="${lx}" y="${liquidY}" width="${lw}" height="${lh}" fill="${liquidColor}" opacity="0.88"/>
+      <ellipse cx="${CX}" cy="${liquidY}" rx="${surfW + 2}" ry="${surfRy}" fill="${liquidColor}" opacity="0.88"/>
+      <rect x="${lx}" y="${liquidY}" width="${lw}" height="${lh}" fill="url(#gLiqV)"/>
+      <rect x="${lx}" y="${liquidY}" width="${lw}" height="${lh}" fill="url(#gLiqH)"/>
+      <ellipse cx="${CX}" cy="${liquidY}" rx="${surfW}" ry="${surfRy}" fill="#ffffff" opacity="0.2" stroke="rgba(255,255,255,0.35)" stroke-width="0.7"/>` : '';
 
-  const flaskOutline = `M ${CX-NECK_W/2},${NECK_TOP}
-    L ${CX-NECK_W/2},${NECK_BOTTOM}
-    L ${CX-hwBase},${BODY_BOTTOM-4}
-    Q ${CX-hwBase},${BODY_BOTTOM} ${CX-hwBase+8},${BODY_BOTTOM}
-    L ${CX+hwBase-8},${BODY_BOTTOM}
-    Q ${CX+hwBase},${BODY_BOTTOM} ${CX+hwBase},${BODY_BOTTOM-4}
-    L ${CX+NECK_W/2},${NECK_BOTTOM}
-    L ${CX+NECK_W/2},${NECK_TOP}`;
+  // ----- probe -----
+  const pTop = 176, pCapTop = 162;
+  const p0x = probeX(pTop), p1x = probeX(probeTipY);
 
   apparatusStage.innerHTML = `
-  <svg viewBox="0 0 260 360" width="260" height="360" style="overflow:visible;">
-    <!-- burette clamp/stand -->
-    <line x1="20" y1="10" x2="20" y2="230" stroke="${A.stand}" stroke-width="4" stroke-linecap="round"/>
-    <line x1="20" y1="16" x2="${CX-BUR_W/2-2}" y2="16" stroke="${A.stand}" stroke-width="4" stroke-linecap="round"/>
+  <svg viewBox="0 -16 260 396" width="260" height="396" style="overflow:visible;">
+    <defs>
+      <linearGradient id="gBur" gradientUnits="userSpaceOnUse" x1="${bx0}" y1="0" x2="${bx1}" y2="0">${glassStops}</linearGradient>
+      <linearGradient id="gFlask" gradientUnits="userSpaceOnUse" x1="${CX - hwbO}" y1="0" x2="${CX + hwbO}" y2="0">${glassStops}</linearGradient>
+      <linearGradient id="gMetalV" x1="0" y1="0" x2="0" y2="1">${stop(0,A.metalHi,1)}${stop(0.5,A.metalMid,1)}${stop(1,A.metalLo,1)}</linearGradient>
+      <linearGradient id="gRod" x1="0" y1="0" x2="1" y2="0">${stop(0,A.metalLo,1)}${stop(0.35,A.metalHi,1)}${stop(0.7,A.metalMid,1)}${stop(1,A.metalLo,1)}</linearGradient>
+      <linearGradient id="gLiqV" x1="0" y1="0" x2="0" y2="1">${stop(0,'#000',0)}${stop(1,'#000',0.24)}</linearGradient>
+      <linearGradient id="gLiqH" gradientUnits="userSpaceOnUse" x1="${CX - hwbO}" y1="0" x2="${CX + hwbO}" y2="0">${stop(0,'#000',0.28)}${stop(0.22,'#000',0)}${stop(0.78,'#000',0)}${stop(1,'#000',0.28)}</linearGradient>
+      <clipPath id="flaskInner"><path d="${innerD} Z"/></clipPath>
+    </defs>
 
-    <!-- burette tube -->
-    <rect x="${CX-BUR_W/2}" y="${BUR_TOP}" width="${BUR_W}" height="${BUR_BOTTOM-BUR_TOP}" rx="3"
-      fill="${A.glassFill}" stroke="${A.glass}" stroke-width="1.5"/>
-    <rect class="burette-fill" x="${CX-BUR_W/2+1.5}" y="${burLiquidTopY}" width="${BUR_W-3}" height="${Math.max(0,BUR_BOTTOM-burLiquidTopY-1.5)}"
-      fill="${titrantColor}" opacity="0.85"/>
-    ${grads}
-    <!-- burette tip -->
-    <path d="M ${CX-6},${BUR_BOTTOM} L ${CX+6},${BUR_BOTTOM} L ${CX+2},${BUR_BOTTOM+16} L ${CX-2},${BUR_BOTTOM+16} Z"
-      fill="${A.glassFill2}" stroke="${A.glass}" stroke-width="1.2"/>
-    <line x1="${CX}" y1="${BUR_BOTTOM+16}" x2="${CX}" y2="${BUR_BOTTOM+24}" stroke="${A.glass}" stroke-width="1.2"/>
+    <!-- stand: rod + stir-plate base -->
+    <rect x="17" y="-2" width="6" height="${BODY_BOTTOM + 6}" rx="2" fill="url(#gRod)" stroke="${A.glass}" stroke-width="0.6"/>
+    <rect x="6" y="${BODY_BOTTOM + 1}" width="232" height="13" rx="3.5" fill="url(#gMetalV)" stroke="${A.glass}" stroke-width="1"/>
+    <line x1="10" y1="${BODY_BOTTOM + 2.6}" x2="234" y2="${BODY_BOTTOM + 2.6}" stroke="${shine(0.5)}" stroke-width="1"/>
+    <circle cx="218" cy="${BODY_BOTTOM + 8}" r="3.4" fill="${A.cock}" stroke="${A.glass}" stroke-width="0.8"/>
+    <line x1="218" y1="${BODY_BOTTOM + 8}" x2="218" y2="${BODY_BOTTOM + 5.4}" stroke="${A.metalLo}" stroke-width="1.2" stroke-linecap="round"/>
+
+    <!-- burette: glass, titrant, meniscus, graduations -->
+    <path d="M ${bx0},${BUR_RIM} L ${bx1},${BUR_RIM} L ${bx1},${BUR_BOTTOM} L ${CX+4.5},${COCK_Y} L ${CX-4.5},${COCK_Y} L ${bx0},${BUR_BOTTOM} Z" fill="url(#gBur)"/>
+    ${burLiquid}
+    <path d="${tMinor}" stroke="${A.tick}" stroke-width="0.55" opacity="0.7" fill="none"/>
+    <path d="${tMid}" stroke="${A.tick}" stroke-width="0.8" opacity="0.85" fill="none"/>
+    <path d="${tMajor}" stroke="${A.tick}" stroke-width="1" fill="none"/>
+    ${nums}
+    <path d="M ${bx0},${BUR_RIM} L ${bx0},${BUR_BOTTOM} L ${CX-4.5},${COCK_Y} M ${bx1},${BUR_RIM} L ${bx1},${BUR_BOTTOM} L ${CX+4.5},${COCK_Y}" fill="none" stroke="${A.glass}" stroke-width="1.3" stroke-linejoin="round"/>
+    <rect x="${ix0}" y="${BUR_RIM + 1}" width="${ix1 - ix0}" height="${BUR_BOTTOM - BUR_RIM - 1}" fill="none" stroke="${A.glass}" stroke-width="0.5" opacity="0.4"/>
+    <line x1="${bx0 + 4}" y1="${BUR_RIM + 6}" x2="${bx0 + 4}" y2="${BUR_BOTTOM - 8}" stroke="${shine(1)}" stroke-width="1.6" stroke-linecap="round" opacity="0.55"/>
+    <line x1="${bx1 - 3.5}" y1="${BUR_RIM + 10}" x2="${bx1 - 3.5}" y2="${BUR_BOTTOM - 14}" stroke="${shine(1)}" stroke-width="0.8" stroke-linecap="round" opacity="0.3"/>
+    <rect x="${bx0 - 2}" y="${BUR_RIM - 1.6}" width="${BUR_W + 4}" height="3.8" rx="1.9" fill="url(#gBur)" stroke="${A.glass}" stroke-width="1.1"/>
+
+    <!-- clamp holding the burette (sits between the 20 and 30 mL numerals) -->
+    <g transform="translate(0 12)">
+    <rect x="25" y="43.2" width="${bx0 - 25}" height="5.6" rx="2" fill="url(#gMetalV)" stroke="${A.glass}" stroke-width="0.7"/>
+    <rect x="12" y="38.5" width="16" height="15" rx="3" fill="url(#gMetalV)" stroke="${A.glass}" stroke-width="0.9"/>
+    <circle cx="20" cy="46" r="2.2" fill="${A.metalLo}" stroke="${A.glass}" stroke-width="0.6"/>
+    <rect x="${bx0 - 3}" y="38" width="${BUR_W + 6}" height="16" rx="4" fill="url(#gMetalV)" stroke="${A.glass}" stroke-width="1"/>
+    <rect x="${bx0 + 1}" y="42.5" width="${BUR_W - 2}" height="7" rx="2" fill="${A.cork}" opacity="0.9"/>
+    </g>
+
+    <!-- stopcock + tip -->
+    <path d="M ${CX-4},${COCK_Y+12} L ${CX-1.8},${TIP_Y} L ${CX+1.8},${TIP_Y} L ${CX+4},${COCK_Y+12} Z" fill="url(#gBur)" stroke="${A.glass}" stroke-width="0.9"/>
+    <rect x="${CX - 4.8}" y="${COCK_Y}" width="9.6" height="12" rx="1.5" fill="url(#gBur)" stroke="${A.glass}" stroke-width="1"/>
+    <rect x="${CX - 27}" y="${COCK_Y + 4.3}" width="19" height="3" rx="1.5" fill="${A.cock}" stroke="${A.glass}" stroke-width="0.7"/>
+    <rect x="${CX - 32}" y="${COCK_Y + 1.2}" width="6.5" height="9.2" rx="2.6" fill="${A.knob}" stroke="${A.glass}" stroke-width="0.8"/>
+    <rect x="${CX - 9}" y="${COCK_Y + 2.6}" width="18" height="6.4" rx="2.2" fill="${A.cock}" stroke="${A.glass}" stroke-width="0.8"/>
+    <circle cx="${CX + 9.6}" cy="${COCK_Y + 5.8}" r="2.5" fill="${A.knob}" stroke="${A.glass}" stroke-width="0.7"/>
     <g id="dripLayer"></g>
 
-    <!-- flask -->
-    <path d="${flaskOutline}" fill="none" stroke="${A.flask}" stroke-width="1.6"/>
-    <path class="liquid-fill" d="${liquidPath}" fill="${liquidColor}" opacity="0.88"/>
-    <g id="rippleLayer"></g>
-    <path d="${flaskOutline}" fill="none" stroke="${A.flask}" stroke-width="1.6" opacity="0.55"/>
-    <ellipse cx="${CX}" cy="${BODY_BOTTOM}" rx="${hwBase-2}" ry="3" fill="none" stroke="${A.flaskBase}" stroke-width="1"/>
+    <!-- flask: glass body, liquid, graduations, lip -->
+    <path d="${outerD} Z" fill="url(#gFlask)"/>
+    <g clip-path="url(#flaskInner)">
+      ${flaskLiquid}
+      <rect x="${CX - 24}" y="${ybI - 6.5}" width="22" height="5.2" rx="2.6" fill="#f2f5f8" opacity="0.78" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+    </g>
+    ${fgrad}
+    <path d="${outerD}" fill="none" stroke="${A.flask}" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="${innerD}" fill="none" stroke="${A.flask}" stroke-width="0.7" opacity="0.4" stroke-linejoin="round"/>
+    <path d="M ${CX - nwO + 4.8},${NECK_TOP + 4} L ${CX - nwO + 4.8},${NECK_BOTTOM - 4} L ${CX - hwbO + 10},${BODY_BOTTOM - 20}" fill="none" stroke="${shine(1)}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+    <path d="M ${CX + nwO - 4.2},${NECK_TOP + 6} L ${CX + nwO - 4.2},${NECK_BOTTOM - 4} L ${CX + hwbO - 9},${BODY_BOTTOM - 22}" fill="none" stroke="${shine(1)}" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" opacity="0.32"/>
+    <rect x="${CX - nwO - 3}" y="${RIM_Y}" width="${NECK_W + 6}" height="5.4" rx="2.7" fill="url(#gFlask)" stroke="${A.flask}" stroke-width="1.2"/>
+    <g id="rippleLayer" clip-path="url(#flaskInner)"></g>
 
-    <text x="${CX}" y="${BUR_TOP-6}" text-anchor="middle" font-size="9" fill="${A.label}" font-family="JetBrains Mono, monospace">100 mL burette</text>
-    <text x="${CX}" y="${BODY_BOTTOM+22}" text-anchor="middle" font-size="9" fill="${A.label}" font-family="JetBrains Mono, monospace">250 mL flask</text>
+    <text x="${CX}" y="-5" text-anchor="middle" font-size="9" fill="${A.label}" font-family="${MONO}">100 mL burette</text>
+    <text x="${CX}" y="${BODY_BOTTOM + 30}" text-anchor="middle" font-size="9" fill="${A.label}" font-family="${MONO}">250 mL flask</text>
 
-    <!-- pH meter + probe dipping into the flask -->
-    <path d="M 220,112 C 220,200 ${CX+8},170 ${CX+8},222" fill="none" stroke="${A.wire}" stroke-width="2" stroke-linecap="round"/>
-    <rect x="${CX+6}" y="222" width="4" height="${Math.max(0, probeTipY-222)}" rx="1.5" fill="${A.probeFill}" stroke="${A.probeStroke}" stroke-width="0.8"/>
-    <circle cx="${CX+8}" cy="${probeTipY+1}" r="3.4" fill="${A.probeTip}" stroke="${A.probeStroke}" stroke-width="0.8"/>
+    <!-- pH meter + probe leaning into the flask mouth -->
+    <path d="M 221,112 C 221,146 ${probeX(pCapTop)},128 ${probeX(pCapTop)},${pCapTop}" fill="none" stroke="${A.wire}" stroke-width="2" stroke-linecap="round"/>
+    <line x1="${p0x}" y1="${pTop}" x2="${p1x}" y2="${probeTipY}" stroke="${A.probeStroke}" stroke-width="4.4" stroke-linecap="round"/>
+    <line x1="${p0x}" y1="${pTop}" x2="${p1x}" y2="${probeTipY}" stroke="${A.probeFill}" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="${p1x}" cy="${probeTipY + 1}" r="3.2" fill="${A.probeTip}" stroke="${A.probeStroke}" stroke-width="0.8"/>
+    <line x1="${probeX(pCapTop)}" y1="${pCapTop}" x2="${probeX(pTop + 6)}" y2="${pTop + 6}" stroke="${A.probeCap}" stroke-width="7.5"/>
+    <line x1="${probeX(pCapTop + 3)}" y1="${pCapTop + 3}" x2="${probeX(pCapTop + 3)}" y2="${pCapTop + 3}" stroke="${A.probeCap}" stroke-width="0"/>
     <rect x="184" y="62" width="74" height="50" rx="6" fill="${A.meterBody}" stroke="${A.glass}" stroke-width="1.5"/>
-    <text x="221" y="74" text-anchor="middle" font-size="7.5" letter-spacing="1" fill="${A.label}" font-family="JetBrains Mono, monospace">pH METER</text>
+    <text x="221" y="74" text-anchor="middle" font-size="7.5" letter-spacing="1" fill="${A.label}" font-family="${MONO}">pH METER</text>
     <rect x="190" y="79" width="62" height="26" rx="3" fill="#0c1a1a" stroke="#2c3a3a" stroke-width="1"/>
-    <text x="221" y="98" text-anchor="middle" font-size="17" font-weight="700" fill="#5fd0c8" font-family="JetBrains Mono, monospace">${meterText}</text>
+    <text x="221" y="98" text-anchor="middle" font-size="17" font-weight="700" fill="#5fd0c8" font-family="${MONO}">${meterText}</text>
     <circle cx="249" cy="69" r="2" fill="${state.started ? A.led : A.idle}"/>
   </svg>`;
 }
@@ -1113,13 +1206,16 @@ function renderApparatus() {
 function triggerDrip() {
   const layer = apparatusStage.querySelector('#dripLayer');
   if (!layer) return;
+  const A = APP_THEMES[currentTheme];
+  const startY = TIP_Y + 3.5;
+  const { y: liquidY } = flaskLiquidY();
   const drop = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   drop.setAttribute('cx', CX);
-  drop.setAttribute('cy', BUR_BOTTOM + 20);
-  drop.setAttribute('r', 3);
-  drop.setAttribute('fill', state.titrantIs === 'acid' ? APP_THEMES[currentTheme].acid : APP_THEMES[currentTheme].base);
+  drop.setAttribute('cy', startY);
+  drop.setAttribute('r', 2.6);
+  drop.setAttribute('fill', state.titrantIs === 'acid' ? A.acid : A.base);
   drop.classList.add('drip-drop');
-  drop.style.setProperty('--drip-dist', (NECK_TOP - BUR_BOTTOM - 20) + 'px');
+  drop.style.setProperty('--drip-dist', Math.max(4, liquidY - startY - 1) + 'px');
   layer.appendChild(drop);
   setTimeout(() => drop.remove(), 600);
   setTimeout(triggerRipple, 480);
@@ -1128,16 +1224,15 @@ function triggerDrip() {
 function triggerRipple() {
   const layer = apparatusStage.querySelector('#rippleLayer');
   if (!layer) return;
-  const totalFlaskVol = state.analyteVolume + state.Vwater + state.Vtitrant;
-  const flaskFrac = Math.min(1, totalFlaskVol / FLASK_CAPACITY);
-  const y = Math.max(NECK_TOP, Math.min(BODY_BOTTOM, BODY_BOTTOM - flaskFrac * (BODY_BOTTOM - NECK_TOP)));
+  const { y } = flaskLiquidY();
   const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
   ring.setAttribute('cx', CX);
   ring.setAttribute('cy', y);
   ring.setAttribute('r', 2);
   ring.setAttribute('fill', 'none');
   ring.setAttribute('stroke', APP_THEMES[currentTheme].ripple);
-  ring.setAttribute('stroke-width', '1.2');
+  ring.setAttribute('stroke-width', '1.4');
+  ring.setAttribute('transform', `translate(0 ${(y * 0.7).toFixed(2)}) scale(1 0.3)`);   // squash into the liquid surface plane
   ring.classList.add('ripple-ring');
   layer.appendChild(ring);
   setTimeout(() => ring.remove(), 650);
