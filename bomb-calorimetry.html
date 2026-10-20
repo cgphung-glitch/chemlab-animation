@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bomb Calorimetry — Constant-Volume Combustion Simulator</title>
+<script>
+/* Apply saved theme before first paint (default: dark) */
+(function(){
+  var t = 'dark';
+  try { var s = localStorage.getItem('bombCalorimetryTheme'); if (s === 'light' || s === 'dark') t = s; } catch (e) {}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <style>
   :root{
     --bg:#12140f;
@@ -23,6 +31,37 @@
     --font-head:'Frank Ruhl Libre','Iowan Old Style','Palatino Linotype',Georgia,'Times New Roman',serif;
     --font-mono:'JetBrains Mono','Fira Code',Consolas,'Courier New',monospace;
     --font-body:'Iowan Old Style',Georgia,'Times New Roman',serif;
+    --ign-top:#3a1712; --ign-bot:#241009; --ign-line:#7a3126;
+    --warn-line:#5a2b23; --warn-bg:rgba(217,99,79,0.08);
+    --ign-btn-fill:#241612; --ign-btn-line:#7a3126;
+    /* apparatus colors */
+    --glass-rgb:255,255,255;
+    --ap-gap:#14170f; --ap-bench-top:#23271c; --ap-bench-bot:#171a12; --ap-bench-line:#3a4030;
+    --ap-shadow-op:0.55; --ap-num:#9aa08c; --ap-ring:#8d97aa; --ap-wire-b:#8a9096;
+    color-scheme:dark;
+  }
+  :root[data-theme="light"]{
+    --bg:#f2f0e6;
+    --bg-grid:#e7e4d6;
+    --panel:#fffefa;
+    --panel-2:#f4f2e8;
+    --line:#d3cfbd;
+    --ink:#22251b;
+    --ink-dim:#5a5f4d;
+    --amber:#a35f08;
+    --amber-dim:#c99a52;
+    --cyan:#0d6f6c;
+    --cyan-dim:#7fb3b1;
+    --red:#b4402c;
+    --steel:#79838a;
+    --steel-dark:#c5cace;
+    --ign-top:#fbe6df; --ign-bot:#f5d2c8; --ign-line:#c2604c;
+    --warn-line:#e3b4aa; --warn-bg:rgba(180,64,44,0.07);
+    --ign-btn-fill:#f6cfc4; --ign-btn-line:#b4402c;
+    --glass-rgb:70,100,140;
+    --ap-gap:#cfd3d8; --ap-bench-top:#dfe2e6; --ap-bench-bot:#c8ccd2; --ap-bench-line:#adb4be;
+    --ap-shadow-op:0.28; --ap-num:#3a4352; --ap-ring:#6b7588; --ap-wire-b:#2b2f33;
+    color-scheme:light;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -101,8 +140,8 @@
 
   button.ignite{
     width:100%; padding:14px; margin-top:6px;
-    background: linear-gradient(180deg,#3a1712,#241009);
-    color:var(--red); border:1px solid #7a3126; border-radius:4px;
+    background: linear-gradient(180deg,var(--ign-top),var(--ign-bot));
+    color:var(--red); border:1px solid var(--ign-line); border-radius:4px;
     font-family:var(--font-mono); font-size:0.95rem; letter-spacing:2px;
     text-transform:uppercase; cursor:pointer;
     box-shadow: inset 0 0 12px rgba(217,99,79,0.15);
@@ -159,8 +198,8 @@
   }
   .final-temp small{display:block; font-size:0.62rem; color:var(--ink-dim); letter-spacing:1.5px; text-transform:uppercase;}
   .warn{
-    font-family:var(--font-mono); font-size:0.7rem; color:var(--red); border:1px solid #5a2b23;
-    background:rgba(217,99,79,0.08); padding:6px 8px; border-radius:2px; margin-top:8px;
+    font-family:var(--font-mono); font-size:0.7rem; color:var(--red); border:1px solid var(--warn-line);
+    background:var(--warn-bg); padding:6px 8px; border-radius:2px; margin-top:8px;
   }
 
   footer{margin-top:20px; color:var(--ink-dim); font-family:var(--font-mono); font-size:0.68rem; text-align:center; border-top:1px solid var(--line); padding-top:10px;}
@@ -180,6 +219,21 @@
     0%{opacity:0.9; r:14;}
     100%{opacity:0; r:110;}
   }
+
+  /* --- header theme toggle --- */
+  header .header-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .theme-toggle{display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px; font-size:0.72rem;}
+  .theme-toggle svg{width:14px; height:14px; flex:none;}
+  .theme-toggle .icon-moon{display:none;}
+  :root[data-theme="light"] .theme-toggle .icon-sun{display:none;}
+  :root[data-theme="light"] .theme-toggle .icon-moon{display:inline;}
+
+  /* --- apparatus animation --- */
+  .prop-blades{animation: propSpin 0.32s linear infinite;}
+  @keyframes propSpin{ 0%,100%{transform:scaleX(1);} 50%{transform:scaleX(0.12);} }
+  @media (prefers-reduced-motion: reduce){ .prop-blades{animation:none;} }
+  .ign-btn{fill:var(--ign-btn-fill); stroke:var(--ign-btn-line); transition: fill 0.1s ease;}
+  .ign-btn.pressed{fill:#d9634f;}
 </style>
 </head>
 <body>
@@ -190,7 +244,14 @@
       <h1><span class="accent">⌬</span> Bomb Calorimetry <span style="color:var(--ink-dim); font-weight:400;">— Constant-Volume Combustion</span></h1>
       <div class="subtitle">q<sub>v</sub> = ΔU &nbsp;·&nbsp; sealed steel bomb &nbsp;·&nbsp; excess O₂ &nbsp;·&nbsp; insulated water bath</div>
     </div>
-    <div class="badge">General Chemistry Lab · Sim v1.0</div>
+    <div class="header-right">
+      <div class="badge">General Chemistry Lab · Sim v1.0</div>
+      <button type="button" class="ghost theme-toggle" id="themeToggle" title="Toggle dark / light theme" aria-label="Switch to light theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <span id="themeToggleLabel">Light</span>
+      </button>
+    </div>
   </header>
 
   <div class="grid">
@@ -253,66 +314,154 @@
       <div class="panel diagram-wrap">
         <div class="panel-title">Apparatus</div>
         <svg id="diagram" viewBox="0 0 520 460" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="bkFoam" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="0.0" cy="17.9" r="0.87" fill="#b3ae9f" opacity="0.69"/><circle cx="40.0" cy="17.9" r="0.87" fill="#b3ae9f" opacity="0.69"/><circle cx="16.3" cy="20.7" r="1.06" fill="#b3ae9f" opacity="0.46"/><circle cx="8.7" cy="28.5" r="0.67" fill="#b3ae9f" opacity="0.59"/><circle cx="33.1" cy="15.3" r="0.60" fill="#b3ae9f" opacity="0.64"/><circle cx="23.7" cy="22.2" r="1.07" fill="#b3ae9f" opacity="0.47"/><circle cx="31.8" cy="0.5" r="0.73" fill="#fbfaf6" opacity="0.64"/><circle cx="31.8" cy="40.5" r="0.73" fill="#fbfaf6" opacity="0.64"/><circle cx="0.5" cy="15.4" r="1.56" fill="#b3ae9f" opacity="0.39"/><circle cx="40.5" cy="15.4" r="1.56" fill="#b3ae9f" opacity="0.39"/><circle cx="24.4" cy="38.4" r="0.88" fill="#fbfaf6" opacity="0.36"/><circle cx="24.4" cy="-1.6" r="0.88" fill="#fbfaf6" opacity="0.36"/><circle cx="28.7" cy="32.3" r="1.64" fill="#b3ae9f" opacity="0.42"/><circle cx="32.0" cy="37.9" r="1.38" fill="#fbfaf6" opacity="0.67"/><circle cx="32.0" cy="-2.1" r="1.38" fill="#fbfaf6" opacity="0.67"/><circle cx="17.3" cy="10.2" r="1.24" fill="#b3ae9f" opacity="0.73"/><circle cx="33.3" cy="14.1" r="1.55" fill="#b3ae9f" opacity="0.62"/><circle cx="38.0" cy="22.0" r="1.32" fill="#b3ae9f" opacity="0.69"/><circle cx="-2.0" cy="22.0" r="1.32" fill="#b3ae9f" opacity="0.69"/><circle cx="17.3" cy="37.1" r="1.70" fill="#b3ae9f" opacity="0.67"/><circle cx="17.3" cy="-2.9" r="1.70" fill="#b3ae9f" opacity="0.67"/><circle cx="20.3" cy="9.0" r="0.56" fill="#b3ae9f" opacity="0.68"/><circle cx="4.4" cy="14.0" r="1.16" fill="#b3ae9f" opacity="0.54"/><circle cx="4.2" cy="15.2" r="0.71" fill="#fbfaf6" opacity="0.57"/><circle cx="37.0" cy="3.9" r="1.68" fill="#fbfaf6" opacity="0.66"/><circle cx="22.6" cy="14.8" r="1.53" fill="#fbfaf6" opacity="0.55"/><circle cx="12.2" cy="21.3" r="0.81" fill="#fbfaf6" opacity="0.58"/><circle cx="36.4" cy="5.9" r="0.69" fill="#fbfaf6" opacity="0.63"/><circle cx="11.5" cy="33.1" r="0.94" fill="#fbfaf6" opacity="0.54"/><circle cx="20.4" cy="9.2" r="0.62" fill="#fbfaf6" opacity="0.70"/><circle cx="10.5" cy="30.3" r="0.91" fill="#fbfaf6" opacity="0.52"/><circle cx="0.0" cy="0.8" r="0.54" fill="#fbfaf6" opacity="0.47"/><circle cx="40.0" cy="0.8" r="0.54" fill="#fbfaf6" opacity="0.47"/><circle cx="0.0" cy="40.8" r="0.54" fill="#fbfaf6" opacity="0.47"/><circle cx="32.3" cy="12.7" r="1.27" fill="#fbfaf6" opacity="0.55"/><circle cx="30.3" cy="6.9" r="1.28" fill="#b3ae9f" opacity="0.45"/><circle cx="10.6" cy="19.9" r="1.25" fill="#b3ae9f" opacity="0.47"/><circle cx="19.6" cy="20.4" r="0.64" fill="#fbfaf6" opacity="0.68"/><circle cx="19.9" cy="22.4" r="0.76" fill="#fbfaf6" opacity="0.50"/><circle cx="4.2" cy="22.9" r="0.96" fill="#b3ae9f" opacity="0.55"/><circle cx="36.9" cy="15.8" r="0.70" fill="#fbfaf6" opacity="0.68"/><circle cx="29.1" cy="9.6" r="0.84" fill="#b3ae9f" opacity="0.47"/><circle cx="36.7" cy="27.7" r="1.17" fill="#b3ae9f" opacity="0.56"/><circle cx="17.7" cy="29.7" r="0.52" fill="#fbfaf6" opacity="0.66"/><circle cx="0.7" cy="31.3" r="1.08" fill="#fbfaf6" opacity="0.35"/><circle cx="40.7" cy="31.3" r="1.08" fill="#fbfaf6" opacity="0.35"/><circle cx="33.8" cy="39.0" r="1.58" fill="#b3ae9f" opacity="0.42"/><circle cx="33.8" cy="-1.0" r="1.58" fill="#b3ae9f" opacity="0.42"/><circle cx="14.7" cy="19.0" r="1.70" fill="#fbfaf6" opacity="0.54"/><circle cx="7.4" cy="22.6" r="1.23" fill="#fbfaf6" opacity="0.48"/><circle cx="3.4" cy="18.6" r="1.65" fill="#fbfaf6" opacity="0.38"/><circle cx="23.2" cy="29.0" r="1.53" fill="#b3ae9f" opacity="0.50"/><circle cx="7.3" cy="36.5" r="1.29" fill="#b3ae9f" opacity="0.57"/><circle cx="13.8" cy="25.7" r="1.51" fill="#b3ae9f" opacity="0.57"/><circle cx="34.9" cy="32.3" r="1.43" fill="#b3ae9f" opacity="0.43"/><circle cx="29.9" cy="31.0" r="0.62" fill="#fbfaf6" opacity="0.69"/><circle cx="15.1" cy="13.8" r="1.10" fill="#b3ae9f" opacity="0.38"/><circle cx="21.0" cy="31.6" r="1.68" fill="#b3ae9f" opacity="0.73"/><circle cx="35.3" cy="14.8" r="1.59" fill="#b3ae9f" opacity="0.61"/><circle cx="27.9" cy="33.5" r="0.67" fill="#fbfaf6" opacity="0.36"/><circle cx="13.1" cy="39.6" r="1.33" fill="#fbfaf6" opacity="0.66"/><circle cx="13.1" cy="-0.4" r="1.33" fill="#fbfaf6" opacity="0.66"/><circle cx="0.3" cy="0.4" r="1.11" fill="#b3ae9f" opacity="0.55"/><circle cx="40.3" cy="0.4" r="1.11" fill="#b3ae9f" opacity="0.55"/><circle cx="0.3" cy="40.4" r="1.11" fill="#b3ae9f" opacity="0.55"/><circle cx="23.8" cy="20.3" r="1.08" fill="#b3ae9f" opacity="0.43"/><circle cx="31.9" cy="4.6" r="0.55" fill="#fbfaf6" opacity="0.51"/><circle cx="37.0" cy="14.1" r="0.92" fill="#fbfaf6" opacity="0.46"/><circle cx="-3.0" cy="14.1" r="0.92" fill="#fbfaf6" opacity="0.46"/><circle cx="19.0" cy="16.9" r="0.85" fill="#fbfaf6" opacity="0.60"/><circle cx="5.0" cy="21.8" r="1.25" fill="#fbfaf6" opacity="0.39"/></pattern>
+            <linearGradient id="bkFoamG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4f2ec"/><stop offset="0.5" stop-color="#e5e2d9"/><stop offset="1" stop-color="#efece4"/></linearGradient>
+            <linearGradient id="bkSteelV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9c0c6"/><stop offset="0.5" stop-color="#8b949b"/><stop offset="1" stop-color="#5d666d"/></linearGradient>
+            <linearGradient id="bkSteelH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6b747b"/><stop offset="0.3" stop-color="#c3cacf"/><stop offset="0.62" stop-color="#8d969d"/><stop offset="1" stop-color="#5a636a"/></linearGradient>
+            <linearGradient id="bkNickel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#626b72"/><stop offset="0.25" stop-color="#939ba1"/><stop offset="0.5" stop-color="#a7afb5"/><stop offset="0.75" stop-color="#939ba1"/><stop offset="1" stop-color="#5d666d"/></linearGradient>
+            <linearGradient id="bkCavity" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#171c20"/><stop offset="0.5" stop-color="#2a3238"/><stop offset="1" stop-color="#171c20"/></linearGradient>
+            <linearGradient id="bkMotor" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2b323d"/><stop offset="0.35" stop-color="#4a5464"/><stop offset="1" stop-color="#232933"/></linearGradient>
+            <linearGradient id="bkGlass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:rgb(var(--glass-rgb))" stop-opacity="0.5"/><stop offset="0.3" style="stop-color:rgb(var(--glass-rgb))" stop-opacity="0.12"/><stop offset="0.7" style="stop-color:rgb(var(--glass-rgb))" stop-opacity="0.08"/><stop offset="1" style="stop-color:rgb(var(--glass-rgb))" stop-opacity="0.42"/></linearGradient>
+            <linearGradient id="bkLiqV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.26"/></linearGradient>
+            <linearGradient id="bkLiqH" gradientUnits="userSpaceOnUse" x1="78" y1="0" x2="442" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0.28"/><stop offset="0.14" stop-color="#000" stop-opacity="0"/><stop offset="0.86" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></linearGradient>
+            <linearGradient id="bkBench" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--ap-bench-top)"/><stop offset="1" style="stop-color:var(--ap-bench-bot)"/></linearGradient>
+            <radialGradient id="bkSpark"><stop offset="0" stop-color="#fffbe8"/><stop offset="0.45" stop-color="#ffdca0"/><stop offset="1" stop-color="#e8a13c" stop-opacity="0"/></radialGradient>
+            <clipPath id="bkWaterClip"><path d="M 78,152 L 78,382 Q 78,388 84,388 L 436,388 Q 442,388 442,382 L 442,152 Z M 206,216 L 314,216 L 314,228 L 328,228 L 328,250 L 320,250 L 320,364 Q 320,380 304,380 L 216,380 Q 200,380 200,364 L 200,250 L 192,250 L 192,228 L 206,228 Z"/></clipPath>
+            <clipPath id="bkBucketClip"><path d="M 78,152 L 78,382 Q 78,388 84,388 L 436,388 Q 442,388 442,382 L 442,152 Z"/></clipPath>
+          </defs>
 
-          <!-- ignition button + wire -->
-          <g>
-            <rect x="230" y="8" width="60" height="26" rx="3" fill="#241612" stroke="#7a3126" id="igniteVisualBtn"/>
-            <text x="260" y="25" text-anchor="middle" class="lbl" style="fill:#d9634f; font-size:9px;">IGNITE</text>
-            <line x1="260" y1="34" x2="260" y2="60" stroke="#8a8f86" stroke-width="1.5"/>
-          </g>
+          <!-- bench top + contact shadow -->
+          <rect x="0" y="416" width="520" height="44" fill="url(#bkBench)"/>
+          <line x1="0" y1="416.5" x2="520" y2="416.5" style="stroke:var(--ap-bench-line)" stroke-width="1"/>
+          <ellipse cx="260" cy="417" rx="236" ry="5" fill="#000" style="opacity:var(--ap-shadow-op)"/>
 
-          <!-- insulated outer container -->
-          <rect x="40" y="60" width="440" height="360" rx="8" fill="#171a12" stroke="#3c4230" stroke-width="2" stroke-dasharray="6 4"/>
-          <text x="60" y="80" class="lbl">INSULATED CONTAINER</text>
+          <!-- insulated jacket (cutaway): air cavity, foam walls, bucket spacers -->
+          <path d="M 60,134 L 60,396 Q 60,402 66,402 L 454,402 Q 460,402 460,396 L 460,134 Z" style="fill:var(--ap-gap)"/>
+          <path d="M 46,134 L 46,404 Q 46,416 58,416 L 462,416 Q 474,416 474,404 L 474,134 Z M 60,134 L 60,396 Q 60,402 66,402 L 454,402 Q 460,402 460,396 L 460,134 Z" fill="url(#bkFoamG)" fill-rule="evenodd"/>
+          <path d="M 46,134 L 46,404 Q 46,416 58,416 L 462,416 Q 474,416 474,404 L 474,134 Z M 60,134 L 60,396 Q 60,402 66,402 L 454,402 Q 460,402 460,396 L 460,134 Z" fill="url(#bkFoam)" fill-rule="evenodd" opacity="0.75"/>
+          <path d="M 46,134 L 46,404 Q 46,416 58,416 L 462,416 Q 474,416 474,404 L 474,134" fill="none" stroke="#8d897e" stroke-width="1" stroke-linejoin="round"/>
+          <path d="M 60,134 L 60,396 Q 60,402 66,402 L 454,402 Q 460,402 460,396 L 460,134" fill="none" stroke="#9a968a" stroke-width="0.6"/>
+          <rect x="96" y="392" width="26" height="10" fill="url(#bkFoamG)" stroke="#8d897e" stroke-width="0.6"/>
+          <rect x="398" y="392" width="26" height="10" fill="url(#bkFoamG)" stroke="#8d897e" stroke-width="0.6"/>
 
-          <!-- motor -->
-          <rect x="228" y="66" width="64" height="30" rx="4" class="stir-motor"/>
-          <text x="260" y="87" text-anchor="middle" class="lbl" style="fill:#12140f; font-size:9px;">MOTOR</text>
-          <line x1="260" y1="96" x2="260" y2="130" class="shaft"/>
+          <!-- nickel-plated bucket holding the water -->
+          <path d="M 78,152 L 78,382 Q 78,388 84,388 L 436,388 Q 442,388 442,382 L 442,152 Z" fill="url(#bkNickel)"/>
+          <path d="M 74,152 L 74,384 Q 74,392 82,392 L 438,392 Q 446,392 446,384 L 446,152 Z M 78,152 L 78,382 Q 78,388 84,388 L 436,388 Q 442,388 442,382 L 442,152 Z" fill="url(#bkSteelH)" fill-rule="evenodd"/>
+          <path d="M 74,152 L 74,384 Q 74,392 82,392 L 438,392 Q 446,392 446,384 L 446,152" fill="none" stroke="#4a5258" stroke-width="0.8" stroke-linejoin="round"/>
+          <rect x="71" y="149.5" width="10" height="5" rx="2.4" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.6"/>
+          <rect x="439" y="149.5" width="10" height="5" rx="2.4" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.6"/>
 
-          <!-- water bath -->
-          <rect id="waterRect" x="70" y="130" width="380" height="270" rx="6" fill="#204048" stroke="#2f6b69" stroke-width="1.5"/>
-          <text x="90" y="148" class="lbl lbl-cyan">WATER BATH · 1 L</text>
-
-          <!-- stirrer paddle (rotates) -->
-          <g id="paddleGroup" transform="translate(260,150)">
-            <line x1="-16" y1="0" x2="16" y2="0" class="paddle"/>
-            <line x1="0" y1="-16" x2="0" y2="16" class="paddle"/>
-          </g>
-
-          <!-- steel bomb -->
-          <g id="bombGroup">
-            <rect x="190" y="190" width="140" height="170" rx="14" fill="#3a4045" stroke="#9aa2a8" stroke-width="2"/>
-            <rect x="190" y="190" width="140" height="170" rx="14" fill="none" stroke="#12140f" stroke-width="1" opacity="0.4"/>
-            <text x="260" y="212" text-anchor="middle" class="lbl" style="fill:#c7ccd0; font-size:9px;">STEEL BOMB · 500 mL</text>
-            <text x="260" y="224" text-anchor="middle" class="lbl" style="fill:#8a9096; font-size:8px;">1 kg · sealed · O₂ 10 atm</text>
-
-            <!-- sample holder / crucible -->
-            <g transform="translate(260,300)">
-              <path d="M -18 0 L -12 26 L 12 26 L 18 0 Z" fill="#5a5f5a" stroke="#9aa2a8" stroke-width="1.5"/>
-              <rect x="-4" y="-6" width="8" height="8" fill="#8a6a2f"/>
-              <text x="0" y="46" text-anchor="middle" class="lbl" style="font-size:8px;">SAMPLE HOLDER</text>
+          <!-- motor + stirrer shaft + propeller -->
+          <rect x="114" y="106" width="72" height="12" rx="2" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.8"/>
+          <rect x="122" y="62" width="56" height="44" rx="5" fill="url(#bkMotor)" stroke="#161a20" stroke-width="1"/>
+          <g stroke="#161a20" stroke-width="1" opacity="0.55"><line x1="128" y1="92" x2="172" y2="92"/><line x1="128" y1="96" x2="172" y2="96"/><line x1="128" y1="100" x2="172" y2="100"/></g>
+          <text x="150" y="80" text-anchor="middle" class="lbl" style="fill:#d3d8dc; font-size:9px;">MOTOR</text>
+          <rect x="145" y="104" width="10" height="5" fill="#3b424c"/>
+          <rect x="148.6" y="108" width="2.8" height="230" fill="url(#bkSteelH)"/>
+          <g id="paddleGroup">
+            <g class="prop-blades" style="transform-origin:150px 338px;">
+              <ellipse cx="139" cy="339" rx="11.5" ry="3.2" transform="rotate(-14 139 339)" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.7"/>
+              <ellipse cx="161" cy="337" rx="11.5" ry="3.2" transform="rotate(-14 161 337)" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.7"/>
             </g>
-            <line x1="260" y1="130" x2="260" y2="190" class="shaft" stroke="#8a8f86"/>
-            <line x1="260" y1="294" x2="260" y2="270" stroke="#8a8f86" stroke-width="1.5"/>
+            <circle cx="150" cy="338" r="3.6" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.8"/>
+          </g>
 
-            <!-- spark flash -->
-            <circle id="sparkFlash" class="flash" cx="260" cy="300" r="10" fill="#ffdca0"/>
-            <!-- heat waves -->
-            <circle id="wave1" class="heatwave" cx="260" cy="300" r="14" fill="none" stroke="#e8a13c" stroke-width="2"/>
-            <circle id="wave2" class="heatwave" cx="260" cy="300" r="14" fill="none" stroke="#e8a13c" stroke-width="2" style="animation-delay:0.5s;"/>
+          <!-- steel bomb (cutaway): body walls, cavity, electrodes, crucible, fuse wire -->
+          <g id="bombGroup">
+            <rect x="214" y="380" width="16" height="8" rx="1.5" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.7"/>
+            <rect x="290" y="380" width="16" height="8" rx="1.5" fill="url(#bkSteelV)" stroke="#4a5258" stroke-width="0.7"/>
+            <path d="M 212,244 L 212,356 Q 212,368 224,368 L 296,368 Q 308,368 308,356 L 308,244 Z" fill="url(#bkCavity)"/>
+            <g fill="#9bb4c0" opacity="0.28"><circle cx="216.0" cy="342.7" r="1.34"/><circle cx="242.5" cy="304.8" r="0.94"/><circle cx="248.1" cy="329.5" r="1.19"/><circle cx="225.3" cy="270.6" r="0.74"/><circle cx="224.6" cy="258.3" r="1.09"/><circle cx="247.8" cy="306.2" r="0.86"/><circle cx="226.5" cy="355.6" r="0.77"/><circle cx="296.6" cy="266.4" r="1.39"/><circle cx="263.4" cy="287.2" r="1.17"/><circle cx="300.8" cy="264.7" r="0.93"/><circle cx="251.1" cy="268.8" r="1.13"/><circle cx="249.1" cy="294.0" r="1.06"/><circle cx="246.5" cy="355.3" r="1.22"/><circle cx="268.3" cy="275.1" r="1.05"/><circle cx="300.2" cy="346.1" r="1.33"/><circle cx="225.5" cy="291.0" r="1.16"/><circle cx="296.0" cy="326.2" r="0.86"/><circle cx="291.2" cy="351.1" r="1.38"/></g>
+            <path d="M 200,244 L 200,364 Q 200,380 216,380 L 304,380 Q 320,380 320,364 L 320,244 Z M 212,244 L 212,356 Q 212,368 224,368 L 296,368 Q 308,368 308,356 L 308,244 Z" fill="url(#bkSteelH)" fill-rule="evenodd"/>
+            <path d="M 200,244 L 200,364 Q 200,380 216,380 L 304,380 Q 320,380 320,364 L 320,244" fill="none" stroke="#3d454b" stroke-width="1" stroke-linejoin="round"/>
+            <path d="M 212,244 L 212,356 Q 212,368 224,368 L 296,368 Q 308,368 308,356 L 308,244" fill="none" stroke="#2a3136" stroke-width="0.7"/>
+            <line x1="204" y1="262" x2="204" y2="352" stroke="#fff" stroke-opacity="0.35" stroke-width="1.6" stroke-linecap="round"/>
+
+            <!-- electrodes inside the bomb -->
+            <line x1="246" y1="250" x2="246" y2="305" stroke="#b9c0c6" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="274" y1="250" x2="274" y2="290" stroke="#b9c0c6" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="246" y1="305" x2="241" y2="309" stroke="#b9c0c6" stroke-width="1.6" stroke-linecap="round"/>
+            <!-- crucible, sample, fuse wire -->
+            <path d="M 240,308 L 245,322 L 275,322 L 280,308 Z" fill="url(#bkSteelV)" stroke="#3d454b" stroke-width="1"/>
+            <ellipse cx="260" cy="308" rx="20" ry="3" fill="#6b747b" stroke="#3d454b" stroke-width="0.8"/>
+            <path d="M 248,308 Q 260,296 272,308 Z" fill="#8a6a2f"/>
+            <path d="M 252,306 Q 260,299 266,305" fill="none" stroke="#c9a15a" stroke-width="1" opacity="0.8"/>
+            <path d="M 274,290 Q 270,297 262,302" fill="none" stroke="#f0d28a" stroke-width="1"/>
+            <text x="260" y="338" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#aab3ba">SAMPLE</text>
+            <text x="260" y="356" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#8fa4ad">O₂ · 10 atm</text>
+
+            <!-- head: neck, knurled screw cap, valves, ignition terminals -->
+            <rect x="206" y="216" width="108" height="14" fill="url(#bkSteelH)" stroke="#3d454b" stroke-width="0.9"/>
+            <rect x="192" y="228" width="136" height="22" rx="4" fill="url(#bkSteelH)" stroke="#3d454b" stroke-width="1"/>
+            <g stroke="#2a3036" stroke-opacity="0.4" stroke-width="1"><line x1="196" y1="230" x2="196" y2="248"/><line x1="202" y1="230" x2="202" y2="248"/><line x1="208" y1="230" x2="208" y2="248"/><line x1="214" y1="230" x2="214" y2="248"/><line x1="220" y1="230" x2="220" y2="248"/><line x1="226" y1="230" x2="226" y2="248"/><line x1="232" y1="230" x2="232" y2="248"/><line x1="238" y1="230" x2="238" y2="248"/><line x1="244" y1="230" x2="244" y2="248"/><line x1="250" y1="230" x2="250" y2="248"/><line x1="256" y1="230" x2="256" y2="248"/><line x1="262" y1="230" x2="262" y2="248"/><line x1="268" y1="230" x2="268" y2="248"/><line x1="274" y1="230" x2="274" y2="248"/><line x1="280" y1="230" x2="280" y2="248"/><line x1="286" y1="230" x2="286" y2="248"/><line x1="292" y1="230" x2="292" y2="248"/><line x1="298" y1="230" x2="298" y2="248"/><line x1="304" y1="230" x2="304" y2="248"/><line x1="310" y1="230" x2="310" y2="248"/><line x1="316" y1="230" x2="316" y2="248"/><line x1="322" y1="230" x2="322" y2="248"/></g>
+            <line x1="200" y1="250" x2="320" y2="250" stroke="#1a1f23" stroke-width="1.6"/>
+            <rect x="220" y="204" width="12" height="13" fill="url(#bkSteelV)" stroke="#3d454b" stroke-width="0.8"/>
+            <rect x="215" y="195" width="22" height="9" rx="3" fill="#2a3036" stroke="#161a20" stroke-width="0.8"/>
+            <rect x="288" y="204" width="12" height="13" fill="url(#bkSteelV)" stroke="#3d454b" stroke-width="0.8"/>
+            <rect x="283" y="195" width="22" height="9" rx="3" fill="#2a3036" stroke="#161a20" stroke-width="0.8"/>
+            <rect x="243" y="207" width="6" height="43" fill="#1d2226" stroke="#0f1215" stroke-width="0.6"/>
+            <rect x="271" y="207" width="6" height="43" fill="#1d2226" stroke="#0f1215" stroke-width="0.6"/>
+            <circle cx="246" cy="207" r="3.4" fill="url(#bkSteelV)" stroke="#3d454b" stroke-width="0.8"/>
+            <circle cx="274" cy="207" r="3.4" fill="url(#bkSteelV)" stroke="#3d454b" stroke-width="0.8"/>
           </g>
 
           <!-- thermometer -->
-          <g transform="translate(420,190)">
-            <rect x="-8" y="0" width="16" height="150" rx="8" fill="#12140f" stroke="#565d61" stroke-width="1.5"/>
-            <circle cx="0" cy="160" r="14" fill="#12140f" stroke="#565d61" stroke-width="1.5"/>
-            <rect id="mercuryCol" x="-4" y="140" width="8" height="10" fill="#5fd3d0"/>
-            <circle id="mercuryBulb" cx="0" cy="160" r="10" fill="#5fd3d0"/>
-            <text x="0" y="-8" text-anchor="middle" class="lbl">THERMOMETER</text>
+          <rect x="416.2" y="26" width="7.6" height="92" rx="1.5" fill="#eef0f3"/>
+          <path d="M 416.4,110.00 h 1.2 M 416.4,106.38 h 2.4 M 416.4,102.76 h 1.2 M 416.4,99.14 h 1.8 M 416.4,95.52 h 1.2 M 416.4,91.90 h 2.4 M 416.4,88.29 h 1.2 M 416.4,84.67 h 1.8 M 416.4,81.05 h 1.2 M 416.4,77.43 h 2.4 M 416.4,73.81 h 1.2 M 416.4,70.19 h 1.8 M 416.4,66.57 h 1.2 M 416.4,62.95 h 2.4 M 416.4,59.33 h 1.2 M 416.4,55.71 h 1.8 M 416.4,52.10 h 1.2 M 416.4,48.48 h 2.4 M 416.4,44.86 h 1.2 M 416.4,41.24 h 1.8 M 416.4,37.62 h 1.2 M 416.4,34.00 h 2.4" stroke="#3b4252" stroke-width="0.6" fill="none"/>
+          <line x1="420" y1="28" x2="420" y2="334" stroke="#cfd4de" stroke-width="1.6"/>
+          <rect id="mercuryCol" x="419.2" y="108" width="1.6" height="226" fill="#d8352b"/>
+          <rect x="414.5" y="22" width="11" height="312" rx="5.5" fill="url(#bkGlass)" style="stroke:var(--ap-ring)" stroke-width="0.8"/>
+          <circle cx="420" cy="334" r="8.4" fill="url(#bkGlass)" style="stroke:var(--ap-ring)" stroke-width="0.8"/>
+          <circle id="mercuryBulb" cx="420" cy="334" r="6.4" fill="#d8352b"/>
+          <circle cx="418" cy="332" r="1.6" fill="#fff" opacity="0.6"/>
+          <line x1="416.8" y1="30" x2="416.8" y2="324" stroke="#fff" stroke-opacity="0.55" stroke-width="1.1" stroke-linecap="round"/>
+          <text x="412" y="108.58" text-anchor="end" font-size="7" style="fill:var(--ap-num)" font-family="JetBrains Mono, monospace">20</text><text x="412" y="94.10" text-anchor="end" font-size="7" style="fill:var(--ap-num)" font-family="JetBrains Mono, monospace">40</text><text x="412" y="79.63" text-anchor="end" font-size="7" style="fill:var(--ap-num)" font-family="JetBrains Mono, monospace">60</text><text x="412" y="65.15" text-anchor="end" font-size="7" style="fill:var(--ap-num)" font-family="JetBrains Mono, monospace">80</text><text x="412" y="50.68" text-anchor="end" font-size="7" style="fill:var(--ap-num)" font-family="JetBrains Mono, monospace">100</text><text x="412" y="36.20" text-anchor="end" font-size="7" style="fill:var(--ap-num)" font-family="JetBrains Mono, monospace">120</text>
+
+          <!-- ignition unit + leads to the bomb terminals -->
+          <path d="M 246,51 C 244.5,95 247.5,150 246,207" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M 274,51 C 275.5,95 272.5,150 274,207" fill="none" style="stroke:var(--ap-wire-b)" stroke-width="2.2" stroke-linecap="round"/>
+          <rect x="226" y="8" width="68" height="40" rx="4" fill="url(#bkSteelV)" stroke="#3d454b" stroke-width="1"/>
+          <rect x="236" y="15" width="48" height="14" rx="3" class="ign-btn" id="igniteVisualBtn" stroke-width="1"/>
+          <text x="260" y="25" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8" fill="#d9634f" style="pointer-events:none;">IGNITE</text>
+          <text x="260" y="40" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="6" fill="#2b3036">FIRING UNIT</text>
+          <circle cx="246" cy="48" r="3.2" fill="#c0392b" stroke="#3d454b" stroke-width="0.8"/>
+          <circle cx="274" cy="48" r="3.2" fill="#2b2f33" stroke="#3d454b" stroke-width="0.8"/>
+
+          <!-- water (translucent, drawn around the bomb; colour set by the script) -->
+          <g clip-path="url(#bkWaterClip)">
+            <rect id="waterRect" x="70" y="176" width="380" height="226" fill="hsla(195,42%,30%,0.55)"/>
+            <ellipse id="waterSurface" cx="260" cy="176" rx="182" ry="6.5" fill="hsla(195,42%,30%,0.55)"/>
+            <rect x="70" y="176" width="380" height="226" fill="url(#bkLiqV)"/>
+            <rect x="70" y="176" width="380" height="226" fill="url(#bkLiqH)"/>
+            <ellipse cx="260" cy="176" rx="182" ry="6.5" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.3" stroke-width="0.7"/>
           </g>
 
-          <text x="260" y="440" text-anchor="middle" class="lbl" style="font-size:10px;">
+          <!-- spark + heat waves from the sample -->
+          <g clip-path="url(#bkBucketClip)">
+            <circle id="wave1" class="heatwave" cx="260" cy="302" r="14" fill="none" stroke="#e8a13c" stroke-width="2"/>
+            <circle id="wave2" class="heatwave" cx="260" cy="302" r="14" fill="none" stroke="#e8a13c" stroke-width="2" style="animation-delay:0.5s;"/>
+          </g>
+          <circle id="sparkFlash" class="flash" cx="260" cy="302" r="16" fill="url(#bkSpark)"/>
+
+          <!-- lid (foam) with holes for the stirrer, leads and thermometer -->
+          <path d="M 40,118 h 106 v 16 h -106 Z M 154,118 h 89 v 16 h -89 Z M 249,118 h 22 v 16 h -22 Z M 277,118 h 139 v 16 h -139 Z M 425,118 h 55 v 16 h -55 Z" fill="url(#bkFoamG)" stroke="#a7a396" stroke-width="0.7" stroke-linejoin="round"/>
+          <path d="M 40,118 h 106 v 16 h -106 Z M 154,118 h 89 v 16 h -89 Z M 249,118 h 22 v 16 h -22 Z M 277,118 h 139 v 16 h -139 Z M 425,118 h 55 v 16 h -55 Z" fill="url(#bkFoam)" opacity="0.8"/>
+          <rect x="60" y="134" width="5" height="9" fill="url(#bkFoamG)" stroke="#a7a396" stroke-width="0.6"/>
+          <rect x="455" y="134" width="5" height="9" fill="url(#bkFoamG)" stroke="#a7a396" stroke-width="0.6"/>
+          <line x1="44" y1="119.2" x2="476" y2="119.2" stroke="#fff" stroke-opacity="0.7" stroke-width="0.8"/>
+
+          <!-- labels -->
+          <text x="420" y="14" text-anchor="middle" class="lbl" style="font-size:10px;">THERMOMETER</text>
+          <text x="332" y="262" class="lbl" style="font-size:9px;">STEEL BOMB</text>
+          <text x="332" y="273" class="lbl" style="font-size:8px;">500 mL · 1 kg</text>
+          <text x="332" y="284" class="lbl" style="font-size:8px;">O₂ 10 atm</text>
+          <text x="84" y="194" class="lbl lbl-cyan" style="font-size:9px;">WATER BATH</text>
+          <text x="84" y="205" class="lbl lbl-cyan" style="font-size:9px;">1 L</text>
+          <text x="150" y="364" text-anchor="middle" class="lbl" style="font-size:9px;">STIRRER</text>
+          <text x="50" y="436" class="lbl" style="font-size:9px;">INSULATED JACKET</text>
+
+          <text x="260" y="448" text-anchor="middle" class="lbl" style="font-size:10px;">
             <tspan id="diagramTemp" class="lbl-amber" style="font-size:15px;">— °C</tspan>
             <tspan dx="8" id="diagramTime">t = 0.0 s</tspan>
           </text>
@@ -377,6 +526,9 @@
   const DURATION_SIM_S = 30;      // simulated seconds shown on axis
   const DURATION_REAL_MS = 9000;  // real animation time
 
+  let currentTheme = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  let lastDiagram = null;
+
   let T0 = 20 + Math.random()*5;
   let currentReagent = REAGENTS[3]; // methanol default, modest & safe demo
   let mass = 10;
@@ -409,6 +561,7 @@
   const wave1 = el("wave1");
   const wave2 = el("wave2");
   const waterRect = el("waterRect");
+  const waterSurface = el("waterSurface");
   const chartSvg = el("chart");
 
   function populateSelect(){
@@ -505,7 +658,7 @@
     if (dataPoints.length > 0){
       const p0 = dataPoints[0];
       const x0 = xScale(p0.t), y0 = yScale(p0.T);
-      startMarker = `<circle cx="${x0}" cy="${y0}" r="3.5" fill="var(--cyan,#5fd3d0)" stroke="#12140f" stroke-width="1"/>` +
+      startMarker = `<circle cx="${x0}" cy="${y0}" r="3.5" fill="var(--cyan,#5fd3d0)" stroke="var(--bg)" stroke-width="1"/>` +
         `<text x="${x0+6}" y="${y0-8}" class="axis-lbl" style="fill:var(--cyan,#5fd3d0); font-size:10px;">T&#8320; = ${fmt(p0.T,2)}\u00B0C</text>`;
     }
 
@@ -515,7 +668,7 @@
     if (finished){
       const pF = dataPoints[dataPoints.length-1];
       const xF = xScale(pF.t), yF = yScale(pF.T);
-      endMarker = `<circle cx="${xF}" cy="${yF}" r="3.5" fill="var(--amber,#e8a13c)" stroke="#12140f" stroke-width="1"/>` +
+      endMarker = `<circle cx="${xF}" cy="${yF}" r="3.5" fill="var(--amber,#e8a13c)" stroke="var(--bg)" stroke-width="1"/>` +
         `<text x="${xF-6}" y="${yF+16}" text-anchor="end" class="axis-lbl" style="fill:var(--amber,#e8a13c); font-size:10px;">T final = ${fmt(pF.T,2)}\u00B0C</text>`;
     }
 
@@ -531,22 +684,24 @@
     }).join("");
   }
 
+  // thermometer: 15 degC sits at TH_Y15, 120 degC at TH_Y120 (the scale above the lid); the red column runs down to the bulb
+  const TH_Y15 = 110, TH_Y120 = 34, TH_BULB_Y = 334;
+
   function updateDiagram(T, simT, playingHeat){
+    lastDiagram = {T:T, simT:simT, playingHeat:playingHeat};
     diagramTemp.textContent = fmt(T,2)+" °C";
     diagramTime.textContent = "t = "+fmt(simT,1)+" s";
-    // mercury column height scaled 15..25 range mapped 0..1 across plausible 15-130C
     const frac = Math.max(0, Math.min(1, (T-15)/(120-15)));
-    const maxColH = 150;
-    const colH = 10 + frac*(maxColH-10);
-    mercuryCol.setAttribute("y", 150 - colH + 10);
-    mercuryCol.setAttribute("height", colH);
-    const hue = 190 - frac*190; // cyan(190) -> red(0)
-    const col = `hsl(${hue}, 70%, 60%)`;
-    mercuryCol.setAttribute("fill", col);
-    mercuryBulb.setAttribute("fill", col);
-    // water tint warms slightly
+    const yTop = TH_Y15 - frac*(TH_Y15-TH_Y120);
+    mercuryCol.setAttribute("y", yTop.toFixed(2));
+    mercuryCol.setAttribute("height", (TH_BULB_Y - yTop).toFixed(2));
+    // water tint warms slightly (translucent so the bucket and the submerged parts show through)
     const waterHue = 195 - frac*40;
-    waterRect.setAttribute("fill", `hsl(${waterHue}, 35%, ${18+frac*8}%)`);
+    const water = currentTheme === "light"
+      ? `hsla(${waterHue}, 62%, ${64-frac*6}%, 0.6)`
+      : `hsla(${waterHue}, 42%, ${30+frac*8}%, 0.55)`;
+    waterRect.setAttribute("fill", water);
+    waterSurface.setAttribute("fill", water);
 
     if (playingHeat){
       wave1.classList.add("playing"); wave2.classList.add("playing");
@@ -581,6 +736,8 @@
     igniteBtn.classList.remove("armed");
     sparkFlash.classList.add("on");
     setTimeout(()=>sparkFlash.classList.remove("on"), 350);
+    const igniteVisual = el("igniteVisualBtn");
+    if (igniteVisual){ igniteVisual.classList.add("pressed"); setTimeout(()=>igniteVisual.classList.remove("pressed"), 350); }
     wave1.classList.add("playing"); wave2.classList.add("playing");
 
     dataPoints = [];
@@ -765,6 +922,23 @@
     };
     img.src = url;
   });
+
+  // ---- Theme toggle (dark / light) ----
+  const themeToggle = el("themeToggle");
+  function syncThemeButton(){
+    const next = currentTheme === "dark" ? "light" : "dark";
+    el("themeToggleLabel").textContent = next === "light" ? "Light" : "Dark";
+    themeToggle.setAttribute("aria-label", "Switch to " + next + " theme");
+  }
+  function applyTheme(theme){
+    currentTheme = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    try { localStorage.setItem("bombCalorimetryTheme", currentTheme); } catch (e) {}
+    syncThemeButton();
+    if (lastDiagram) updateDiagram(lastDiagram.T, lastDiagram.simT, lastDiagram.playingHeat);   // re-tint the water for the new theme
+  }
+  themeToggle.addEventListener("click", ()=>applyTheme(currentTheme === "dark" ? "light" : "dark"));
+  syncThemeButton();
 
   massVal.textContent = fmt(mass,1);
   resetSim(false);
