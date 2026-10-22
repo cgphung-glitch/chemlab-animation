@@ -96,6 +96,7 @@
     font-family: var(--mono);
     font-size:13px;
     fill: var(--teal);
+    paint-order: stroke; stroke:#181c1a; stroke-width:4px; stroke-linejoin:round;
     opacity:0;
     transition: opacity .5s ease;
   }
@@ -112,7 +113,7 @@
   /* ---- thermometer ---- */
   #thermo-reading{
     font-family:var(--mono);
-    font-size:20px;
+    font-size:17px;
     fill:var(--amber);
     filter: blur(0px);
     transition: filter .6s ease;
@@ -140,14 +141,29 @@
     transform: translate(-150px,0px);
   }
   body.beaker-on-scale #beaker-group{
-    transform: translate(38px,-68px);
+    transform: translate(50px,-68px);   /* centred on the balance pan, base resting on its surface */
   }
   #beaker-water{ transition: y 1s ease, height 1s ease; }
+  #beaker-surface{ transition: cy 1s ease, opacity .5s ease; }
+  /* soft contact shadows fade out when an object leaves the bench */
+  .beaker-shadow, .flask-shadow{ transition: opacity .5s ease; }
+  body.beaker-on-scale .beaker-shadow{ opacity:0; }
+  body.flask-poured .flask-shadow{ opacity:0; }
 
   /* flask water level — stays rigidly part of the flask body (same clip
      path, same rotation) so it is always contained within the glass,
      whatever angle the flask is tipped to while pouring */
-  #flask-water{ transition: y 1s ease, height 1s ease; }
+  /* The water is a big rectangle clipped to the inside of the glass. Upright it is just shifted down to its level;
+     when the flask tips, the rectangle counter-rotates by the same angle with the same easing, so its surface stays
+     horizontal and the water collects in the low side of the glass. --ly-up / --ly-dn are set by flaskFill() in the script. */
+  #flask-liquid{
+    transform-origin: 160px 260px;
+    transform: rotate(0deg) translate(0px, var(--ly-up, 320px));
+    transition: transform .9s ease;
+  }
+  body.flask-poured #flask-liquid{
+    transform: rotate(75deg) translate(0px, var(--ly-dn, 300px));
+  }
   #flask-group{ transition: transform .9s ease; transform-origin: 160px 260px; }
   body.flask-poured #flask-group{
     transform: translate(308px,-122px) rotate(-75deg);
@@ -341,6 +357,31 @@
             <stop offset="1" stop-color="rgba(255,255,255,0.10)"/>
           </linearGradient>
 
+          <linearGradient id="glassH" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
+            <stop offset="0.22" stop-color="rgba(255,255,255,0.05)"/>
+            <stop offset="0.6" stop-color="rgba(255,255,255,0.025)"/>
+            <stop offset="1" stop-color="rgba(255,255,255,0.18)"/>
+          </linearGradient>
+          <linearGradient id="waterG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style="stop-color:var(--water)"/>
+            <stop offset="1" style="stop-color:var(--water-dark)"/>
+          </linearGradient>
+          <linearGradient id="panG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#7d8984"/><stop offset="0.3" stop-color="#dfe6e2"/>
+            <stop offset="0.6" stop-color="#a9b4af"/><stop offset="1" stop-color="#6c7772"/>
+          </linearGradient>
+          <linearGradient id="balBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#45504b"/><stop offset="0.12" stop-color="#323b37"/><stop offset="1" stop-color="#1d2421"/>
+          </linearGradient>
+          <linearGradient id="probeG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#59645f"/><stop offset="0.35" stop-color="#dbe2df"/>
+            <stop offset="0.7" stop-color="#8b9691"/><stop offset="1" stop-color="#5a6561"/>
+          </linearGradient>
+          <linearGradient id="housingG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2d3532"/><stop offset="1" stop-color="#171d1b"/>
+          </linearGradient>
+
           <!-- skin + sleeve shading for the hand -->
           <linearGradient id="skinG" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#eec6a2"/>
@@ -457,33 +498,78 @@
         <rect x="0" y="400" width="900" height="14" fill="url(#benchEdge)"/>
         <rect x="0" y="414" width="900" height="80" fill="url(#fleck)"/>
 
+        <!-- ============ SCALE (top-loading balance) ============ -->
+        <g id="scale-group" transform="translate(-280,0)">
+          <ellipse cx="730" cy="403" rx="100" ry="4" fill="#000" opacity="0.4"/>
+          <rect x="650" y="402" width="20" height="3" rx="1.5" fill="#0c0f0e"/>
+          <rect x="790" y="402" width="20" height="3" rx="1.5" fill="#0c0f0e"/>
+          <!-- body -->
+          <path d="M640,402 L640,350 Q640,338 652,338 L808,338 Q820,338 820,350 L820,402 Z" fill="url(#balBody)" stroke="rgba(255,255,255,0.16)"/>
+          <line x1="654" y1="339.5" x2="806" y2="339.5" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+          <!-- pan support + stainless pan -->
+          <rect x="718" y="334" width="24" height="6" fill="#4b5651"/>
+          <ellipse cx="730" cy="335.4" rx="54" ry="5.6" fill="#454f4b"/>
+          <ellipse cx="730" cy="332.5" rx="54" ry="5.6" fill="url(#panG)" stroke="rgba(255,255,255,0.4)" stroke-width="0.8"/>
+          <path d="M696,331 Q730,327.5 764,331" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
+          <!-- display -->
+          <rect x="660" y="344" width="140" height="30" rx="4" fill="#0d1311" stroke="rgba(255,255,255,0.16)"/>
+          <rect x="665" y="348" width="130" height="22" rx="2" fill="var(--display-bg)"/>
+          <text id="scale-display-text" x="730" y="366" text-anchor="middle" fill="var(--display-green)">0.000 g</text>
+          <path d="M665,348 L795,348 L795,356 Q730,362 665,356 Z" fill="rgba(255,255,255,0.05)"/>
+          <!-- controls -->
+          <circle cx="700" cy="386" r="9.5" fill="#141a18" stroke="rgba(255,255,255,0.12)"/>
+          <circle id="tare-btn" cx="700" cy="386" r="7" fill="#3a4440" stroke="rgba(255,255,255,0.3)"/>
+          <text x="712" y="389.5" font-family="var(--mono)" font-size="8" fill="var(--muted)">TARE</text>
+          <text x="748" y="389.5" font-family="var(--mono)" font-size="6.5" letter-spacing="0.6" fill="rgba(255,255,255,0.3)">LAB BALANCE</text>
+          <circle id="scale-power-led" cx="806" cy="386" r="3.2"/>
+
+          <line class="equip-leader" x1="730" y1="300" x2="730" y2="324"/>
+          <text class="equip-label" x="730" y="286" text-anchor="middle">Electronic Scale</text>
+        </g>
+
         <!-- ============ FLASK + THERMOMETER ============ -->
         <g id="flask-group">
-          <!-- flask body -->
-          <path d="M138,300 L138,255 L120,255 L120,235 L182,235 L182,255 L164,255 L164,300
-                   C164,300 205,375 205,388 C205,400 190,404 151,404 C112,404 97,400 97,388
-                   C97,375 138,300 138,300 Z"
-                fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
-          <clipPath id="flaskClip">
-            <path d="M138,300 L164,300 C164,300 205,375 205,388 C205,400 190,404 151,404 C112,404 97,400 97,388 C97,375 138,300 138,300 Z"/>
-          </clipPath>
-          <rect id="flask-water" x="90" y="320" width="125" height="84" fill="var(--water)" opacity="0.75" clip-path="url(#flaskClip)"/>
-          <rect x="120" y="235" width="62" height="6" fill="rgba(255,255,255,0.5)"/>
-          <path d="M138,300 L138,255 L120,255 L120,235 L182,235 L182,255 L164,255 L164,300" fill="url(#glass)"/>
+          <ellipse class="flask-shadow" cx="151" cy="403" rx="60" ry="4" fill="#000" opacity="0.38"/>
+          <!-- glass body (behind the probe and the liquid) -->
+          <path d="M137,241 L137,290 Q137,302 131,314 L100,376 Q94,388 101,396 Q106,402 118,402 L184,402 Q196,402 201,396 Q208,388 202,376 L171,314 Q165,302 165,290 L165,241 Z" fill="url(#glassH)"/>
 
-          <!-- thermometer inserted through neck -->
+          <!-- digital stem thermometer, inserted through the neck -->
           <g id="thermo">
-            <rect x="147" y="150" width="10" height="215" rx="5" fill="#0f1210" stroke="rgba(255,255,255,0.25)"/>
-            <rect x="150" y="160" width="4" height="190" fill="#333"/>
-            <rect id="thermo-mercury" x="150" y="330" width="4" height="30" fill="var(--red)"/>
-            <circle cx="152" cy="362" r="8" fill="var(--red)"/>
-            <rect x="146" y="149" width="12" height="8" rx="2" fill="#0f1210" stroke="rgba(255,255,255,0.25)"/>
-            <text id="thermo-reading" x="163" y="172" text-anchor="start">22.0°C</text>
+            <path d="M149.6,190 L149.6,360 Q149.6,368 152,370 Q154.4,368 154.4,360 L154.4,190 Z" fill="url(#probeG)" stroke="rgba(255,255,255,0.35)" stroke-width="0.6"/>
+            <g stroke="rgba(0,0,0,0.35)" stroke-width="0.8"><line x1="149.6" y1="300" x2="154.4" y2="300"/><line x1="149.6" y1="330" x2="154.4" y2="330"/></g>
+            <rect x="146" y="188" width="12" height="8" rx="2" fill="#262d2a" stroke="rgba(255,255,255,0.2)" stroke-width="0.8"/>
+            <rect id="thermo-mercury" x="150" y="330" width="4" height="30" fill="none"/>
+            <rect x="124" y="148" width="56" height="42" rx="9" fill="url(#housingG)" stroke="rgba(255,255,255,0.24)"/>
+            <rect x="129" y="154" width="46" height="22" rx="2.5" fill="#0d1311" stroke="rgba(255,255,255,0.14)"/>
+            <text id="thermo-reading" x="152" y="171" text-anchor="middle">22.0°C</text>
+            <circle cx="141" cy="183" r="2.3" fill="#3a4440" stroke="rgba(255,255,255,0.22)" stroke-width="0.6"/>
+            <circle cx="152" cy="183" r="2.3" fill="#3a4440" stroke="rgba(255,255,255,0.22)" stroke-width="0.6"/>
+            <circle cx="163" cy="183" r="2.3" fill="#3a4440" stroke="rgba(255,255,255,0.22)" stroke-width="0.6"/>
+            <path d="M128,152 Q152,147 176,152" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
           </g>
 
-          <line class="equip-leader" x1="150" y1="120" x2="150" y2="148"/>
+          <!-- water, clipped to the inside of the glass; its surface stays level when the flask is tipped -->
+          <clipPath id="flaskClip"><path d="M139.6,243 L139.6,290 Q139.6,303 133.5,315.2 L103.4,375.5 Q98,386 104.5,393 Q109,397.6 119,397.6 L183,397.6 Q193,397.6 197.5,393 Q204,386 198.6,375.5 L168.5,315.2 Q162.4,303 162.4,290 L162.4,243 Z"/></clipPath>
+          <g clip-path="url(#flaskClip)">
+            <g id="flask-liquid">
+              <rect id="flask-water" x="30" y="0" width="260" height="420" fill="url(#waterG)" opacity="0.82"/>
+              <rect x="30" y="0" width="260" height="2.6" fill="#ffffff" opacity="0.4"/>
+            </g>
+          </g>
+
+          <!-- glass walls, thick base, highlights, graduations, rolled lip -->
+          <path d="M137,241 L137,290 Q137,302 131,314 L100,376 Q94,388 101,396 Q106,402 118,402 L184,402 Q196,402 201,396 Q208,388 202,376 L171,314 Q165,302 165,290 L165,241" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M139.6,243 L139.6,290 Q139.6,303 133.5,315.2 L103.4,375.5 Q98,386 104.5,393 Q109,397.6 119,397.6 L183,397.6 Q193,397.6 197.5,393 Q204,386 198.6,375.5 L168.5,315.2 Q162.4,303 162.4,290 L162.4,243" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.8" stroke-linejoin="round"/>
+          <path d="M143.5,247 L143.5,288 Q143.5,299 138,310 L109,368" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M159,250 L159,288 Q159,296 162.5,304 L184,350" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M110,392 Q130,398.5 152,398.5" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="111.2" y1="358.8" x2="119.2" y2="358.8" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><text x="104.6" y="361.4" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--muted)">25</text><line x1="130.6" y1="320.0" x2="141.6" y2="320.0" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><text x="124.0" y="322.6" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--muted)">50</text><line x1="139.6" y1="281.2" x2="147.6" y2="281.2" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><text x="133.0" y="283.9" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--muted)">75</text>
+          <rect x="119" y="233" width="64" height="8" rx="4" fill="url(#glassH)" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+          <line x1="125" y1="235.2" x2="177" y2="235.2" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round"/>
+
+          <line class="equip-leader" x1="150" y1="120" x2="150" y2="146"/>
           <text class="equip-label" x="150" y="112" text-anchor="middle">Digital Thermometer</text>
-          <line class="equip-leader" x1="150" y1="220" x2="150" y2="234"/>
+          <line class="equip-leader" x1="150" y1="214" x2="150" y2="232"/>
           <text class="equip-label" x="150" y="205" text-anchor="middle">Erlenmeyer Flask · 50 mL H₂O</text>
 
           <!-- hand holding the flask (child of the flask group, so it tilts with it) -->
@@ -495,24 +581,27 @@
           </g>
         </g>
 
+        <!-- pour stream: leaves the flask lip and falls into the beaker (drawn behind the beaker so the water swallows its end) -->
+        <g id="pour-stream">
+          <path d="M438.5,172 C437,210 436.8,270 437.5,324 L440.8,324 C441.2,270 442,210 443.6,172 Z" fill="var(--water)" opacity="0.92"/>
+          <path d="M441,176 C440,220 439.5,270 439.6,320" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="0.9" stroke-linecap="round"/>
+        </g>
+
         <!-- ============ BEAKER ============ -->
         <g id="beaker-group">
-          <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z"
-                fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
-          <clipPath id="beakerClip">
-            <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z"/>
-          </clipPath>
-          <rect id="beaker-water" x="362" y="400" width="76" height="0" fill="var(--water)" opacity="0.8" clip-path="url(#beakerClip)"/>
-          <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z" fill="url(#glass)"/>
-          <rect x="362" y="292" width="76" height="8" fill="rgba(255,255,255,0.5)"/>
-          <!-- graduation ticks 10/20/30/40/50 -->
-          <g font-family="var(--mono)" font-size="9" fill="var(--muted)">
-            <line x1="428" y1="380" x2="438" y2="380" stroke="var(--muted)"/><text x="424" y="383" text-anchor="end">10</text>
-            <line x1="426" y1="358" x2="438" y2="358" stroke="var(--muted)"/><text x="422" y="361" text-anchor="end">20</text>
-            <line x1="424" y1="336" x2="438" y2="336" stroke="var(--muted)"/><text x="420" y="339" text-anchor="end">30</text>
-            <line x1="422" y1="314" x2="438" y2="314" stroke="var(--muted)"/><text x="418" y="317" text-anchor="end">40</text>
-          </g>
-          <line class="equip-leader" x1="400" y1="272" x2="400" y2="291"/>
+          <ellipse class="beaker-shadow" cx="400" cy="401" rx="46" ry="3.6" fill="#000" opacity="0.38"/>
+          <path d="M362,296 L362,389 Q362,400 373,400 L427,400 Q438,400 438,389 L438,296 Z" fill="url(#glassH)"/>
+          <clipPath id="beakerClip"><path d="M365,296 L365,388 Q365,394.5 371,394.5 L429,394.5 Q435,394.5 435,388 L435,296 Z"/></clipPath>
+          <rect id="beaker-water" x="362" y="394.5" width="76" height="0" fill="url(#waterG)" opacity="0.88" clip-path="url(#beakerClip)"/>
+          <ellipse id="beaker-surface" cx="400" cy="394.5" rx="34" ry="3.2" fill="#ffffff" opacity="0" clip-path="url(#beakerClip)"/>
+          <path d="M362,296 L362,389 Q362,400 373,400 L427,400 Q438,400 438,389 L438,296" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M365,296 L365,388 Q365,394.5 371,394.5 L429,394.5 Q435,394.5 435,388 L435,296" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" stroke-linejoin="round"/>
+          <line x1="370" y1="304" x2="370" y2="381" stroke="rgba(255,255,255,0.42)" stroke-width="3" stroke-linecap="round"/>
+          <line x1="375" y1="388" x2="396" y2="391.5" stroke="rgba(255,255,255,0.18)" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="427" y1="384.5" x2="435" y2="384.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="374.5" x2="435" y2="374.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="377.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">10</text><line x1="427" y1="364.5" x2="435" y2="364.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="354.5" x2="435" y2="354.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="357.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">20</text><line x1="427" y1="344.5" x2="435" y2="344.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="334.5" x2="435" y2="334.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="337.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">30</text><line x1="427" y1="324.5" x2="435" y2="324.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="314.5" x2="435" y2="314.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="317.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">40</text><line x1="427" y1="304.5" x2="435" y2="304.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
+          <rect x="359.5" y="290" width="81" height="7" rx="3.5" fill="url(#glassH)" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+          <path d="M361,291 L353.5,288.5 Q356.5,293 361.5,296.5" fill="url(#glassH)" stroke="rgba(255,255,255,0.55)" stroke-width="1" stroke-linejoin="round"/>
+          <line class="equip-leader" x1="400" y1="272" x2="400" y2="289"/>
           <text class="equip-label" x="400" y="258" text-anchor="middle">50‑mL Graduated Beaker</text>
 
           <!-- hand carrying the beaker (child of the beaker group, so it travels with it) -->
@@ -522,26 +611,6 @@
               <use href="#gripHand"/>
             </g>
           </g>
-        </g>
-
-        <!-- pour stream: from flask spout (right side) down into the beaker (center, on scale) -->
-        <line id="pour-stream" x1="442" y1="160" x2="442" y2="326" stroke="var(--water)" stroke-width="4" stroke-linecap="round"/>
-
-        <!-- ============ SCALE ============ -->
-        <g id="scale-group" transform="translate(-280,0)">
-          <rect x="640" y="360" width="180" height="42" rx="4" fill="#262d2a" stroke="rgba(255,255,255,0.12)"/>
-          <rect x="655" y="330" width="150" height="34" rx="3" fill="#1a2320" stroke="rgba(255,255,255,0.12)"/>
-          <rect x="662" y="337" width="136" height="20" rx="2" fill="var(--display-bg)"/>
-          <text id="scale-display-text" x="730" y="352" text-anchor="middle" fill="var(--display-green)">0.000 g</text>
-          <circle id="scale-power-led" cx="800" cy="368" r="3.2"/>
-          <!-- weighing platform -->
-          <rect x="668" y="352" width="104" height="10" rx="2" fill="#3a4440" stroke="rgba(255,255,255,0.15)"/>
-          <!-- tare button -->
-          <circle id="tare-btn" cx="700" cy="386" r="7" fill="#3a4440" stroke="rgba(255,255,255,0.3)"/>
-          <text x="712" y="390" font-family="var(--mono)" font-size="8" fill="var(--muted)">TARE</text>
-
-          <line class="equip-leader" x1="730" y1="300" x2="730" y2="329"/>
-          <text class="equip-label" x="730" y="286" text-anchor="middle">Electronic Scale</text>
         </g>
 
         <!-- ============ HAND (presses TARE) ============ -->
@@ -613,6 +682,8 @@
   const scaleDisplay = document.getElementById('scale-display-text');
   const beakerWater = document.getElementById('beaker-water');
   const flaskWater = document.getElementById('flask-water');
+  const flaskLiquid = document.getElementById('flask-liquid');
+  const beakerSurface = document.getElementById('beaker-surface');
   const pourStream = document.getElementById('pour-stream');
   const hpTare = document.getElementById('hp-tare');
   const hpBeaker = document.getElementById('hp-beaker');
@@ -634,23 +705,53 @@
     scaleDisplay.textContent = txt;
   }
 
-  const FLASK_TOP = 320, FLASK_BOT = 404;   // full range for flask water rect
-  const BEAKER_BOT = 400;                    // beaker bottom y
+  const FLASK_TOP = 320, FLASK_BOT = 397.5;  // water level of 50 mL / of an empty flask (upright)
+  const BEAKER_BOT = 394.5;                  // inside bottom of the beaker
 
-  // beaker fill: mL -> pixel height (10ml ~ 22px based on tick spacing)
+  // beaker fill: mL -> pixel height (2 px per mL, matching the graduation marks)
   function beakerFill(ml){
-    const perML = 22 / 10; // px per mL between ticks
-    const h = ml * perML;
+    const h = ml * 2.0;
     beakerWater.setAttribute('height', h);
     beakerWater.setAttribute('y', BEAKER_BOT - h);
+    beakerSurface.setAttribute('cy', BEAKER_BOT - h);
+    beakerSurface.setAttribute('opacity', ml > 0 ? 0.35 : 0);
+  }
+
+  // Inside outline of the flask glass (flask coordinates). Used to work out where the water surface sits once the
+  // flask is tipped: the surface is horizontal and the water collects in the low side of the glass.
+  const FLASK_POLY = [[139.60,243.00],[139.60,290.00],[139.43,294.31],[138.92,298.58],[138.07,302.80],[136.89,306.98],[135.36,311.11],[133.50,315.20],[103.40,375.50],[101.93,378.90],[101.12,382.11],[100.97,385.12],[101.49,387.94],[102.66,390.57],[104.50,393.00],[106.15,394.41],[108.11,395.56],[110.38,396.45],[112.94,397.09],[115.82,397.47],[119.00,397.60],[183.00,397.60],[186.18,397.47],[189.06,397.09],[191.62,396.45],[193.89,395.56],[195.85,394.41],[197.50,393.00],[199.34,390.57],[200.51,387.94],[201.03,385.12],[200.88,382.11],[200.07,378.90],[198.60,375.50],[168.50,315.20],[166.64,311.11],[165.11,306.98],[163.93,302.80],[163.08,298.58],[162.57,294.31],[162.40,290.00],[162.40,243.00]];
+  const FL_O = [160, 260], FL_T = [308, -122], FL_ANG = -75 * Math.PI / 180;   // same as the CSS tilt of #flask-group
+  function flaskToWorld(p){
+    const c = Math.cos(FL_ANG), s = Math.sin(FL_ANG), dx = p[0] - FL_O[0], dy = p[1] - FL_O[1];
+    return [FL_O[0] + c*dx - s*dy + FL_T[0], FL_O[1] + s*dx + c*dy + FL_T[1]];
+  }
+  function areaBelow(poly, L){            // area of the polygon lying below the horizontal line y = L
+    const out = [];
+    for (let i = 0; i < poly.length; i++){
+      const a = poly[i], b = poly[(i+1) % poly.length], ain = a[1] >= L, bin = b[1] >= L;
+      if (ain) out.push(a);
+      if (ain !== bin){ const t = (L - a[1]) / (b[1] - a[1]); out.push([a[0] + t*(b[0]-a[0]), L]); }
+    }
+    let A = 0;
+    for (let i = 0; i < out.length; i++){ const a = out[i], b = out[(i+1) % out.length]; A += a[0]*b[1] - b[0]*a[1]; }
+    return Math.abs(A) / 2;
+  }
+  const FLASK_POLY_W = FLASK_POLY.map(flaskToWorld);
+  const AREA_50 = areaBelow(FLASK_POLY, FLASK_TOP);
+  const LIP_Y = Math.max(FLASK_POLY_W[0][1], FLASK_POLY_W[FLASK_POLY_W.length-1][1]);   // lowest edge of the mouth: higher water would spill
+  function tiltedLevel(remainingML){
+    const target = AREA_50 * remainingML / 50;
+    let lo = Math.min(...FLASK_POLY_W.map(p => p[1])), hi = Math.max(...FLASK_POLY_W.map(p => p[1]));
+    for (let i = 0; i < 40; i++){
+      const mid = (lo + hi) / 2;
+      if (areaBelow(FLASK_POLY_W, mid) > target) lo = mid; else hi = mid;
+    }
+    return Math.max(hi, LIP_Y);
   }
   function flaskFill(remainingML){
-    // 50 mL max maps to full FLASK_TOP..FLASK_BOT range
-    const frac = remainingML / 50;
-    const maxH = FLASK_BOT - FLASK_TOP;
-    const h = maxH * frac;
-    flaskWater.setAttribute('height', h);
-    flaskWater.setAttribute('y', FLASK_BOT - h);
+    const h = (FLASK_BOT - FLASK_TOP) * remainingML / 50;
+    flaskLiquid.style.setProperty('--ly-up', (FLASK_BOT - h) + 'px');             // level when upright
+    flaskLiquid.style.setProperty('--ly-dn', (tiltedLevel(remainingML) - FL_T[1]) + 'px');   // level when tipped
   }
 
   function randFloat(min, max, decimals){
