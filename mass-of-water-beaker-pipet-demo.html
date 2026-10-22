@@ -96,6 +96,7 @@
     font-family: var(--mono);
     font-size:13px;
     fill: var(--teal);
+    paint-order: stroke; stroke:#181c1a; stroke-width:4px; stroke-linejoin:round;
     opacity:0;
     transition: opacity .5s ease;
   }
@@ -129,13 +130,18 @@
     transform: translate(-150px,0px);
   }
   body.beaker-on-scale #beaker-group{
-    transform: translate(38px,-68px);
+    transform: translate(50px,-68px);   /* centred on the balance pan, base resting on its surface */
   }
   #beaker-water{ transition: y 1s ease, height 1s ease; }
+  #beaker-surface{ transition: cy 1s ease, opacity .5s ease; }
+  /* soft contact shadows fade out when an object leaves the bench */
+  .beaker-shadow{ transition: opacity .5s ease; }
+  body.beaker-on-scale .beaker-shadow{ opacity:0; }
 
   /* flask stays upright throughout — no tilt needed since the pipet now
      draws liquid out through the neck instead of pouring directly */
   #flask-water{ transition: y 1s ease, height 1s ease; }
+  #flask-surface{ transition: cy 1s ease; }
 
   /* ---- volumetric pipet ---- */
   #pipet-group{
@@ -143,10 +149,11 @@
     transition: opacity .3s ease, transform 1s ease;
     transform: translate(150px,390px) rotate(0deg);
   }
-  [data-scene="0"] #pipet-group{ opacity:1; transform: translate(300px,402px) rotate(0deg); }
+  [data-scene="0"] #pipet-group{ opacity:1; transform: translate(306px,392px) rotate(0deg); }   /* standing in its stand */
   #pipet-group.pipet-visible{ opacity:1; }
-  #pipet-group.at-beaker{ transform: translate(438px,236px) rotate(0deg); }
+  #pipet-group.at-beaker{ transform: translate(446px,236px) rotate(0deg); }
   #pipet-water{ transition: y .8s ease, height .8s ease; }
+  #pipet-meniscus{ transition: cy .8s ease, opacity .3s ease; }
 
   /* ---- hand ---- */
   /* every hand slides in/out along the axis of its own forearm, so it always
@@ -323,6 +330,27 @@
             <stop offset="0.5" stop-color="rgba(255,255,255,0.02)"/>
             <stop offset="1" stop-color="rgba(255,255,255,0.10)"/>
           </linearGradient>
+          <linearGradient id="glassH" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
+            <stop offset="0.22" stop-color="rgba(255,255,255,0.05)"/>
+            <stop offset="0.6" stop-color="rgba(255,255,255,0.025)"/>
+            <stop offset="1" stop-color="rgba(255,255,255,0.18)"/>
+          </linearGradient>
+          <linearGradient id="waterG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style="stop-color:var(--water)"/>
+            <stop offset="1" style="stop-color:var(--water-dark)"/>
+          </linearGradient>
+          <linearGradient id="panG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#7d8984"/><stop offset="0.3" stop-color="#dfe6e2"/>
+            <stop offset="0.6" stop-color="#a9b4af"/><stop offset="1" stop-color="#6c7772"/>
+          </linearGradient>
+          <linearGradient id="balBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#45504b"/><stop offset="0.12" stop-color="#323b37"/><stop offset="1" stop-color="#1d2421"/>
+          </linearGradient>
+          <linearGradient id="woodG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#6a5f50"/><stop offset="1" stop-color="#3a342b"/>
+          </linearGradient>
+
           <!-- skin + sleeve shading for the hand -->
           <linearGradient id="skinG" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#eec6a2"/>
@@ -439,42 +467,61 @@
         <rect x="0" y="400" width="900" height="14" fill="url(#benchEdge)"/>
         <rect x="0" y="414" width="900" height="80" fill="url(#fleck)"/>
 
-        <!-- ============ FLASK + THERMOMETER ============ -->
-        <g id="flask-group">
-          <!-- flask body -->
-          <path d="M138,300 L138,255 L120,255 L120,235 L182,235 L182,255 L164,255 L164,300
-                   C164,300 205,375 205,388 C205,400 190,404 151,404 C112,404 97,400 97,388
-                   C97,375 138,300 138,300 Z"
-                fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
-          <clipPath id="flaskClip">
-            <path d="M138,300 L164,300 C164,300 205,375 205,388 C205,400 190,404 151,404 C112,404 97,400 97,388 C97,375 138,300 138,300 Z"/>
-          </clipPath>
-          <rect id="flask-water" x="90" y="320" width="125" height="84" fill="var(--water)" opacity="0.75" clip-path="url(#flaskClip)"/>
-          <rect x="120" y="235" width="62" height="6" fill="rgba(255,255,255,0.5)"/>
-          <path d="M138,300 L138,255 L120,255 L120,235 L182,235 L182,255 L164,255 L164,300" fill="url(#glass)"/>
+        <!-- ============ SCALE (top-loading balance) ============ -->
+        <g id="scale-group" transform="translate(-280,0)">
+          <ellipse cx="730" cy="403" rx="100" ry="4" fill="#000" opacity="0.4"/>
+          <rect x="650" y="402" width="20" height="3" rx="1.5" fill="#0c0f0e"/>
+          <rect x="790" y="402" width="20" height="3" rx="1.5" fill="#0c0f0e"/>
+          <path d="M640,402 L640,350 Q640,338 652,338 L808,338 Q820,338 820,350 L820,402 Z" fill="url(#balBody)" stroke="rgba(255,255,255,0.16)"/>
+          <line x1="654" y1="339.5" x2="806" y2="339.5" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+          <rect x="718" y="334" width="24" height="6" fill="#4b5651"/>
+          <ellipse cx="730" cy="335.4" rx="54" ry="5.6" fill="#454f4b"/>
+          <ellipse cx="730" cy="332.5" rx="54" ry="5.6" fill="url(#panG)" stroke="rgba(255,255,255,0.4)" stroke-width="0.8"/>
+          <path d="M696,331 Q730,327.5 764,331" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
+          <rect x="660" y="344" width="140" height="30" rx="4" fill="#0d1311" stroke="rgba(255,255,255,0.16)"/>
+          <rect x="665" y="348" width="130" height="22" rx="2" fill="var(--display-bg)"/>
+          <text id="scale-display-text" x="730" y="366" text-anchor="middle" fill="var(--display-green)">0.000 g</text>
+          <path d="M665,348 L795,348 L795,356 Q730,362 665,356 Z" fill="rgba(255,255,255,0.05)"/>
+          <circle cx="700" cy="386" r="9.5" fill="#141a18" stroke="rgba(255,255,255,0.12)"/>
+          <circle id="tare-btn" cx="700" cy="386" r="7" fill="#3a4440" stroke="rgba(255,255,255,0.3)"/>
+          <text x="712" y="389.5" font-family="var(--mono)" font-size="8" fill="var(--muted)">TARE</text>
+          <text x="748" y="389.5" font-family="var(--mono)" font-size="6.5" letter-spacing="0.6" fill="rgba(255,255,255,0.3)">LAB BALANCE</text>
+          <circle id="scale-power-led" cx="806" cy="386" r="3.2"/>
 
-          <line class="equip-leader" x1="150" y1="216" x2="150" y2="234"/>
-          <text class="equip-label" x="150" y="202" text-anchor="middle">Erlenmeyer Flask · 50 mL H₂O</text>
+          <line class="equip-leader" x1="730" y1="300" x2="730" y2="324"/>
+          <text class="equip-label" x="730" y="286" text-anchor="middle">Electronic Scale</text>
+        </g>
+
+        <!-- pipet stand (the pipet rests in it at the start, then it stays on the bench) -->
+        <ellipse cx="306" cy="404" rx="24" ry="2.6" fill="#000" opacity="0.4"/>
+        <path d="M289,404 L289,392 Q289,388 293,388 L319,388 Q323,388 323,392 L323,404 Z" fill="url(#woodG)" stroke="rgba(255,255,255,0.14)"/>
+        <ellipse cx="306" cy="388.4" rx="5.5" ry="1.8" fill="#15110d"/>
+
+        <!-- ============ FLASK (back: glass, lip, label) ============ -->
+        <g id="flask-group">
+          <ellipse class="flask-shadow" cx="151" cy="403" rx="60" ry="4" fill="#000" opacity="0.38"/>
+          <path d="M137,241 L137,290 Q137,302 131,314 L100,376 Q94,388 101,396 Q106,402 118,402 L184,402 Q196,402 201,396 Q208,388 202,376 L171,314 Q165,302 165,290 L165,241 Z" fill="url(#glassH)"/>
+          <rect x="119" y="233" width="64" height="8" rx="4" fill="url(#glassH)" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+          <line x1="125" y1="235.2" x2="177" y2="235.2" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round"/>
+          <line class="equip-leader" x1="150" y1="214" x2="150" y2="232"/>
+          <text class="equip-label" x="124" y="202" text-anchor="middle">Erlenmeyer Flask · 50 mL H₂O</text>
         </g>
 
         <!-- ============ BEAKER ============ -->
         <g id="beaker-group">
-          <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z"
-                fill="rgba(255,255,255,0.045)" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
-          <clipPath id="beakerClip">
-            <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z"/>
-          </clipPath>
-          <rect id="beaker-water" x="362" y="400" width="76" height="0" fill="var(--water)" opacity="0.8" clip-path="url(#beakerClip)"/>
-          <path d="M362,300 L362,386 C362,396 374,400 400,400 C426,400 438,396 438,386 L438,300 Z" fill="url(#glass)"/>
-          <rect x="362" y="292" width="76" height="8" fill="rgba(255,255,255,0.5)"/>
-          <!-- graduation ticks 10/20/30/40/50 -->
-          <g font-family="var(--mono)" font-size="9" fill="var(--muted)">
-            <line x1="428" y1="380" x2="438" y2="380" stroke="var(--muted)"/><text x="424" y="383" text-anchor="end">10</text>
-            <line x1="426" y1="358" x2="438" y2="358" stroke="var(--muted)"/><text x="422" y="361" text-anchor="end">20</text>
-            <line x1="424" y1="336" x2="438" y2="336" stroke="var(--muted)"/><text x="420" y="339" text-anchor="end">30</text>
-            <line x1="422" y1="314" x2="438" y2="314" stroke="var(--muted)"/><text x="418" y="317" text-anchor="end">40</text>
-          </g>
-          <line class="equip-leader" x1="400" y1="272" x2="400" y2="291"/>
+          <ellipse class="beaker-shadow" cx="400" cy="401" rx="46" ry="3.6" fill="#000" opacity="0.38"/>
+          <path d="M362,296 L362,389 Q362,400 373,400 L427,400 Q438,400 438,389 L438,296 Z" fill="url(#glassH)"/>
+          <clipPath id="beakerClip"><path d="M365,296 L365,388 Q365,394.5 371,394.5 L429,394.5 Q435,394.5 435,388 L435,296 Z"/></clipPath>
+          <rect id="beaker-water" x="362" y="394.5" width="76" height="0" fill="url(#waterG)" opacity="0.88" clip-path="url(#beakerClip)"/>
+          <ellipse id="beaker-surface" cx="400" cy="394.5" rx="34" ry="3.2" fill="#ffffff" opacity="0" clip-path="url(#beakerClip)"/>
+          <path d="M362,296 L362,389 Q362,400 373,400 L427,400 Q438,400 438,389 L438,296" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M365,296 L365,388 Q365,394.5 371,394.5 L429,394.5 Q435,394.5 435,388 L435,296" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.8" stroke-linejoin="round"/>
+          <line x1="370" y1="304" x2="370" y2="381" stroke="rgba(255,255,255,0.42)" stroke-width="3" stroke-linecap="round"/>
+          <line x1="375" y1="388" x2="396" y2="391.5" stroke="rgba(255,255,255,0.18)" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="427" y1="384.5" x2="435" y2="384.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="374.5" x2="435" y2="374.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="377.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">10</text><line x1="427" y1="364.5" x2="435" y2="364.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="354.5" x2="435" y2="354.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="357.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">20</text><line x1="427" y1="344.5" x2="435" y2="344.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="334.5" x2="435" y2="334.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="337.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">30</text><line x1="427" y1="324.5" x2="435" y2="324.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/><line x1="421" y1="314.5" x2="435" y2="314.5" stroke="rgba(255,255,255,0.75)" stroke-width="1"/><text x="418" y="317.5" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--muted)">40</text><line x1="427" y1="304.5" x2="435" y2="304.5" stroke="rgba(255,255,255,0.55)" stroke-width="0.8"/>
+          <rect x="359.5" y="290" width="81" height="7" rx="3.5" fill="url(#glassH)" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+          <path d="M361,291 L353.5,288.5 Q356.5,293 361.5,296.5" fill="url(#glassH)" stroke="rgba(255,255,255,0.55)" stroke-width="1" stroke-linejoin="round"/>
+          <line class="equip-leader" x1="400" y1="272" x2="400" y2="289"/>
           <text class="equip-label" x="400" y="258" text-anchor="middle">50‑mL Graduated Beaker</text>
 
           <!-- hand carrying the beaker (child of the beaker group, so it travels with it) -->
@@ -488,15 +535,20 @@
 
         <!-- ============ VOLUMETRIC PIPET ============ -->
         <g id="pipet-group">
-          <path id="pipet-body"
-                d="M0,0 L-2.5,-12 L-2.5,-38 C-2.5,-38 -12,-46 -12,-58 C-12,-70 -2.5,-78 -2.5,-78 L-2.5,-188 L-5,-192 L5,-192 L2.5,-188 L2.5,-78 C2.5,-78 12,-70 12,-58 C12,-46 2.5,-38 2.5,-38 L2.5,-12 Z"
-                fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.4)" stroke-width="1.2"/>
-          <clipPath id="pipetClip">
-            <path d="M0,0 L-2.5,-12 L-2.5,-38 C-2.5,-38 -12,-46 -12,-58 C-12,-70 -2.5,-78 -2.5,-78 L-2.5,-188 L-5,-192 L5,-192 L2.5,-188 L2.5,-78 C2.5,-78 12,-70 12,-58 C12,-46 2.5,-38 2.5,-38 L2.5,-12 Z"/>
-          </clipPath>
-          <rect id="pipet-water" x="-13" y="0" width="26" height="0" fill="var(--water)" opacity="0.85" clip-path="url(#pipetClip)"/>
-          <line x1="-2.5" y1="-115" x2="2.5" y2="-115" stroke="var(--muted)" stroke-width="1"/>
-          <line class="equip-leader" x1="0" y1="-208" x2="0" y2="-193"/>
+          <clipPath id="pipetClip"><path d="M -0.4,0 C -0.7,-9 -1.5,-20 -1.5,-32 L -1.5,-40 C -1.5,-48 -9.5,-52 -9.5,-62 C -9.5,-72 -1.5,-76 -1.5,-84 L -1.5,-189 L 1.5,-189 L 1.5,-84 C 1.5,-76 9.5,-72 9.5,-62 C 9.5,-52 1.5,-48 1.5,-40 L 1.5,-32 C 1.5,-20 0.7,-9 0.4,0 Z"/></clipPath>
+          <path d="M -0.9,0 C -1.4,-9 -2.5,-20 -2.5,-32 L -2.5,-40 C -2.5,-48 -10.5,-52 -10.5,-62 C -10.5,-72 -2.5,-76 -2.5,-84 L -2.5,-186 Q -2.5,-188 -4.5,-189 L -4.5,-192 L 4.5,-192 L 4.5,-189 Q 2.5,-188 2.5,-186 L 2.5,-84 C 2.5,-76 10.5,-72 10.5,-62 C 10.5,-52 2.5,-48 2.5,-40 L 2.5,-32 C 2.5,-20 1.4,-9 0.9,0 Z" fill="url(#glassH)"/>
+          <rect id="pipet-water" x="-13" y="0" width="26" height="0" fill="url(#waterG)" opacity="0.9" clip-path="url(#pipetClip)"/>
+          <ellipse id="pipet-meniscus" cx="0" cy="0" rx="1.5" ry="0.8" fill="#ffffff" opacity="0" clip-path="url(#pipetClip)"/>
+          <path id="pipet-body" d="M -0.9,0 C -1.4,-9 -2.5,-20 -2.5,-32 L -2.5,-40 C -2.5,-48 -10.5,-52 -10.5,-62 C -10.5,-72 -2.5,-76 -2.5,-84 L -2.5,-186 Q -2.5,-188 -4.5,-189 L -4.5,-192 L 4.5,-192 L 4.5,-189 Q 2.5,-188 2.5,-186 L 2.5,-84 C 2.5,-76 10.5,-72 10.5,-62 C 10.5,-52 2.5,-48 2.5,-40 L 2.5,-32 C 2.5,-20 1.4,-9 0.9,0 Z" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linejoin="round"/>
+          <path d="M -0.4,0 C -0.7,-9 -1.5,-20 -1.5,-32 L -1.5,-40 C -1.5,-48 -9.5,-52 -9.5,-62 C -9.5,-72 -1.5,-76 -1.5,-84 L -1.5,-189 L 1.5,-189 L 1.5,-84 C 1.5,-76 9.5,-72 9.5,-62 C 9.5,-52 1.5,-48 1.5,-40 L 1.5,-32 C 1.5,-20 0.7,-9 0.4,0 Z" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="0.6"/>
+          <line x1="-1.3" y1="-186" x2="-1.3" y2="-90" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round"/>
+          <path d="M -7.5,-56 Q -8,-67 -3.5,-74" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.4" stroke-linecap="round"/>
+          <text transform="translate(0.5,-62) rotate(-90)" text-anchor="middle" font-family="var(--mono)" font-size="5.5" fill="rgba(255,255,255,0.6)">10 mL</text>
+          <!-- etched calibration ring (the meniscus sits on it when the pipet holds exactly 10 mL) + colour bands -->
+          <ellipse cx="0" cy="-110" rx="2.5" ry="0.9" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="0.9"/>
+          <g fill="#d65b4f"><rect x="-2.4" y="-179" width="4.8" height="1.8" rx="0.5"/><rect x="-2.4" y="-175" width="4.8" height="1.8" rx="0.5"/></g>
+          <rect x="-4.5" y="-192.8" width="9" height="3.2" rx="1.4" fill="url(#glassH)" stroke="rgba(255,255,255,0.5)" stroke-width="0.8"/>
+          <line class="equip-leader" x1="0" y1="-208" x2="0" y2="-194"/>
           <text class="equip-label" x="0" y="-222" text-anchor="middle">10‑mL Volumetric Pipet</text>
 
           <!-- hand holding the pipet: index finger closes the top, the other fingers wrap the stem.
@@ -509,22 +561,20 @@
           </g>
         </g>
 
-        <!-- ============ SCALE ============ -->
-        <g id="scale-group" transform="translate(-280,0)">
-          <rect x="640" y="360" width="180" height="42" rx="4" fill="#262d2a" stroke="rgba(255,255,255,0.12)"/>
-          <rect x="655" y="330" width="150" height="34" rx="3" fill="#1a2320" stroke="rgba(255,255,255,0.12)"/>
-          <rect x="662" y="337" width="136" height="20" rx="2" fill="var(--display-bg)"/>
-          <text id="scale-display-text" x="730" y="352" text-anchor="middle" fill="var(--display-green)">0.000 g</text>
-          <circle id="scale-power-led" cx="800" cy="368" r="3.2"/>
-          <!-- weighing platform -->
-          <rect x="668" y="352" width="104" height="10" rx="2" fill="#3a4440" stroke="rgba(255,255,255,0.15)"/>
-          <!-- tare button -->
-          <circle id="tare-btn" cx="700" cy="386" r="7" fill="#3a4440" stroke="rgba(255,255,255,0.3)"/>
-          <text x="712" y="390" font-family="var(--mono)" font-size="8" fill="var(--muted)">TARE</text>
-
-          <line class="equip-leader" x1="730" y1="300" x2="730" y2="329"/>
-          <text class="equip-label" x="730" y="286" text-anchor="middle">Electronic Scale</text>
+        <!-- ============ FLASK (front: water and glass reflections, in front of the pipet) ============ -->
+        <g id="flask-front">
+          <clipPath id="flaskClip"><path d="M139.6,243 L139.6,290 Q139.6,303 133.5,315.2 L103.4,375.5 Q98,386 104.5,393 Q109,397.6 119,397.6 L183,397.6 Q193,397.6 197.5,393 Q204,386 198.6,375.5 L168.5,315.2 Q162.4,303 162.4,290 L162.4,243 Z"/></clipPath>
+          <rect id="flask-water" x="60" y="320" width="180" height="90" fill="url(#waterG)" opacity="0.74" clip-path="url(#flaskClip)"/>
+          <ellipse id="flask-surface" cx="151" cy="320" rx="20" ry="2.4" fill="#ffffff" opacity="0.3" clip-path="url(#flaskClip)"/>
+          <path d="M137,241 L137,290 Q137,302 131,314 L100,376 Q94,388 101,396 Q106,402 118,402 L184,402 Q196,402 201,396 Q208,388 202,376 L171,314 Q165,302 165,290 L165,241" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M139.6,243 L139.6,290 Q139.6,303 133.5,315.2 L103.4,375.5 Q98,386 104.5,393 Q109,397.6 119,397.6 L183,397.6 Q193,397.6 197.5,393 Q204,386 198.6,375.5 L168.5,315.2 Q162.4,303 162.4,290 L162.4,243" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.8" stroke-linejoin="round"/>
+          <path d="M143.5,247 L143.5,288 Q143.5,299 138,310 L109,368" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M159,250 L159,288 Q159,296 162.5,304 L184,350" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M110,392 Q130,398.5 152,398.5" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2" stroke-linecap="round"/>
+          <line x1="111.2" y1="358.8" x2="119.2" y2="358.8" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><text x="104.6" y="361.4" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--muted)">25</text><line x1="130.6" y1="320.0" x2="141.6" y2="320.0" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><text x="124.0" y="322.6" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--muted)">50</text><line x1="139.6" y1="281.2" x2="147.6" y2="281.2" stroke="rgba(255,255,255,0.7)" stroke-width="1"/><text x="133.0" y="283.9" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--muted)">75</text>
         </g>
+        <!-- front edge of the pipet stand's hole: hides the pipet tip so it looks inserted -->
+        <path d="M300.5,388.4 A5.5,1.8 0 0 0 311.5,388.4 L311.5,393 L300.5,393 Z" fill="#4a4136"/>
 
         <!-- ============ HAND (presses TARE) ============ -->
         <g id="hand-tare" transform="translate(421,386) rotate(75) scale(.72)">
@@ -591,6 +641,9 @@
   const scaleDisplay = document.getElementById('scale-display-text');
   const beakerWater = document.getElementById('beaker-water');
   const flaskWater = document.getElementById('flask-water');
+  const flaskSurface = document.getElementById('flask-surface');
+  const beakerSurface = document.getElementById('beaker-surface');
+  const pipetMeniscus = document.getElementById('pipet-meniscus');
   const pipetGroup = document.getElementById('pipet-group');
   const pipetWater = document.getElementById('pipet-water');
   const hpTare = document.getElementById('hp-tare');
@@ -613,32 +666,47 @@
     scaleDisplay.textContent = txt;
   }
 
-  const FLASK_TOP = 320, FLASK_BOT = 404;   // full range for flask water rect
-  const BEAKER_BOT = 400;                    // beaker bottom y
+  const FLASK_TOP = 320, FLASK_BOT = 397.5;   // water level of 50 mL / of an empty flask
+  const BEAKER_BOT = 394.5;                    // inside bottom of the beaker
 
-  // beaker fill: mL -> pixel height (10ml ~ 22px based on tick spacing)
+  // beaker fill: mL -> pixel height (2 px per mL, matching the graduation marks)
   function beakerFill(ml){
-    const perML = 22 / 10; // px per mL between ticks
-    const h = ml * perML;
+    const h = ml * 2.0;
     beakerWater.setAttribute('height', h);
     beakerWater.setAttribute('y', BEAKER_BOT - h);
+    beakerSurface.setAttribute('cy', BEAKER_BOT - h);
+    beakerSurface.setAttribute('opacity', ml > 0 ? 0.35 : 0);
+  }
+
+  // half-width of the inside of the flask at height y (neck, shoulder, cone, rounded base)
+  function flaskHalfWidth(y){
+    if (y <= 290) return 11.4;
+    if (y <= 315.2) return 11.4 + (y - 290) * (6.1 / 25.2);
+    if (y <= 375.5) return 17.5 + (y - 315.2) * (30.1 / 60.3);
+    return 47.6 + Math.min(5, (y - 375.5) * 0.3);
   }
   function flaskFill(remainingML){
     // 50 mL max maps to full FLASK_TOP..FLASK_BOT range
     const frac = remainingML / 50;
-    const maxH = FLASK_BOT - FLASK_TOP;
-    const h = maxH * frac;
-    flaskWater.setAttribute('height', h);
-    flaskWater.setAttribute('y', FLASK_BOT - h);
+    const h = (FLASK_BOT - FLASK_TOP) * frac;
+    const y = FLASK_BOT - h;
+    flaskWater.setAttribute('height', h + 12);
+    flaskWater.setAttribute('y', y);
+    flaskSurface.setAttribute('cy', y);
+    flaskSurface.setAttribute('rx', flaskHalfWidth(y) + 1);
+    flaskSurface.setAttribute('ry', Math.max(1.6, Math.min(5, flaskHalfWidth(y) * 0.12)));
+    flaskSurface.setAttribute('opacity', remainingML > 0 ? 0.3 : 0);
   }
 
-  // pipet fill: 0-10 mL maps onto the pipet's internal column (bulb + stem)
+  // pipet fill: 0-10 mL maps onto the pipet's internal column (bulb + stem); 10 mL sits on the calibration ring
   const PIPET_FULL_H = 110;
   function pipetFill(ml){
     const frac = ml / 10;
     const h = PIPET_FULL_H * frac;
     pipetWater.setAttribute('height', h);
     pipetWater.setAttribute('y', -h);
+    pipetMeniscus.setAttribute('cy', -h);
+    pipetMeniscus.setAttribute('opacity', ml > 0 ? 0.55 : 0);
   }
 
   function moveToBeaker(){
