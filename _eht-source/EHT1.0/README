@@ -1,0 +1,8 @@
+In this directory there are four subdirectory:
+  source: f77 source files + Makefile.
+  script: compile script and test run script file.
+  testin: input files for testruns.
+  testout: output file for testruns.
+
+You must make sure there are library routine to BLAS and the library path in Makefile is
+correct.  In particular, dspgv subroutine.

@@ -1,0 +1,6 @@
+/bin/rm -f fort.98
+/bin/rm -f fort.99
+cp ../testin/ag3minu.inp fort.98
+cp ../testin/ag3minu.syb fort.99
+tb
+mv fort.30 ../testout/ag3minu.out

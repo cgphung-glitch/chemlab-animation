@@ -1,0 +1,6 @@
+/bin/rm -f fort.98
+/bin/rm -f fort.99
+cp ../testin/pdc.inp fort.98
+cp ../testin/pdc.syb fort.99
+tb
+mv fort.30 ../testout/pdc.out

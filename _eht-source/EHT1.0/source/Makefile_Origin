@@ -1,0 +1,46 @@
+.SUFFIXES :
+.SUFFIXES : .f .o
+.f.o :
+	f77 -c $<
+OBJECTS=        block1.o        \
+                block2.o        \
+                block3.o        \
+		dovlap.o	\
+		ehuckl.o	\
+		filloc.o	\
+		lmndlm.o	\
+                main.o          \
+		ovlapd.o	\
+		ovlcon.o	\
+		ss.o	        \
+		surf.o       	\
+		sxxyy.o	        \
+		sxy.o	        \
+		sxyz.o	        \
+		symnum.o	\
+		szz.o	        \
+		xx.o		\
+		xxxyy.o		\
+		xxy.o		\
+		xxyy_2.o	\
+		xxyyzz.o	\
+		xy.o		\
+		xyxxyy.o	\
+		xyxy.o		\
+		xyyz.o		\
+		xyz.o		\
+		xyzz.o		\
+		xzz.o		\
+		yxxyy.o		\
+		yzxxyy.o	\
+		yzzz.o		\
+		zxxxyy.o	\
+		zxxyy.o		\
+		zxzz.o		\
+		zz_2.o		\
+		zzz.o	
+tb:$(OBJECTS)
+# Linking the library routines BLAS in Operating system to this program.
+# In this case the BLAS is -lcomplib.sgimath, which you need to consult your 
+# system administrator. 
+	f77 -O3 $(OBJECTS) -o $@ -lcomplib.sgimath

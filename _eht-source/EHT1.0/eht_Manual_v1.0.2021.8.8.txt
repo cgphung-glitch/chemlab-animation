@@ -1,0 +1,1230 @@
+
+
+                                                                 EHT 1.0
+                                                                 Page i
+
+
+EHT-version 1.0
+
+A program for Extended Hueckel Theory
+
+Tiqing Liu and Donald G. Truhlar
+Department of Chemistry and Supercomputer Institute
+University of Minnesota, Minneapolis, Minnesota 55455
+
+Date of version 1.0: April 17, 2000.
+Date of most recent change to manual: April 17, 2000.
+
+Abstract:  EHT is a FORTRAN 77 program for using extended Hueckel theory to 
+calculate the energy of a system, analytical first derivatives of the energy with   
+respect to the atomic Cartesian coordinates, and the Mulliken atomic charges.
+The calculations include overlap in the secular equation, and the Hamiltonian
+matrix is evaluated by the Wolfsberg-Helmholz approximation.  No core repulsion 
+term is included.  The basis functions are Slater-type orbitals (STOs).  In this 
+program, d subshells are described by a contracted double zeta STO basis, and s 
+and p subshells are each described by a single zeta STO basis.  Overlap integrals 
+are evaluated by the method of Jones and Weatherford.  The program contains 
+parameters for the following elements: H-Cs (noble gas elements are excluded), and 
+La-Sm.  Parameters are taken from QCPE Program 571 except for Ag; the Ag parameters
+are from Anderson, McDevitt, and Urbach (see reference in Section 2).
+
+This version of the EHT contains eight test runs.
+
+LICENSING
+
+EHT - version 1.0 is licensed under the Apache License, Version 2.0.
+The manual of EHT - version 1.0 is licensed under CC-BY-4.0.
+
+Publications of results obtained with the EHT - version 1.0 software should cite
+the program and/or the article describing the program.
+
+No guarantee is made that this software is bug-free or suitable for specific
+applications, and no liability is accepted for any limitations in the mathematical
+methods and algorithms used within. No consulting or maintenance services are
+guaranteed or implied.
+
+The use of the EHT - version 1.0 implies acceptance of the terms of the licenses.
+
+
+
+
+                                                                 EHT 1.0
+                                                                 Page ii
+
+
+
+                             CONTENTS
+                                                                       Page
+                                                                       ----
+ABSTRACT..............................................................  i
+CONTENTS..............................................................  ii
+1.  INTRODUCTION......................................................  1-1
+2.  REFERENCES FOR EHT PROGRAM........................................  2-1
+3.  THEORETICAL BACKGROUND FOR TIGHT BINDING CALCULATIONS.............  3-1
+4.  PROGRAM STRUCTURE.................................................  4-1
+  4.1 Overview and common blocks......................................  4-1
+  4.2 Procedure flow..................................................  4-3
+  4.3 Flow chart......................................................  4-4
+5.  ALPHABETICAL LIST OF ALL ROUTINES.................................  5-1
+  5.1 FORTRAN routines................................................  5-1
+  5.2 Distribution....................................................  5-2
+6.  DESCRIPTION OF SUBROUTINES........................................  6-1
+7.  DESCRIPTION OF THE INPUT FILE AND SOME SPECIAL FILES..............  7-1
+8.  DESCRIPTION OF THE OUTPUT FILES...................................  8-1
+9.  TEST RUNS.........................................................  9-1 
+  9.1 Overview........................................................  9-1 
+  9.2 Test run output files...........................................  9-2 
+10. COMPUTER SYSTEMS.................................................. 10-1
+
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 1-1
+
+
+
+1.  INTRODUCTION
+
+  EHT is a FORTRAN 77 program for using extended Hueckel theory to calculate 
+the energy of a system, analytical first derivatives of the energy with 
+respect to the atomic Cartesian coordinates, and the Mulliken atomic charges.  
+The calculations include overlap in the secular equation, and the Hamiltonian 
+matrix is evaluated by the Wolfsberg-Helmholz approximation.  No core repulsion 
+term is included.  The basis functions are Slater-type orbitals (STOs).  In this 
+program, d subshells are described by a contracted double zeta STO basis, and s 
+and p subshells are each described by a single zeta STO basis.  Overlap integrals 
+are evaluated by the method of Jones and Weatherford.  The program contains 
+parameters for the following elements: H-Cs (noble gas elements are excluded), and 
+La-Sm.  Parameters are taken from QCPE Program 571 except for Ag; the Ag parameters 
+are from Anderson, McDevitt, and Urbach (see reference in Section 2).
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 2-1
+
+
+2.  REFERENCES FOR EHT PROGRAM
+
+2.1  R. Hoffmann, J. Chem. Phys. 39, 1397 (1963).	
+  This is the reference for Extended Hueckel Theory, and it describes the form 
+of the Hamiltonian matrix elements used here.
+
+2.2  J. C. the Slater and G. F. Koster, Phys. Rev. 94, 1498 (1954).
+  The the Slater-Koster scheme is used to calculate a matrix element between 
+any two basis function in terms of the matrix elements quantized with respect to
+the internuclear axis, i.e., sigma, pi, and delta matrix elements, and the 
+direction cosines. 
+
+2.3. M.-H. Whangbo, M. Evain, T. Hughbanks, M. Kertesz, S. Wijeyesekera, 
+ C. Wilker, C. Zheng, and R. Hoffmann,  Extended  Hueckel Molecular and Crystal
+ Calculations (1987), Ouantum Chemistry Program Exchange (QCPE, Indiana
+ University) program no. 571.
+  This program, which calculates the energy with extended Hueckel theory, is 
+used to test the correctness of the present implementation for the overlap 
+integral, and the parameters for s, p, and d orbitals are taken from this 
+program, except for Ag.
+
+2.4.  H. W. Jones and C. A. Weatherford, Int. J. Quantum Chem. Symp. 12, 483
+ (1978).
+2.5.  H. W. Jones, Int. J. Quantum Chem. 18, 709 (1980).
+  The overlap integral between two atoms is calculated by the formulae in these 
+references rather than those in QCPE 571, because these formulae make the 
+calculation of the first derivatives of the overlap integral with respect to 
+the internuclear axis very straightforward.
+
+2.6.  A. B. Anderson, M. R. DcDevitt, and F. Urbach, Surf. Sci. 146, 80 (1984).
+  This is the reference for the parameters for Ag.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 3-1
+
+
+3.  THEORETICAL BACKGROUND FOR EXTENDED HUECKEL CALCULATIONS
+
+3.1  Overview
+  Extended Hueckel Theory extends the original pi-electron Hueckel theory to 
+treat all valence electrons.
+
+3.2  Choice of basis functions
+  The valence atomic orbitals of each atom in the system are the basis functions
+for the system.  For example, the basis function for hydrogen is 1s(1), those 
+for carbon are 2s(1) and 2p(3), and those for transition metals are ns(1), 
+np(3), and (n-1)d(5). (The number in parentheses is the number of atomic 
+orbital basis functions in the given subshell.)
+
+3.3  Creation of the Hamiltonian matrix H
+  After reading the element symbols and their coordinates, the Hamiltonian
+matrix is built by filling each submatrix for a pair of two atoms.  The 
+direction cosines of the two atoms are calculated, the sigma, pi, and/or 
+delta overlap integrals quantized with respect to the internuclear axis of the
+two atoms are calculated, then the overlap integral submatrix between the 
+two atoms is built according to the the Slater-Koster scheme, and then the 
+Hamiltonian submatrix between the two atoms is built according to Wolfsberg-
+Holmholtz relation.
+
+3.4  Evaluation of HC = ESC
+  H is the Hamiltonian matrix mentioned above, C is a matrix containing 
+eigenvectors, E is a diagonal matrix of the corresponding eigenvalues, and S is 
+the overlap matrix.  The number of eigenvalues for the system is equal to the 
+dimension of the Hamiltonian matrix.  The eigenvalues are calculated with a 
+subroutine, dspgv from the LAPACK library, which needs to be linked to EHT.
+
+3.5  Filling of the orbitals
+  The valence electrons are filled into the molecular orbitals from the lowest-
+energy orbitals to the higher-energy orbitals until all the electrons have been 
+placed into orbitals.  The total energy is the sum of the orbital energies of 
+all occupied electrons.
+
+3.6  Calculation of Mulliken charge
+  The atomic charge of each atom is calculated by Mulliken's approximation.
+
+3.7  Calculation of the first derivatives of the energy with respect to the 
+coordinates of each atom
+  The first derivatives of the energy with respect to the coordinates of each 
+atom are evaluated by the Hellmann-Feynman theorem.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 4-1
+
+4.  PROGRAM STRUCTURE
+
+4.1  Overview and common blocks
+
+  This program is mostly written in the standard Fortran 77 programming 
+language.  The general data are stored in BLOCK DATAs.  BLOCK DATA set1 stores 
+the numeric data necessary to calculate the overlap integrals used by 
+subroutines ovlapd and dovlap.  BLOCK DATA set2 stores factorial numbers used 
+by ovlapd and dovlap and some initialized data which keep the input file from 
+being read twice if the surf subroutine is called more than once with the same 
+input file.  BLOCK DATA set3 stores the data describing the properties of the 
+elements, including the parameters for STOs; those parameters are taken from 
+QCPE 571 (except for Ag as noted in Section 2).
+  The EHT program uses several common blocks.  Here is a description of these
+common blocks:
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 4-2
+
+
+  firstRD   --- some initialized data which keep the input file from being read 
+       twice if the surf subroutine is called for more than a time with the 
+       same input file.
+    initialized in: BLOCK DATA set2.
+    resides in:     surf.
+  coulom    --- valence state ionization potentials for the elements.
+    initialized in: BLOCK DATA set3.
+    resides in:     surf, ehuckl.
+  lmn       --- direction cosines between two atoms.
+    initialized in: lmndlm
+    resides in:     ss, sxxyy, sxy, sxyz, szz, trtrrp, xx, xxxyy, xxy, xxyy_2, 
+      xxyyzz, xy, xyxxyy, xyxy, xyyz, xyz, xyzz, xzz, yxxyy, yzxxyy, yzzz, 
+      zxxxyy, zxxyy, zxzz, zz_2.      
+  dlmn      --- the first derivatives of direction cosines between two atoms.
+    initialized in: lmndlm
+    resides in:     ss, sxxyy, sxy, sxyz, szz, xx, xxxyy, xxy, xxyy_2, xxyyzz, 
+      xy, xyxxyy, xyxy, xyyz, xyz, xyzz, xzz, yxxyy, yzxxyy, yzzz, zxxxyy, 
+      zxxyy, zxzz, zz_2.      
+  distan    --- distance between two atoms.
+    initialized in: lmndlm
+    resides in:     ovlapd, dovlap.
+  cmatrix   --- C matrix to calculate overlap integral.
+    initialized in: BLOCK DATA set1.
+    resides in:     ovlapd, dovlap.
+  factorial --- factorial numbers.
+    initialized in: BLOCK DATA set2.
+    resides in:     ovlapd, dovlap.
+  nspdd     --- quantum numbers of s, p, and d orbitals.
+    initialized in: BLOCK DATA set3.
+    resides in:     surf, ehuckl.
+  elctrn    --- number of valence electrons for an element.
+    initialized in: BLOCK DATA set3.
+    resides in:     surf, ehuckl.
+  dcoeff    --- coefficients array for d orbitals of the element.
+    initialized in: BLOCK DATA set3.
+    resides in:     ehuckl.
+  dtzeta    --- the arrays of zeta values of s, p, d of each element.
+    initialized in: BLOCK DATA set3.
+    resides in:     ehuckl.
+  
+
+
+                                                                 EHT 1.0
+                                                                 Page 4-3
+
+
+4.2  Procedure flow
+
+  EHT reads the element symbols and their coordinates from fort.98, and then it
+calls subroutine surf (a subroutine that can be used by POLYRATE without any 
+modification).  Subroutine surf then reads the element symbols from fort.99 to 
+build the Hamiltonian matrix, which consists of several submatrices 
+corresponding to the interactions of orbitals on an atom or between two atoms, 
+then it obtains the atomic number of the element (i.e., the number of protons 
+in each element).  There are two kinds of submatrices, i.e., intraatomic (the 
+atom corresponding to the row and the atom corresponding to the column are the 
+same) submatrices and interatomic (the atom corresponding to the row and the 
+atom corresponding to the column are different) submatrices.  The building of 
+an intraatomic submatrix is quite simple, and the building of an interatomic 
+submatrix is rather complicated since all the elements are dependent of the 
+atomic coordinates.
+  In building the interatomic submatrix, first a subroutine calculating the
+the distance between the two atoms and the direction cosines is called and 
+the results are stored in a common block, then a subroutine ehuckl
+calculating the elements of the submatrix is called, and ehuckl also call 
+several subroutines.  The latter are divided into two categories, one category 
+is used to compute the sigma, pi, and/or delta matrix elements between two 
+atoms, and the other category is used to compute the individual elements of the 
+submatrices using the the Slater-Koster scheme.  The the Slater-Koster scheme 
+contains several formulae, and the EHT program evaluates them in a set of 
+subroutines.
+  At the same time the matrix of the first derivatives of the Hamiltonian 
+matrix with respect to the coordinates of each atom in the system is 
+calculated.  For efficiency, the two matrices (Hamiltonian matrix and its first
+derivatives) are returned from the same subroutine (ehuckl).
+  Then a library routine of BLAS is called to get the energies and coefficients
+of the molecular orbitals by solving the secular equation.
+  Then, a subroutine is called to fill the electrons into the molecular 
+orbitals.
+  After that, the first derivatives of energy with respect to coordinates of 
+each atom are calculated by the Hellmann-Feynman theorem. Then the energy of
+the system is computed by summing the energies of the occupied orbitals.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 4-4
+
+
+4.3  Flow chart
+
+ The following is a flow chart of the EHT program.
+
+                         main
+                          |
+                          |
+            ____________ surf________________________________
+           /            /      \               \             \
+          /            /        \               \             \
+         /            /          \               \             \
+   symnum         lmndlm         ehuckl         dspgv         filloc 
+                               /       \
+                              /         \
+                             /           \ 
+                            /             \
+                           /            ovlcon
+                          /            /     \
+                         /            /       \
+                        /           dovlap  ovlapd
+ ______________________/__________________
+ |                                       |
+ |        ss sxyz sxy sxxyy szz          |
+ |   xx xy xxy xyz xxxyy zxxyy xzz zzz   |
+ |   xyxy xyyz xyxxyy xyzz yzxxyy yzzz   |
+ |     zxxxyy zxzz xxyy_2 xxyyzz zz_2    |
+
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 5-1
+
+
+5.  ALPHABETICAL LIST OF ALL ROUTINES
+
+5.1 Fortran routines
+
+  The following is an alphabetical list of all the routines used in the program.
+All these routines were coded specifically for use in EHT.
+
+DOVLAP                                  EHUCKL                                  
+FILLOC                                  LMNDLM                                  
+MAIN                                    OVLAPD                                  
+OVLCON                                  SS                                      
+SURF                                    SXXYY                                   
+SXY                                     SXYZ                                    
+SYMNUM                                  SZZ                                     
+XX                                      XXXYY                                   
+XXY                                     XXYY_2                                  
+XXYYZZ                                  XY                                      
+XYXXYY                                  XYXY                                    
+XYYZ                                    XYZ                                     
+XYZZ                                    XZZ                                     
+YXXYY                                   YZXXYY                                  
+YZZZ                                    ZXXXYY                                  
+ZXXYY                                   ZXZZ                                    
+ZZ_2                                    ZZZ                                     
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 5-2
+
+
+5.2 Distribution
+  The program is packaged as a tar file.  When this file is untarred, there 
+will be four directories, in particular
+	script
+	source
+	testin
+	testout
+  The directory script contains a C shell script for compiling and linking the 
+code and producing an executable tb (the script compile in script actually runs
+a makefile that resides in source, and the BLAS are linked through make).  The 
+other scripts will use the executable tb.  So there are two makefiles in directory 
+source, i.e., Makefile_IBM and Makefile_Origin.  To run on an IBM computer
+the file Makefile_IBM should be renamed Makefile.  To run on an SGI computer, 
+the file Makefile_SGI should be renamed Makefile.  The directory source contains 
+Fortran source files and makefiles.  The directory testin contains input files 
+for the test suite.  The directory testout contains output files for the test 
+suite.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-1
+
+
+6.  DESCRIPTION OF SUBROUTINES
+
+  The subroutines are listed in this section in a logical order based on the 
+flow chart.
+
+6.1 main
+  called by no routine.
+  calls surf.
+  The routine main is a driver routine.
+
+6.2  surf
+  called by main or any driver routine.
+  calls symnum, lmndlm, genrhd, dspev, and filloc.
+  The routine surf has four sets of parameters in the parameter list.  The first
+parameter is the energy of the system, the second is a one-dimensional array of
+the Cartesian coordinates of the system, the third is a one-dimensional array of
+the first derivatives of energy  with respect to the coordinate of each atom in
+the system, and the fourth is used to dimension the arrays for the Cartesian
+coordinates and the first derivatives with respect to the Cartesian
+coordinates for a given system.
+
+6.3  symnum
+  called by surf.
+  calls no subroutines.
+  The routine symnum has two sets of parameters in the parameter list.  The 
+first parameter is an symbol of an element, and the second is the atomic 
+number of the atom.
+
+6.4 lmndlm ---- calculations of direction cosines and their first derivatives
+  called by surf.
+  calls no subroutines.
+  The routine lmndlm has three parameters in the parameter list.  The first 
+parameter is the label of the atom, the second is the label of the other atom, 
+and the third is the atomic coordinates of the whole system.
+
+6.5 ehuckl ---- calculations of a submatrix between two atoms.
+  called by surf.
+  calls ovlcon and ss, sxyz, sxy, sxxyy, szz, xx, xy, xxy, xyz, xxxyy, yxxyy,
+    zxxyy, xzz, zzz, xyxy, xyyz, xyxxyy, xyzz, yzxxyy, yzzz, zxxxyy, zxzz, 
+    xxyy_2, xxyyzz, zz_2. 
+  The routine ehuckl has five sets of parameters in the parameter list.  The 
+first parameter is the label of the atom, the second is the label of the other 
+atom, the third is an array of Hamiltonian submatrix elements, the fourth is 
+an array of the first derivatives of the Hamiltonian submatrix with respect to 
+x, y, and z, and the fifth is an array of overlap integral submatrix between 
+the two atoms for a given system.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-2
+
+                                         
+6.6  dspgv ---- one of the BLAS library routines from LAPACK
+  called by surf.
+  The routine dspgv takes eleven parameters.  For details refer to the LAPACK 
+manual.
+
+6.7  filloc ---- filling electrons to the molecular orbitals
+  called by surf.
+  calls no subroutines.
+  The routine filloc has three parameters in the parameter list.  The first 
+parameter is an array of the eigenvalues of the molecular orbitals for the 
+system, the second is the valence bond energy of the system, and the third is 
+a set of occupation number of the MOs.
+
+6.8  ovlcon ---- an interface to calls either of two subroutines (dovlap and
+ovlapd) to calculate the overlap integral between two basis functions based on 
+whether or not they have the same zeta value of STO.
+  called by ehuckl.
+  calls ovlapd and dovlap.
+  The routine ovlcon has 9 parameters in the parameter list.  The first seven
+parameters are quantum numbers of the two basis functions or their STO
+parameters, the last two are overlap integrals along the internuclear axis and
+its first derivative with respect to the distance between the two atoms. 
+
+6.9  ovlapd ---- calculate the overlap integral between the two basis functions
+with the same zeta of STO, based on the formulae of Jones and Weathford.  The 
+zetas of the two STOs are considered to be the same if they agree within 0.01.
+  called by ovlcon.
+  calls no subroutines.
+  The routine ovlapd has 8 parameters in the parameter list. The first six
+parameters are quantum numbers of the two basis functions or their STO
+parameters, the last two are overlap integrals along the internuclear axis and
+its first derivative with respect to the distance between the two atoms.
+
+6.10  dovlap ---- calculate the overlap integral between two basis functions 
+with different zetas of STO based on the formulae of Jones and Weatherford.
+  called by ovlcon.
+  calls no subroutines.
+  The routine dovlap has 9 parameters in the parameter list.  The first seven
+parameters are quantum numbers of the two basis functions or their STO
+parameters, the last two are overlap integrals along the internuclear axis and
+its first derivative with respect to the distance between the two atoms. 
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-3
+
+6.11  ss ---- The overlap integral and the gradient of the overlap between an s 
+basis function and s basis function based on the Slater-Koster scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between an s orbital
+and a s orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine ss has four parameters in the
+parameter list: the first two are input parameters, and the remaining two
+are output parameters.  The first parameter is s-s sigma overlap integral
+corresponding to quantization along the internuclear axis of the two atoms, the
+second is its first derivative with respect to the distance between the two 
+atoms, the third is an element of overlap submatrix corresponding to the two
+basis functions (s, s), and the fourth is an array of its first derivatives
+with respect to x, y, or z.
+
+6.12  sxyz ---- The overlap integral and the gradient of the overlap integral 
+between an s basis function and a p basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between an s orbital 
+and a p orbital on different centers and in arbitrary orientation from the 
+direction cosines and the values of the overlap integrals corresponding to 
+quantization along the internuclear axis.  It also calculates the gradient of 
+the element of overlap matrix.  The routine sxyz has five parameters in the 
+parameter list: the first three are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the p basis 
+function (i.e., x for px, y for py, or z for pz), the second parameter is s-p 
+sigma overlap matrix element between the two atoms, the third is its first 
+derivative with respect to the distance between the two atoms, the fourth is an
+element of overlap submatrix corresponding to the the two basis functions 
+(s, p or p, s), and the fifth is an array of its first derivatives with respect 
+to x, y, or z.
+
+6.13  sxy ----  The overlap integral and the gradient of the overlap integral 
+between an s basis function and a d basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between an s orbital
+and a d orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine sxy has five parameters in the
+parameter list: the first three are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the d basis function
+(i.e., xy for dxy, yz for dyz, or zx for dzx), the second parameter is s-d
+sigma overlap corresponding to quantization along the internuclear axis of the
+two atoms, the third is its first derivative with respect to the distance
+between the two atoms, the fourth is an element of overlap submatrix
+corresponding to the the two basis functions (s, p or p, s), and the fifth is
+an array of its first derivatives with respect to x, y, or z.
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-4
+
+
+6.14  sxxyy ---- The overlap integral and the gradient of the overlap integral 
+between s basis function and dxx+yy basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between an s orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine sxxyy has four parameters in the
+parameter list: the first two are input parameters, and the remaining two
+are output parameters.  The first parameter is s-d sigma overlap integral
+corresponding to quantization along the internuclear axis of the two atoms, the
+second is its first derivative with respect to the distance between the two 
+atoms, the third is an element of overlap submatrix corresponding to the two
+basis functions (s, d or d, s), and the fourth is an array of its first
+derivatives with respect to x, y, or z.
+
+6.15  szz ---- The overlap integral and the gradient of the overlap integral 
+between s basis function and d3zz-rr basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between an s orbital
+and a d3zz-rr orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine szz has four parameters in the
+parameter list: the first two are input parameters, and the remaining two
+are output parameters.  The first parameter is s-d sigma overlap integral
+corresponding to quantization along the internuclear axis of the two atoms,
+the second is its first derivative with respect to the distance between the two
+atoms, the third is an element of overlap submatrix corresponding to the two
+basis functions (s, d or d, s), and the fourth is an array of its first
+derivatives with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-5
+
+                      
+6.16  xx ---- The overlap integral and the gradient of the overlap integral 
+between a p basis function and a p basis function based on the Slater-Koster 
+scheme. 
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a p orbital
+and a p orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xx has seven parameters in the
+parameter list: the first five are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the p basis function
+(i.e., x for px, y for py, or z for pz), the second parameter is p-p sigma
+overlap corresponding to quantization along the internuclear axis of the two
+atoms, the third is its first derivative with respect to the distance between
+the two atoms,  the fourth parameter is p-p pi overlap corresponding to
+quantization along the internuclear axis of the two atoms, the fifth is its
+first derivative with respect to the distance between the two atoms, the sixth
+is an element of overlap submatrix corresponding to the the two basis functions
+(p, p), and the seventh is an array of its first derivatives with respect to x,
+y, or z.
+
+6.17  xy ---- The overlap integral and the gradient of the overlap integral 
+between a p basis function and a p basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a p orbital
+and a p orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xy has seven parameters in the
+parameter list: the first five are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the p basis function
+(i.e., xy for px and py, yz for py and pz, and so on), the second parameter is
+p-p sigma overlap corresponding to quantization along the internuclear axis of
+the two atoms, the third is its first derivative with respect to the distance
+between the two atoms,  the fourth parameter is p-p pi overlap corresponding to
+quantization along the internuclear axis of the two atoms, the fifth is its
+first derivative with respect to the distance between the two atoms, the sixth
+is an element of overlap submatrix corresponding to the the two basis functions
+(p, p), and the seventh is an array of its first derivatives with respect to x,
+y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-6
+
+             
+6.18  xxy ---- The overlap integral and the gradient of the overlap integral 
+between a p basis function and a d basis function based on the Slater-Koster 
+scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a p orbital
+and a d orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xxy has seven parameters in the
+parameter list: the first five are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the basis function
+(i.e., xy for dx and dxy, yz for py and dyz, and so on), the second parameter is
+p-d sigma overlap corresponding to quantization along the internuclear axis of
+the two atoms, the third is its first derivative with respect to the distance
+between the two atoms,  the fourth parameter is p-d pi overlap corresponding to
+quantization along the internuclear axis of the two atoms, the fifth is its
+first derivative with respect to the distance between the two atoms, the sixth
+is an element of overlap submatrix corresponding to the the two basis functions
+(p, d or d,p), and the seventh is an array of its first derivatives with respect
+to x, y, or z.
+
+6.19  xyz ---- The overlap integral and the gradient of the overlap integral 
+between p basis function and a d basis function based on the Slater-Koster 
+scheme (px and dyz, py and dzx, or pz and dxy)
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a p orbital
+and a d orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xyz has six parameters in the
+parameter list: the first four are input parameters, and the remaining two
+are output parameters.  The first parameter is p-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is p-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth is an element of overlap submatrix
+corresponding to the the two basis functions (p, d or d, p), and the sixth is
+an array of its first derivatives with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-7
+
+             
+6.20  xxxyy ---- The overlap integral and the gradient of the overlap integral 
+between a px basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a px orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xxxyy has six parameters in the
+parameter list: the first five are input parameters, and the remaining two
+are output parameters.  The first parameter is p-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is
+its first derivative with respect to the distance between the two atoms, the 
+third parameter is p-d pi overlap corresponding to quantization along the 
+internuclear axis of the two atoms, the fourth is its first derivative with 
+respect to the distance between the two atoms, the fifth is an element of 
+overlap submatrix corresponding to the the two basis functions (p, d or d, p), 
+and the sixth is an array of its first derivatives with respect to x, y, or z. 
+
+6.21  yxxyy ---- The overlap integral and the gradient of the overlap integral 
+between a py basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a py orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine yxxyy has six parameters in the
+parameter list: the first four are input parameters, and the remaining two
+are output parameters.  The first parameter is p-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is p-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth is an element of overlap submatrix
+corresponding to the the two basis functions (p, d or d, p), and the sixth is
+an array of its first derivatives with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-8
+
+
+6.22  zxxyy  ---- The overlap integral and the gradient of the overlap integral 
+between a pz basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a pz orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine zxxyy has six parameters in the
+parameter list: the first four are input parameters, and the remaining two
+are output parameters.  The first parameter is p-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is p-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth is an element of overlap submatrix
+corresponding to the the two basis functions (p, d or d, p), and the sixth is an
+array of its first derivatives with respect to x, y, or z.
+
+6.23  xzz ---- The overlap integral and the gradient of the overlap integral 
+between a p (px or py) basis function and a d basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a p orbital
+and a d3zz-rr orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xzz has seven parameters in the
+parameter list: the first five are input parameters, and the remaining two are
+output parameters.  The first parameter is the label of the basis function
+(i.e., x for px, y for py), the second parameter is p-d sigma overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+third is its first derivative with respect to the distance between the two
+atoms, the fourth parameter is p-d pi overlap corresponding to quantization
+along the internuclear axis of the two atoms, the fifth is its first derivative
+with respect to the distance between the two atoms, the sixth is an element is 
+an element of overlap submatrix corresponding to the the two basis functions 
+(p, d or d, p), and the seventh is an array of its first derivatives with 
+respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-9
+
+
+
+
+   
+6.24  zzz ---- The overlap integral and the gradient of the overlap integral 
+between a pz basis function and a d3zz-rr basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a pz orbital
+and a d3zz-rr orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine zzz has six parameters in the
+parameter list: the first four are input parameters, and the remaining two
+are output parameters.  The first parameter is p-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is p-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth is an element of overlap submatrix
+corresponding to the the two basis functions (p, d or d,p), and the sixth is
+an array of its first derivatives with respect to x, y, or z.
+
+6.25  xyxy ---- The overlap integral and the gradient of the overlap integral 
+between a d basis function and a d basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a d orbital
+and a d orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xyxy has nine parameters in the
+parameter list: the first seven are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the p basis function
+(i.e., xy for dxy, yz for dyz, or zx for dzx), the second parameter is d-d sigma
+overlap corresponding to quantization along the internuclear axis of the two
+atoms, the third is its first derivative with respect to the distance between
+the two atoms,  the fourth parameter is d-d pi overlap corresponding to
+quantization along the internuclear axis of the two atoms, the fifth is its
+first derivative with respect to the distance between the two atoms, the sixth
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the seventh is its first derivative with respect to the
+distance between the two atoms, the eighth is an element of overlap submatrix
+corresponding to the the two basis functions (d, d), and the ninth is an array
+of its first derivatives with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-10
+
+
+6.26  xyyz ---- The overlap integral and the gradient of the overlap integral 
+between a d basis function and a d basis function based on the Slater-Koster 
+scheme.
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a d orbital
+and a d orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xyyz has nine parameters in the
+parameter list: the first seven are input parameters, and the remaining two
+are output parameters.  The first parameter is the label of the p basis function
+(i.e., xy for dzx and dyz, yz for dxy and dzx, or zx for dyz and dxy), the
+second parameter is d-d sigma overlap corresponding to quantization along the
+internuclear axis of the two atoms, the third is its first derivative with
+respect to the distance between the two atoms, the fourth parameter is d-d pi
+overlap corresponding to quantization along the internuclear axis of the two
+atoms, the fifth is its first derivative with respect to the distance between
+the two atoms, the sixth  parameter is d-d pi overlap corresponding to
+quantization along the internuclear axis of the two atoms, the seventh is its
+first derivative with respect to the distance between the two atoms, the
+eighth is an element of overlap submatrix corresponding to the the two basis
+functions (d, d), and the ninth is an array of its first derivatives with
+respect to x, y, or z.
+
+6.27  xyxxyy ---- The overlap integral and the gradient of the overlap integral 
+between a dxy basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dxy orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xyxxyy has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+ 
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-11
+
+
+6.28  xyzz ---- The overlap integral and the gradient of the overlap integral 
+between a dxy basis function and a d3zz-rr basis function based on the 
+Slater-Koster scheme 
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dxy orbital
+and a d3zz-rr orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xyzz has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z. 
+
+6.29  yzxxyy ---- The overlap integral and the gradient of the overlap integral 
+between a dyz basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dyz orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine yzxxyy has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-12
+
+                                         
+6.30  yzzz ---- The overlap integral and the gradient of the overlap integral 
+between a dyz basis function and a d3zz-rr basis function based on the 
+Slater-Koster scheme
+  called by trtrhd.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dyz orbital
+and a d3zz-rr orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine yzzz has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z. 
+
+6.31  zxxxyy ---- The overlap integral and the gradient of the overlap integral 
+between a dyz basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme 
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dzx orbital
+and a dxx+yy orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine zxxxyy has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-13
+
+                                                                                
+6.32  zxzz ---- The overlap integral and the gradient of the overlap integral 
+between a dzx basis function and a d3zz-rr basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dyz orbital
+and a d3zz-rr orbital on different centers and in arbitrary orientation from the
+direction cosines and the values of the overlap integrals corresponding to
+quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine zxzz has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+
+6.33  xxyy_2 ---- The overlap integral and the gradient of the overlap integral 
+between a dxx+yy basis function and a dxx+yy basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dxx+yy
+orbital and a dxx+yy orbital on different centers and in arbitrary orientation
+from the direction cosines and the values of the overlap integrals corresponding
+to quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xxyy_2 has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 6-14
+                             
+
+6.34  xxyyzz ---- The overlap integral and the gradient of the overlap integral 
+between dxx+yy basis function and a d3zz-rr basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a dxx+yy
+orbital and a d3zz-rr orbital on different centers and in arbitrary orientation
+from the direction cosines and the values of the overlap integrals corresponding
+to quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine xxyyzz has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+
+6.35  zz_2 ---- The overlap integral and the gradient of the overlap integral 
+between a d3zz-rr basis function and a d3zz-rr basis function based on the 
+Slater-Koster scheme
+  called by ehuckl.
+  calls no subroutines.
+  This routine calculates an element of the overlap matrix between a d3zz-rr
+orbital and a d3zz-rr orbital on different centers and in arbitrary orientation
+from the direction cosines and the values of the overlap integrals corresponding
+to quantization along the internuclear axis.  It also calculates the gradient of
+the element of overlap matrix.  The routine zz_2 has eight parameters in the
+parameter list: the first six are input parameters, and the remaining two
+are output parameters.  The first parameter is d-d sigma overlap corresponding
+to quantization along the internuclear axis of the two atoms, the second is its
+first derivative with respect to the distance between the two atoms, the third
+parameter is d-d pi overlap corresponding to quantization along the internuclear
+axis of the two atoms, the fourth is its first derivative with respect to the
+distance between the two atoms, the fifth parameter is d-d pi overlap
+corresponding to quantization along the internuclear axis of the two atoms, the
+sixth is its first derivative with respect to the distance between the two
+atoms, the seventh is an element of overlap submatrix corresponding to the the
+two basis functions (d, d), and the eighth is an array of its first derivatives
+with respect to x, y, or z.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 7-1
+
+
+7.  DESCRIPTION OF THE INPUT FILES AND SOME SPECIAL FILES
+
+  The only input files are fort.98 and fort.99.  File fort.98 contains 
+the element symbols and atomic coordinates of the system for which calculations 
+are to be carried out, and file fort.99 contains the total charges of the 
+species and a set of element symbols corresponding to fort.98. (Clearly, 
+fort.99 is redundant; however, the program is designed such that the fort.99 
+file is required by subroutine surf, which can be used by POLYRATE without any 
+modification.)  The letters of the element symbol should be capitalized, e.g.,
+CA, not Ca or ca.
+  The special file "maxdim.h" contains the maximum number of atoms that the
+program can handle.  This file is used by the program through "include" 
+statements in subroutines surf and filloc.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 8-1
+
+
+8.  DESCRIPTION OF OUTPUT FILES
+  
+  The output is written to fort.30, which has eight parts:
+
+  part 1:  Write the coordinates of the system.
+  part 2:  Write the overlap integral matrix.
+  part 3:  Write the Hamiltonian matrix of the system.
+  part 4:  Write the eigenvalues of the system.
+  part 5:  Write the occupation numbers.
+  part 6:  Write information about the HOMO and LUMO.
+  part 7:  Write the energy of the system.
+  part 8:  Write the atomic charge of each atom and the first derivatives of the
+    energy with respect to the coordinates of the atoms.
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 9-1
+
+
+9.  TEST RUNS
+
+9.1  A test run for Ni2 is represented by four files:
+
+     ni2.jc    a Unix script
+     ni2.inp   an input file that will be converted to fort.98 by ni2.jc
+     ni2.syb   an element symbol input that will be converted to fort.99 by 
+               ni2.jc
+     ni2.out   an output file converted from fort.30.
+
+9.2  A test run for NiH is represented by four files:
+
+     nih.jc    a Unix script
+     nih.inp   an input file that will be converted to fort.98 by nih.jc
+     nih.syb   an element symbol input file  that will be converted to fort.99 
+               by nih.jc
+     nih.out   an output file converted from fort.30.
+
+9.3  A test run for NiCH3 is represented by four files:
+
+     nich3.jc    a Unix script
+     nich3.inp   an input file will be converted to fort.98 by nich3.jc
+     nich3.syb   an element symbol input file that will be converted to fort.99 
+                 by nich3.jc
+     nich3.out   an output file converted from fort.30.
+
+9.4  A test run for AuC is represented by four files:
+
+     auc.jc    a Unix script
+     auc.inp   an input file that will be converted to fort.98 by auc.jc
+     auc.syb   an element symbol input that will be converted to fort.99 by
+               auc.jc
+     auc.out   an output file converted from fort.30.
+
+9.5  A test run for PdC is represented by four files:
+
+     pdc.jc    a Unix script
+     pdc.inp   an input file that will be converted to fort.98 by pdc.jc
+     pdc.syb   an element symbol input that will be converted to fort.99 by
+               pdc.jc
+     pdc.out   an output file converted from fort.30.
+
+
+                                                                 
+                                                                 EHT 1.0
+                                                                 Page 9-1
+
+
+9.6  A test run for Ag3+ is represented by four files:
+
+     ag3plus.jc    a Unix script
+     ag3plus.inp   an input file that will be converted to fort.98 by ag3plus.jc
+     ag3plus.syb   an element symbol input that will be converted to fort.99 by
+               ag3plus.jc
+     ag3plus.out   an output file converted from fort.30.
+
+9.7  A test run for Ag3- is represented by four files:
+
+     ag3minu.jc    a Unix script
+     ag3minu.inp   an input file that will be converted to fort.98 by ag3minu.jc
+     ag3minu.syb   an element symbol input that will be converted to fort.99 by
+               ag3minu.jc
+     ag3minu.out   an output file converted from fort.30.
+
+9.8  A test run for bent AgCH is represented by four files:
+
+     agchbent.jc   a Unix script
+     agchbent.inp  an input file that will be converted to fort.98 by agchbent.jc
+     agchbent.syb  an element symbol input that will be converted to fort.99 by
+               agchbent.jc
+     agchbent.out  an output file converted from fort.30.
+
+
+
+
+                                                                 EHT 1.0
+                                                                 Page 10-1
+
+
+10. COMPUTER SYSTEMS
+
+  The code has been tested on the following computers and operating systems:
+
+     1. IBM SP with WinterHawk nodes (AIX 4.3).
+
+     2. IBM RS6000 43P model 240 SMP (AIX 4.3).
+
+     3. Silicon Graphics (SGI) Origin 2000 with R12000 Processors (IRIX 6.5.5m).

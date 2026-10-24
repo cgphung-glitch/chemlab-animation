@@ -1,0 +1,5 @@
+cd ../source
+make
+/bin/rm *.o
+mv tb ../script/tb
+cd ../script

@@ -1,0 +1,6 @@
+/bin/rm -f fort.98
+/bin/rm -f fort.99
+cp ../testin/agchbent.inp fort.98
+cp ../testin/agchbent.syb fort.99
+tb
+mv fort.30 ../testout/agchbent.out
