@@ -366,12 +366,13 @@ tbody td.dim{ color: var(--ink-faint); }
       <span class="hint" id="titrantConcHint">known — set by you</span>
     </div>
     <div class="field">
-      <label for="analyteVol">Volume of unknown in flask (mL)</label>
+      <label for="analyteVol" id="analyteVolLabel">Volume of unknown in flask (mL)</label>
       <input type="number" id="analyteVol" min="1" max="200" step="0.1" value="25.0">
-      <span class="hint">its concentration is randomized</span>
+      <span class="hint" id="analyteVolHint">its concentration is randomized</span>
     </div>
     <div class="field">
-      <label>&nbsp;</label>
+      <label for="khpMass" id="khpMassLabel">&nbsp;</label>
+      <input type="number" id="khpMass" min="0.1" max="1.2" step="0.0001" value="0.5000" style="display:none;">
       <div class="hint" id="unknownIdHint" style="padding-top:8px;">—</div>
     </div>
 
@@ -451,7 +452,7 @@ tbody td.dim{ color: var(--ink-faint); }
     </div>
   </div>
 
-  <div class="footnote">Simplified equilibrium model for instructional use · strong acids/bases treated as fully dissociated · single-equivalence-point simplification for polyprotic species</div>
+  <div class="footnote">Simplified equilibrium model for instructional use · strong acids/bases treated as fully dissociated · single-equivalence-point simplification for polyprotic species · KHP treated as a monoprotic acid (pK<sub>a</sub> 5.41, M = 204.22 g/mol)</div>
 </div>
 
 <div class="modal-backdrop" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
@@ -523,6 +524,7 @@ const ACIDS = {
   h2so4:    { key:'h2so4',    name:'Sulfuric acid',formula:'H\u2082SO\u2084', Ka:1e10, eq:2, kind:'strong' },
   acetic:   { key:'acetic',   name:'Acetic acid',  formula:'CH\u2083COOH',Ka:1.8e-5,eq:1, kind:'weak' },
   vinegar:  { key:'vinegar',  name:'Vinegar (household)', formula:'CH\u2083COOH (dilute, aq.)', Ka:1.8e-5, eq:1, kind:'vinegar' },
+  khp:      { key:'khp',      name:'KHP (potassium hydrogen phthalate)', short:'KHP', formula:'KHC\u2088H\u2084O\u2084', Ka:3.9e-6, eq:1, kind:'khp' },
   unknownA: { key:'unknownA', name:'Unknown acid \u201cHA\u201d', formula:'HA (unknown)', Ka:null, eq:1, kind:'weak-unknown' },
 };
 
@@ -558,6 +560,14 @@ function randRange(a, b) { return a + Math.random() * (b - a); }
 // Vinegar: household vinegar is a dilute aqueous solution of acetic acid,
 // typically labeled by %v/v acetic acid (4.8-5.2% varies bottle to bottle).
 // Convert %v/v glacial acetic acid -> molarity using its density and molar mass.
+// KHP (KHC8H4O4): solid primary standard used to standardize base solutions.
+// The acidic species is HP-, with Ka = Ka2 of phthalic acid (pKa2 = 5.41).
+// When KHP is the acid, the user weighs out a mass; the BASE in the burette
+// is the hidden unknown whose concentration the student determines.
+const KHP_MOLAR_MASS = 204.22;          // g/mol
+const KHP_MASS_MIN = 0.1, KHP_MASS_MAX = 1.2;   // g
+const KHP_SOLUBILITY = 80;              // g/L, approx. at room temperature
+const KHP_BASE_CONC_RANGE = [0.080, 0.150];     // M, hidden base concentration draw
 const ACETIC_DENSITY = 1.049;   // g/mL (glacial acetic acid)
 const ACETIC_MOLAR_MASS = 60.05; // g/mol
 function vinegarPercentToMolarity(pctVV) {
@@ -572,7 +582,8 @@ const state = {
   titrantIs: 'base',               // 'acid' | 'base' — which one sits in the burette
   titrantConc: 0.1,                // mol/L, user supplied
   analyteVolume: 25.0,             // mL, user supplied (volume of unknown pipetted into flask)
-  analyteConc: null,               // mol/L, randomized (hidden from user)
+  analyteConc: null,               // mol/L, randomized (hidden from user); for KHP = known, from mass
+  khpMass: null,                   // g of KHP weighed out (only when the acid is KHP)
   Vtitrant: 0,                     // mL added so far
   Vwater: 0,                       // mL water added so far
   data: [],                        // [{V, pH}]
@@ -728,6 +739,10 @@ const titrantConcInput = document.getElementById('titrantConc');
 const titrantConcHint = document.getElementById('titrantConcHint');
 const analyteVolInput = document.getElementById('analyteVol');
 const unknownIdHint = document.getElementById('unknownIdHint');
+const khpMassInput = document.getElementById('khpMass');
+const khpMassLabel = document.getElementById('khpMassLabel');
+const analyteVolLabel = document.getElementById('analyteVolLabel');
+const analyteVolHint = document.getElementById('analyteVolHint');
 const startBtn = document.getElementById('startBtn');
 const newUnknownBtn = document.getElementById('newUnknownBtn');
 const revealBtn = document.getElementById('revealBtn');
@@ -754,10 +769,12 @@ function updateTitrantOptions() {
   const a = ACIDS[acidSelect.value];
   const b = BASES[baseSelect.value];
   const prev = titrantSelect.value;
-  titrantSelect.innerHTML = `
-    <option value="acid">${a.name} (acid)</option>
+  // KHP is a solid primary standard: it is weighed into the flask, so the base is always the titrant.
+  const khp = a.kind === 'khp';
+  titrantSelect.innerHTML = (khp ? '' : `<option value="acid">${a.name} (acid)</option>`) + `
     <option value="base">${b.name} (base)</option>`;
-  if (prev === 'acid' || prev === 'base') titrantSelect.value = prev;
+  if (khp) titrantSelect.value = 'base';
+  else if (prev === 'acid' || prev === 'base') titrantSelect.value = prev;
   updateUnknownHint();
 }
 
@@ -766,10 +783,26 @@ function updateUnknownHint() {
   const acidDef = ACIDS[acidSelect.value];
   const baseDef = BASES[baseSelect.value];
   const analyteName = titrantIsAcid ? baseDef.name : acidDef.name;
-  unknownIdHint.textContent = `Unknown in flask: ${analyteName}`;
+  const isKHP = acidDef.kind === 'khp';
+
+  // KHP: show the mass field (in the spare 6th slot) and relabel the volume field
+  khpMassInput.style.display = isKHP ? '' : 'none';
+  khpMassLabel.innerHTML = isKHP ? 'Mass of KHP (g)' : '&nbsp;';
+  unknownIdHint.style.paddingTop = isKHP ? '0' : '8px';
+  analyteVolLabel.textContent = isKHP ? 'Volume of KHP solution (mL)' : 'Volume of unknown in flask (mL)';
+  analyteVolHint.textContent = isKHP ? 'KHP dissolved in water to this volume' : 'its concentration is randomized';
+  unknownIdHint.textContent = isKHP
+    ? `${KHP_MASS_MIN.toFixed(2)}\u2013${KHP_MASS_MAX.toFixed(2)} g \u00b7 M = ${KHP_MOLAR_MASS} g/mol \u00b7 unknown: [${baseDef.name}]`
+    : `Unknown in flask: ${analyteName}`;
 
   if (!state.started) {
-    if (titrantIsAcid && acidDef.key === 'vinegar') {
+    if (isKHP) {
+      // Standardization: the base concentration is the unknown, found from the KHP mass.
+      titrantConcInput.disabled = true;
+      titrantConcInput.value = '';
+      titrantConcInput.placeholder = 'unknown \u2014 to be standardized';
+      titrantConcHint.textContent = `${baseDef.name} concentration is hidden \u2014 find it from your titration`;
+    } else if (titrantIsAcid && acidDef.key === 'vinegar') {
       // Vinegar as titrant: its concentration isn't something you set — it's
       // whatever's in the bottle (label says ~5%, but varies 4.8-5.2% v/v).
       titrantConcInput.disabled = true;
@@ -793,7 +826,7 @@ titrantSelect.addEventListener('change', updateUnknownHint);
 // The randomized "unknown" (analyte concentration, and pKa/pKb if an unknown
 // species was chosen) is preserved across Start/Re-Start so a re-start repeats
 // the same hidden unknown. Only "New random unknown" clears it.
-const savedUnknown = { conc: null, pKa: null, pKb: null, vinegarPct: null };
+const savedUnknown = { conc: null, pKa: null, pKb: null, vinegarPct: null, baseConc: null };
 
 function buildResolvedReagents() {
   const acidDef = ACIDS[acidSelect.value];
@@ -819,6 +852,24 @@ function buildResolvedReagents() {
 }
 
 function startExperiment() {
+  // KHP: validate the weighed mass / flask volume before touching any state
+  const isKHP = ACIDS[acidSelect.value].kind === 'khp';
+  let khpMass = null;
+  if (isKHP) {
+    khpMass = parseFloat(khpMassInput.value);
+    const vol = parseFloat(analyteVolInput.value) || 25.0;
+    statusMsg.classList.add('warn');
+    if (!(khpMass >= KHP_MASS_MIN && khpMass <= KHP_MASS_MAX)) {
+      statusMsg.textContent = `Enter a KHP mass between ${KHP_MASS_MIN.toFixed(2)} and ${KHP_MASS_MAX.toFixed(2)} g.`;
+      return;
+    }
+    if (khpMass / (vol / 1000) > KHP_SOLUBILITY) {
+      statusMsg.textContent = `That much KHP will not fully dissolve in ${vol} mL (solubility \u2248 ${KHP_SOLUBILITY} g/L). Use more water or less KHP.`;
+      return;
+    }
+    statusMsg.classList.remove('warn');
+    statusMsg.textContent = '';
+  }
   state.zoomStack = [];
   const { acid, base } = buildResolvedReagents();
   state.acid = acid;
@@ -826,14 +877,24 @@ function startExperiment() {
   state.titrantIs = titrantSelect.value;
   state.analyteVolume = parseFloat(analyteVolInput.value) || 25.0;
 
-  if (state.titrantIs === 'acid' && acid.kind === 'vinegar') {
+  state.khpMass = null;
+  if (isKHP) {
+    // KHP in the flask (known amount); the base in the burette is the hidden unknown.
+    state.titrantIs = 'base';
+    state.khpMass = khpMass;
+    if (savedUnknown.baseConc == null) savedUnknown.baseConc = randRange(KHP_BASE_CONC_RANGE[0], KHP_BASE_CONC_RANGE[1]);
+    state.titrantConc = savedUnknown.baseConc;   // hidden until "Reveal unknown"
+  } else if (state.titrantIs === 'acid' && acid.kind === 'vinegar') {
     // Vinegar's true concentration isn't user-set — it's inherent to the bottle
     state.titrantConc = acid.trueConc;
   } else {
     state.titrantConc = parseFloat(titrantConcInput.value) || 0.1;
   }
 
-  if (state.titrantIs === 'base' && acid.kind === 'vinegar') {
+  if (isKHP) {
+    // [KHP] = (mass / molar mass) / volume of solution
+    state.analyteConc = (state.khpMass / KHP_MOLAR_MASS) / (state.analyteVolume / 1000);
+  } else if (state.titrantIs === 'base' && acid.kind === 'vinegar') {
     // Vinegar as the unknown in the flask: use its own realistic concentration
     // instead of the generic 0.100-0.500 M draw used for other unknowns.
     state.analyteConc = acid.trueConc;
@@ -852,7 +913,7 @@ function startExperiment() {
   if (phToggleBtn) phToggleBtn.classList.add('active');
 
   // lock setup controls
-  [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput].forEach(el => el.disabled = true);
+  [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput, khpMassInput].forEach(el => el.disabled = true);
   document.querySelectorAll('[data-add]').forEach(b => b.disabled = false);
   document.querySelectorAll('[data-water]').forEach(b => b.disabled = false);
   revealBtn.disabled = false;
@@ -875,7 +936,7 @@ function resetToSetup() {
   state.zoomStack = [];
   updateZoomUI();
   state.started = false;
-  [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput].forEach(el => el.disabled = false);
+  [acidSelect, baseSelect, titrantSelect, titrantConcInput, analyteVolInput, khpMassInput].forEach(el => el.disabled = false);
   document.querySelectorAll('[data-add]').forEach(b => b.disabled = true);
   document.querySelectorAll('[data-water]').forEach(b => b.disabled = true);
   revealBtn.disabled = true;
@@ -899,6 +960,7 @@ newUnknownBtn.addEventListener('click', () => {
   savedUnknown.pKa = null;
   savedUnknown.pKb = null;
   savedUnknown.vinegarPct = null;
+  savedUnknown.baseConc = null;
   resetToSetup();
   statusMsg.textContent = 'New unknown ready \u2014 press Start to begin.';
 });
@@ -964,7 +1026,12 @@ document.querySelectorAll('[data-water]').forEach(btn => {
 });
 
 revealBtn.addEventListener('click', () => {
-  const parts = [`True unknown concentration: <b>${state.analyteConc.toFixed(4)} M</b>`];
+  const isKHP = state.acid.kind === 'khp';
+  const parts = isKHP
+    ? [`True ${state.base.name} concentration: <b>${state.titrantConc.toFixed(4)} M</b>`,
+       `(KHP: ${state.khpMass.toFixed(4)} g = ${(state.khpMass / KHP_MOLAR_MASS * 1000).toFixed(3)} mmol)`,
+       `True equivalence volume = <b>${equivalenceVolumeTrue().toFixed(2)} mL</b>`]
+    : [`True unknown concentration: <b>${state.analyteConc.toFixed(4)} M</b>`];
   if (state.acid.kind === 'vinegar' && state.titrantIs === 'base') {
     parts.push(`(vinegar \u2248 <b>${state.acid.vinegarPct.toFixed(2)}%</b> v/v acetic acid)`);
   }
@@ -1292,8 +1359,11 @@ function buildChartSVG(theme, standalone) {
   let preparedMarkup = '';
   if (acidName && baseName) {
     const titrantConcStr = state.titrantConc != null ? state.titrantConc.toFixed(2) + ' M ' : '';
-    const acidLabel = state.titrantIs === 'acid' ? `${titrantConcStr}${acidName}` : `${acidName} (unknown)`;
-    const baseLabel = state.titrantIs === 'base' ? `${titrantConcStr}${baseName}` : `${baseName} (unknown)`;
+    const isKHP = state.acid.kind === 'khp';
+    const acidLabel = isKHP ? `${state.acid.short} (${state.khpMass.toFixed(4)} g)`
+      : state.titrantIs === 'acid' ? `${titrantConcStr}${acidName}` : `${acidName} (unknown)`;
+    const baseLabel = isKHP ? `${baseName} (unknown)`
+      : state.titrantIs === 'base' ? `${titrantConcStr}${baseName}` : `${baseName} (unknown)`;
     titleMarkup = `<text x="${W / 2}" y="17" text-anchor="middle" font-size="14" font-weight="600" fill="${T.axisLabel}" font-family="Fraunces, Georgia, serif">${escapeXml(acidLabel)} + ${escapeXml(baseLabel)}</text>`;
     if (standalone) {
       const typeName = state.mode === 'd1' ? 'First Derivative' : state.mode === 'd2' ? 'Second Derivative' : 'pH';
@@ -1660,8 +1730,16 @@ function exportTableCSV() {
   rows.push(['Acid', state.acid.name]);
   rows.push(['Base', state.base.name]);
   rows.push(['Titrant', state.titrantIs === 'acid' ? state.acid.name : state.base.name]);
-  rows.push(['Titrant concentration (M)', state.titrantConc.toFixed(4)]);
-  rows.push(['Volume of unknown in flask (mL)', state.analyteVolume.toFixed(2)]);
+  if (state.acid.kind === 'khp') {
+    rows.push(['Titrant concentration (M)', 'unknown (to be determined)']);
+    rows.push(['Mass of KHP (g)', state.khpMass.toFixed(4)]);
+    rows.push(['Molar mass of KHP (g/mol)', KHP_MOLAR_MASS]);
+    rows.push(['Amount of KHP (mmol)', (state.khpMass / KHP_MOLAR_MASS * 1000).toFixed(3)]);
+    rows.push(['Volume of KHP solution in flask (mL)', state.analyteVolume.toFixed(2)]);
+  } else {
+    rows.push(['Titrant concentration (M)', state.titrantConc.toFixed(4)]);
+    rows.push(['Volume of unknown in flask (mL)', state.analyteVolume.toFixed(2)]);
+  }
   rows.push([]);
   rows.push(['Volume of titrant (mL)', 'pH', 'dpH/dV', 'd2pH/dV2']);
   state.data.forEach((p, i) => {
@@ -1674,7 +1752,11 @@ function exportTableCSV() {
   });
   rows.push([]);
 
-  rows.push(['Unknown concentration (M)', state.analyteConc.toFixed(4)]);
+  if (state.acid.kind === 'khp') {
+    rows.push([`True ${state.base.name} concentration (M)`, state.titrantConc.toFixed(4)]);
+  } else {
+    rows.push(['Unknown concentration (M)', state.analyteConc.toFixed(4)]);
+  }
   if (state.acid.kind === 'vinegar') {
     rows.push(['Vinegar % v/v acetic acid', state.acid.vinegarPct.toFixed(2)]);
   }
