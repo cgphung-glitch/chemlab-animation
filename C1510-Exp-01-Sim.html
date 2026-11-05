@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Density, Measurement, Precision Interactive Guide</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- KaTeX CSS & JS for Mathematical Formatting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .modal { display: none; }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- Header & Navigation -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 p-2.5 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/10">
+                    <i class="fa-solid fa-flask-vial text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        Density, Measurement & Precision
+                        <span class="text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono uppercase">Lab V</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Interactive Lab Guide, Calculations & Experimental Simulator</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Buttons -->
+            <nav class="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                <button onclick="window.switchTab('concept')" id="btn-concept" class="tab-btn px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20">
+                    <i class="fa-solid fa-book-open"></i> Concept & Theory
+                </button>
+                <button onclick="window.switchTab('analysis')" id="btn-analysis" class="tab-btn px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-900">
+                    <i class="fa-solid fa-calculator"></i> Analysis & Math
+                </button>
+                <button onclick="window.switchTab('procedure')" id="btn-procedure" class="tab-btn px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-900">
+                    <i class="fa-solid fa-microscope"></i> Lab Procedure Sim
+                </button>
+                <button onclick="window.switchTab('quiz')" id="btn-quiz" class="tab-btn px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-900">
+                    <i class="fa-solid fa-clipboard-question"></i> Knowledge Check
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+
+        <!-- ================= TAB 1: CONCEPT & THEORY ================= -->
+        <div id="tab-concept" class="tab-content active space-y-6">
+            <!-- Hero Banner -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-850 border border-slate-800 rounded-2xl p-6 md:p-8 relative overflow-hidden shadow-xl">
+                <div class="absolute top-0 right-0 -mt-4 -mr-4 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="max-w-3xl relative z-10">
+                    <span class="text-xs font-mono uppercase tracking-widest text-cyan-400 font-semibold mb-2 block">Purpose & Objective</span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">Determine Precision & Accuracy of Lab Volume Devices</h2>
+                    <p class="text-sm md:text-base text-slate-300 leading-relaxed">
+                        In quantitative chemistry, measurements form the backbone of all data analysis. This experiment investigates how well different laboratory glassware—specifically a <strong class="text-cyan-400">graduated beaker</strong>, a <strong class="text-cyan-400">graduated cylinder</strong>, and a <strong class="text-cyan-400">10-mL pipet</strong>—can measure exactly 10 mL of water by determining mass and utilizing temperature-dependent density values.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Concept Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Card 1: Mistakes vs Errors -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all group">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-white mb-2">Mistakes vs. Errors</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                            Distinguish between avoidable blunders (mistakes) and inevitable measurement variations (systematic and random errors).
+                        </p>
+                    </div>
+                    <button onclick="window.openModal('mistake')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold py-2.5 px-4 rounded-lg border border-slate-700 transition-all flex items-center justify-center gap-2">
+                        <span>Learn More</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                </div>
+
+                <!-- Card 2: Precision & Bell Curves -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all group">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-bullseye text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-white mb-2">Precision & Bell Curve</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                            Explore standard deviation (σ), dispersion of successive measurements, and Gaussian distribution profiles (Curve A vs. B).
+                        </p>
+                    </div>
+                    <button onclick="window.openModal('precision')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold py-2.5 px-4 rounded-lg border border-slate-700 transition-all flex items-center justify-center gap-2">
+                        <span>Learn More</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                </div>
+
+                <!-- Card 3: Temperature Density -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all group">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-temperature-half text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-white mb-2">Temperature Density</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                            Understand how water density shifts with temperature and why thermal equilibrium is vital for accurate volumetric work.
+                        </p>
+                    </div>
+                    <button onclick="window.openModal('density')" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold py-2.5 px-4 rounded-lg border border-slate-700 transition-all flex items-center justify-center gap-2">
+                        <span>Learn More</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Water Density Reference Table -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-table text-cyan-400"></i> Table 1 – Density (g/mL) of Water at Various Temperatures (°C)
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-mono border-b border-slate-800">
+                            <tr>
+                                <th class="p-3 text-center">Temp (°C)</th>
+                                <th class="p-3 text-center">Density (g/mL)</th>
+                                <th class="p-3 text-center">Temp (°C)</th>
+                                <th class="p-3 text-center">Density (g/mL)</th>
+                                <th class="p-3 text-center">Temp (°C)</th>
+                                <th class="p-3 text-center">Density (g/mL)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800 font-mono text-slate-300">
+                            <tr>
+                                <td class="p-3 text-center font-bold text-cyan-400">17</td>
+                                <td class="p-3 text-center">0.9988</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">22</td>
+                                <td class="p-3 text-center">0.9978</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">27</td>
+                                <td class="p-3 text-center">0.9965</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 text-center font-bold text-cyan-400">18</td>
+                                <td class="p-3 text-center">0.9986</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">23</td>
+                                <td class="p-3 text-center">0.9976</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">28</td>
+                                <td class="p-3 text-center">0.9962</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 text-center font-bold text-cyan-400">19</td>
+                                <td class="p-3 text-center">0.9984</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">24</td>
+                                <td class="p-3 text-center">0.9973</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">29</td>
+                                <td class="p-3 text-center">0.9959</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 text-center font-bold text-cyan-400">20</td>
+                                <td class="p-3 text-center">0.9982</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">25</td>
+                                <td class="p-3 text-center">0.9971</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">30</td>
+                                <td class="p-3 text-center">0.9956</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 text-center font-bold text-cyan-400">21</td>
+                                <td class="p-3 text-center">0.9980</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">26</td>
+                                <td class="p-3 text-center">0.9968</td>
+                                <td class="p-3 text-center font-bold text-cyan-400">31</td>
+                                <td class="p-3 text-center">0.9953</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: ANALYSIS & MATH ================= -->
+        <div id="tab-analysis" class="tab-content space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <h3 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-cyan-400"></i> Bell Curves & Precision Comparison
+                </h3>
+                <p class="text-xs text-slate-400 mb-6">
+                    A narrower bell curve indicates higher precision (smaller standard deviation (σ), whereas a wider curve indicates greater dispersion and lower precision.
+                </p>
+                
+                <!-- Graphical Bell Curve Canvas / SVG Representation with refined narrow/tall Curve A and wide/short Curve B -->
+                <div class="bg-slate-950 p-6 rounded-xl border border-slate-800 flex flex-col items-center justify-center">
+                    <svg viewBox="0 0 600 240" class="w-full max-w-xl h-auto">
+                        <!-- Axes -->
+                        <line x1="50" y1="200" x2="550" y2="200" stroke="#475569" stroke-width="2" />
+                        <line x1="300" y1="20" x2="300" y2="200" stroke="#334155" stroke-dasharray="4" stroke-width="1.5" />
+                        
+                        <!-- Curve B (Wide & Shorter / Less Precise) -->
+                        <path d="M 100 200 C 170 200, 230 180, 260 140 C 285 105, 295 90, 300 90 C 305 90, 315 105, 340 140 C 370 180, 430 200, 500 200 Z" fill="rgba(59, 130, 246, 0.15)" stroke="#3b82f6" stroke-width="2.5" />
+                        
+                        <!-- Curve A (Narrow & Taller / More Precise) -->
+                        <path d="M 210 200 C 245 200, 265 150, 282 70 C 292 25, 296 15, 300 15 C 304 15, 308 25, 318 70 C 335 150, 355 200, 390 200 Z" fill="rgba(6, 182, 212, 0.25)" stroke="#06b6d4" stroke-width="2.5" />
+
+                        <!-- Labels -->
+                        <text x="315" y="32" fill="#06b6d4" font-size="12" font-weight="bold">Curve A: High Precision (Small σ, Narrow)</text>
+                        <text x="340" y="125" fill="#3b82f6" font-size="12" font-weight="bold">Curve B: Low Precision (Large σ, Wide)</text>
+                        <text x="300" y="218" fill="#94a3b8" font-size="11" text-anchor="middle">Mean Value</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Interactive Standard Deviation & Error Calculator -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <h3 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-calculator text-cyan-400"></i> Interactive Standard Deviation & Error Calculator
+                </h3>
+                <p class="text-xs text-slate-400 mb-6">
+                    Examine Example 1 data calculations with live recalculation and precision analysis.
+                </p>
+
+                <!-- Input Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">True / Accepted Value (g)</label>
+                        <input type="number" id="calc-true" value="10.10" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" oninput="window.updateCalc()">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Measurement Data (comma separated)</label>
+                        <input type="text" id="calc-inputs" value="10.11, 10.13, 10.10, 10.12, 10.15" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" oninput="window.updateCalc()">
+                    </div>
+                </div>
+
+                <!-- Calculation Table -->
+                <div class="overflow-x-auto mb-6">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-950 text-slate-400 uppercase font-mono border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">Trial</th>
+                                <th class="p-3">Data (\(x_i\))</th>
+                                <th class="p-3">Deviation (\(d_i = x_i - \bar{x}\))</th>
+                                <th class="p-3">Squared Deviation (\((d_i)^2\))</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calc-table-body" class="divide-y divide-slate-800 font-mono text-slate-300">
+                            <!-- Populated via JS -->
+                        </tbody>
+                        <tfoot class="bg-slate-950/80 font-mono text-slate-200 border-t border-slate-800">
+                            <tr>
+                                <td class="p-3 font-bold">Sum / Mean</td>
+                                <td id="sum-xi" class="p-3 font-bold text-cyan-400"></td>
+                                <td class="p-3">-</td>
+                                <td id="sum-di2" class="p-3 font-bold text-cyan-400"></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="p-3 text-slate-300">
+                                    <div id="mean-display" class="font-sans font-semibold"></div>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Formulas and Final Analysis -->
+                <div id="res-formulas" class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3 text-xs leading-relaxed">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: LAB PROCEDURE SIM ================= -->
+        <div id="tab-procedure" class="tab-content space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                            <i class="fa-solid fa-flask text-cyan-400"></i> Virtual Volumetric Measurement Simulator
+                        </h3>
+                        <p class="text-xs text-slate-400">Select a device, record water temperature & density, weigh the empty device, and perform 10-mL additions.</p>
+                    </div>
+
+                    <!-- Device Selector -->
+                    <div class="flex items-center gap-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                        <button onclick="window.selectDevice('beaker')" id="dev-beaker" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-cyan-500 text-slate-950">Graduated Beaker</button>
+                        <button onclick="window.selectDevice('cylinder')" id="dev-cylinder" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">Graduated Cylinder</button>
+                        <button onclick="window.selectDevice('pipet')" id="dev-pipet" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white">10-mL Pipet</button>
+                    </div>
+                </div>
+
+                <!-- Simulator Workspace -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left: Electronic Balance & Controls -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">Electronic Balance</span>
+                                <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-mono">Prec: ±0.02 g</span>
+                            </div>
+
+                            <!-- Balance LCD Display -->
+                            <div class="bg-slate-900 border-2 border-slate-800 rounded-xl p-4 text-right relative overflow-hidden shadow-inner mb-4">
+                                <div class="absolute top-2 left-3 flex items-center gap-1.5">
+                                    <div id="balance-indicator" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                                    <span id="balance-status-sub" class="text-[10px] font-mono text-slate-400">UNTARED</span>
+                                </div>
+                                <div class="text-3xl sm:text-4xl font-mono font-bold text-cyan-400 tracking-wider mt-4" id="balance-lcd">±0.02 g</div>
+                            </div>
+
+                            <!-- Water Temperature & Density Settings -->
+                            <div class="space-y-3 mb-4 bg-slate-900 p-3 rounded-lg border border-slate-800">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs text-slate-300 font-medium">Water Temp (°C):</label>
+                                    <input type="number" id="sim-temp" value="22" min="17" max="31" class="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-cyan-400 font-mono text-center" onchange="window.updateSimDensity()">
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs text-slate-300 font-medium">Water Density (g/mL):</label>
+                                    <span id="sim-density-display" class="text-xs font-mono font-bold text-emerald-400">0.9978</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="space-y-2">
+                            <button onclick="window.tareBalance()" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg border border-slate-700 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-scale-balanced text-cyan-400"></i> Tare Balance to 0.00
+                            </button>
+                            <button onclick="window.weighEmptyDevice()" id="btn-weigh-empty" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2.5 px-4 rounded-lg border border-slate-700 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-box text-cyan-400"></i> Weigh the empty device
+                            </button>
+                            <button onclick="window.performSimAction()" id="btn-sim-action" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold py-2.5 px-4 rounded-lg transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2" disabled>
+                                <i class="fa-solid fa-droplet"></i> Add 10-mL Water (Step 1/4)
+                            </button>
+                            <button onclick="window.resetSim()" class="w-full bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-semibold py-2 px-4 rounded-lg border border-slate-800 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-rotate-right"></i> Reset Simulation
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Experimental Data Table -->
+                    <div class="lg:col-span-2 bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-table-cells text-cyan-400"></i> Experimental Data Table (<span id="sim-device-title">Graduated Beaker</span>)
+                                </h4>
+                                <span id="sim-step-badge" class="text-xs font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2.5 py-1 rounded-md">Status: Tare & Weigh Empty Device</span>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs border border-slate-800 rounded-lg overflow-hidden">
+                                    <tbody id="sim-data-tbody" class="font-mono divide-y divide-slate-800">
+                                        <!-- Populated via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Simulator Progress & Feedback -->
+                        <div class="mt-4 bg-slate-900 p-3 rounded-lg border border-slate-800 flex items-center justify-between">
+                            <span id="sim-instruction" class="text-xs text-slate-300">1. Turn on balance & tare to zero. 2. Click 'Weigh the empty device'.</span>
+                            <span id="sim-trial-counter" class="text-xs font-mono font-bold text-cyan-400">Addition: 0 / 4</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: KNOWLEDGE CHECK ================= -->
+        <div id="tab-quiz" class="tab-content space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 max-w-3xl mx-auto">
+                <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-1">Experiment Knowledge Check</h3>
+                        <p class="text-xs text-slate-400">Test your understanding of precision, systematic error, density, and volumetric glassware.</p>
+                    </div>
+                    <div id="quiz-score" class="text-sm font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-3 py-1.5 rounded-lg">
+                        Score: 0 / 3
+                    </div>
+                </div>
+
+                <div id="quiz-questions" class="space-y-6">
+                    <!-- Question 1 -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3" data-q="0" data-ans="1">
+                        <p class="text-sm font-semibold text-white">1. Which laboratory glassware is expected to provide the highest volumetric precision for delivering exactly 10 mL of water?</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q0" value="0" class="text-cyan-500 focus:ring-cyan-500"> 50-mL Graduated Beaker
+                            </label>
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q0" value="1" class="text-cyan-500 focus:ring-cyan-500"> 10-mL Volumetric Pipet
+                            </label>
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q0" value="2" class="text-cyan-500 focus:ring-cyan-500"> 50-mL Graduated Cylinder
+                            </label>
+                        </div>
+                        <div class="quiz-feedback hidden text-xs font-semibold pt-1"></div>
+                    </div>
+
+                    <!-- Question 2 -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3" data-q="1" data-ans="0">
+                        <p class="text-sm font-semibold text-white">2. Why must you record the water temperature when determining volume from mass?</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q1" value="0" class="text-cyan-500 focus:ring-cyan-500"> Water density varies noticeably with temperature, affecting volume calculations.
+                            </label>
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q1" value="1" class="text-cyan-500 focus:ring-cyan-500"> The electronic balance will malfunction if water is above 25°C.
+                            </label>
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q1" value="2" class="text-cyan-500 focus:ring-cyan-500"> Temperature changes the mass of water on the balance.
+                            </label>
+                        </div>
+                        <div class="quiz-feedback hidden text-xs font-semibold pt-1"></div>
+                    </div>
+
+                    <!-- Question 3 -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-3" data-q="2" data-ans="2">
+                        <p class="text-sm font-semibold text-white">3. What does a narrow bell-shaped Gaussian distribution curve signify regarding successive measurements?</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q2" value="0" class="text-cyan-500 focus:ring-cyan-500"> High systematic error
+                            </label>
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q2" value="1" class="text-cyan-500 focus:ring-cyan-500"> Low precision and large standard deviation
+                            </label>
+                            <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer text-xs transition-all">
+                                <input type="radio" name="q2" value="2" class="text-cyan-500 focus:ring-cyan-500"> High precision and small standard deviation (σ))
+                            </label>
+                        </div>
+                        <div class="quiz-feedback hidden text-xs font-semibold pt-1"></div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button onclick="window.submitQuiz()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> Submit Answers
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Popup for Concept Details -->
+    <div id="concept-modal" class="modal fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 relative shadow-2xl">
+            <button onclick="window.closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white bg-slate-800 w-8 h-8 rounded-lg flex items-center justify-center transition-all">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="modal-content" class="space-y-4">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-500 font-mono">
+        Density, Measurement & Precision Lab V • Interactive Learning & Simulation Environment
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Modal Data Definitions with pre-tagged LaTeX elements for reliable rendering
+        const modalData = {
+            mistake: {
+                title: "Mistakes vs. Errors",
+                icon: "fa-triangle-exclamation",
+                iconColor: "text-amber-400",
+                body: `<p class="text-xs text-slate-300 leading-relaxed mb-3">A <strong>mistake</strong> is a blunder or unintended action (like misreading a scale by 10mL or spilling sample) whose consequence is entirely undesirable. Mistakes can be avoided with care.</p><p class="text-xs text-slate-300 leading-relaxed">An <strong>error</strong> accounts for the natural dispersion of successive measurements even when no mistake is made. Errors can be systematic (faulty calibration) or random (instrument precision limits).</p>`
+            },
+            precision: {
+                title: "Precision & Bell Curves",
+                icon: "fa-bullseye",
+                iconColor: "text-blue-400",
+                body: `<p class="text-xs text-slate-300 leading-relaxed mb-3">Precision represents the closeness of agreement between successive measurements. High precision yields a narrow bell-shaped Gaussian distribution curve (Curve A), while low precision yields a wide curve (Curve B).</p><p class="text-xs text-slate-300 leading-relaxed">Standard deviation (<strong class="text-cyan-400">σ</strong>) mathematically expresses this dispersion: <br><span class="katex-render block my-2 p-2 bg-slate-950 rounded border border-slate-800 text-center" data-tex="σ = \\sqrt{\\frac{\\sum (x_i - \\bar{x})^2}{N - 1}}" data-display="true"></span></p>`
+            },
+            density: {
+                title: "Temperature-Dependent Density",
+                icon: "fa-temperature-half",
+                iconColor: "text-emerald-400",
+                body: `<p class="text-xs text-slate-300 leading-relaxed mb-3">Water density varies noticeably with temperature because water expands as it warms and contracts as it cools. At 20°C, water density is <strong>0.9982 g/mL</strong>, whereas at 30°C it drops to <strong>0.9956 g/mL</strong>.</p><p class="text-xs text-slate-300 leading-relaxed">Recording exact water temperature allows precise volume calculation from mass: <br><span class="katex-render block my-2 p-2 bg-slate-950 rounded border border-slate-800 text-center" data-tex="\\text{Volume} = \\frac{\\text{Mass}}{\\text{Density}}" data-display="true"></span></p>`
+            }
+        };
+
+        window.openModal = function(key) {
+            const data = modalData[key];
+            if (!data) return;
+            const modalEl = document.getElementById('concept-modal');
+            const contentEl = document.getElementById('modal-content');
+            contentEl.innerHTML = `
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center ${data.iconColor}">
+                        <i class="fa-solid ${data.icon} text-lg"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">${data.title}</h3>
+                </div>
+                ${data.body}
+            `;
+            modalEl.classList.add('active');
+            
+            // Render KaTeX expressions explicitly inside modal content
+            setTimeout(() => {
+                if (window.katex) {
+                    contentEl.querySelectorAll('.katex-render').forEach(el => {
+                        try {
+                            const tex = el.getAttribute('data-tex');
+                            const displayMode = el.getAttribute('data-display') === 'true';
+                            katex.render(tex, el, { displayMode: displayMode, throwOnError: false });
+                        } catch (e) {}
+                    });
+                }
+            }, 50);
+        };
+
+        window.closeModal = function() {
+            document.getElementById('concept-modal').classList.remove('active');
+        };
+
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-900';
+            });
+
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            const targetBtn = document.getElementById(`btn-${tabId}`);
+            if (targetTab) targetTab.classList.add('active');
+            if (targetBtn) {
+                targetBtn.className = 'tab-btn px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20';
+            }
+
+            if (tabId === 'analysis') {
+                window.updateCalc();
+            }
+        };
+
+        window.updateCalc = function() {
+            const trueValInput = document.getElementById('calc-true');
+            const inputsInput = document.getElementById('calc-inputs');
+            if (!trueValInput || !inputsInput) return;
+
+            const trueVal = parseFloat(trueValInput.value) || 10.10;
+            const rawVals = inputsInput.value.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+            
+            if (rawVals.length === 0) return;
+
+            const N = rawVals.length;
+            const sumXi = rawVals.reduce((a, b) => a + b, 0);
+            const mean = sumXi / N;
+
+            let sumSquaredDiffs = 0;
+            const rowsHtml = rawVals.map((val, idx) => {
+                const dev = val - mean;
+                const devSq = Math.pow(dev, 2);
+                sumSquaredDiffs += devSq;
+                return `
+                    <tr>
+                        <td class="p-3 text-cyan-400 font-bold">Trial ${idx + 1}</td>
+                        <td class="p-3">${val.toFixed(2)}</td>
+                        <td class="p-3">${dev >= 0 ? '+' : ''}${dev.toFixed(3)}</td>
+                        <td class="p-3">${devSq.toFixed(6)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.getElementById('calc-table-body').innerHTML = rowsHtml;
+            document.getElementById('sum-xi').innerText = sumXi.toFixed(2);
+            document.getElementById('sum-di2').innerText = sumSquaredDiffs.toFixed(6);
+
+            const s = N > 1 ? Math.sqrt(sumSquaredDiffs / (N - 1)) : 0;
+            document.getElementById('mean-display').innerHTML = `Mean (\\(\\bar{x}\\)) = \\(\\frac{${sumXi.toFixed(2)}}{${N}}\\) = <strong>${mean.toFixed(3)} g</strong> &nbsp;|&nbsp; Standard Deviation (σ) = <strong>${s.toFixed(4)}</strong> &rarr; <strong>±${s.toFixed(2)} g</strong>`;
+
+            const percentError = ((mean - trueVal) / trueVal) * 100;
+            const accuracy = 100 - Math.abs(percentError);
+
+            document.getElementById('res-formulas').innerHTML = `
+                <p><strong>Step-by-Step Analysis Breakdown:</strong></p>
+                <p>&bull; <strong>Sum of Measurements (\\(\\sum x_i\\)):</strong> ${sumXi.toFixed(2)} across \\(N = ${N}\\) trials.</p>
+                <p>&bull; <strong>Mean Value (\\(\\bar{x}\\)):</strong> \\(\\frac{\\sum x_i}{N} = \\frac{${sumXi.toFixed(2)}}{${N}} = \\) <strong>${mean.toFixed(3)} g</strong>.</p>
+                <p>&bull; <strong>Standard Deviation (σ):</strong> \\(\\sqrt{\\frac{${sumSquaredDiffs.toFixed(6)}}{${N} - 1}} = \\) <strong>${s.toFixed(4)}</strong>.</p>
+                <p>&bull; <strong>Percent Error:</strong> \\( \\frac{${mean.toFixed(3)} - ${trueVal}}{${trueVal}} \\times 100\\% = \\) <strong class="${percentError >= 0 ? 'text-blue-400' : 'text-amber-400'}">${(percentError >= 0 ? '+' : '') + percentError.toFixed(2)}%</strong> (${percentError >= 0 ? 'above' : 'below'} accepted value).</p>
+                <p>&bull; <strong>Accuracy:</strong> \\( 100\\% - |${percentError.toFixed(2)}\\%| = \\) <strong>${Math.max(0, accuracy).toFixed(2)}%</strong>.</p>
+            `;
+
+            if (window.renderMathInElement) {
+                renderMathInElement(document.getElementById('tab-analysis'), {
+                    delimiters: [
+                        {left: "$$", right: "$$", display: true},
+                        {left: "\\(", right: "\\)", display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        };
+
+        // Lab Procedure Simulator State
+        let simState = {
+            device: 'beaker',
+            tared: false,
+            emptyWeighed: false,
+            emptyMass: 24.50,
+            waterDensities: { beaker: 0.9982, cylinder: 0.9982, pipet: 0.9982 },
+            addedMasses: [0, 0, 0, 0],
+            step: 0 // 0: tare, 1: weigh empty, 2-5: additions 1-4
+        };
+
+        const deviceNames = {
+            beaker: 'Graduated Beaker',
+            cylinder: 'Graduated Cylinder',
+            pipet: '10-mL Pipet'
+        };
+
+        const idealAdditions = {
+            beaker: [10.15, 20.32, 30.48, 40.65],
+            cylinder: [10.02, 20.05, 30.08, 40.10],
+            pipet: [9.98, 19.97, 29.96, 39.95]
+        };
+
+        window.selectDevice = function(dev) {
+            simState.device = dev;
+            simState.step = 0;
+            simState.tared = false;
+            simState.emptyWeighed = false;
+            simState.addedMasses = [0, 0, 0, 0];
+            
+            document.querySelectorAll('#tab-procedure .flex.items-center.gap-2.bg-slate-950 button').forEach(b => {
+                b.className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-white';
+            });
+            const activeBtn = document.getElementById(`dev-${dev}`);
+            if (activeBtn) activeBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-cyan-500 text-slate-950';
+
+            document.getElementById('sim-device-title').innerText = deviceNames[dev];
+            window.renderSimTable();
+            window.updateSimDisplay();
+        };
+
+        window.updateSimDensity = function() {
+            const temp = parseFloat(document.getElementById('sim-temp').value) || 22;
+            const density = (1 - (temp - 20) * 0.00025).toFixed(4); // simple approximation table
+            simState.waterDensities[simState.device] = parseFloat(density);
+            document.getElementById('sim-density-display').innerText = density;
+            window.renderSimTable();
+        };
+
+        window.tareBalance = function() {
+            simState.tared = true;
+            simState.emptyWeighed = false;
+            simState.step = 1;
+            window.updateSimDisplay();
+            window.renderSimTable();
+        };
+
+        window.weighEmptyDevice = function() {
+            if (!simState.tared) {
+                alert("Please tare the balance to zero first.");
+                return;
+            }
+            simState.emptyWeighed = true;
+            simState.step = 2;
+            window.updateSimDisplay();
+            window.renderSimTable();
+        };
+
+        window.performSimAction = function() {
+            if (simState.step < 2 || simState.step > 5) return;
+            const trialIdx = simState.step - 2;
+            simState.addedMasses[trialIdx] = idealAdditions[simState.device][trialIdx];
+            simState.step++;
+            window.updateSimDisplay();
+            window.renderSimTable();
+        };
+
+        window.resetSim = function() {
+            simState.step = 0;
+            simState.tared = false;
+            simState.emptyWeighed = false;
+            simState.addedMasses = [0, 0, 0, 0];
+            window.updateSimDisplay();
+            window.renderSimTable();
+        };
+
+        window.updateSimDisplay = function() {
+            const lcd = document.getElementById('balance-lcd');
+            const statusSub = document.getElementById('balance-status-sub');
+            const indicator = document.getElementById('balance-indicator');
+            const actionBtn = document.getElementById('btn-sim-action');
+            const instruction = document.getElementById('sim-instruction');
+            const counter = document.getElementById('sim-trial-counter');
+            const badge = document.getElementById('sim-step-badge');
+
+            if (simState.step === 0) {
+                lcd.innerText = "±0.02 g";
+                statusSub.innerText = "UNTARED";
+                indicator.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+                actionBtn.disabled = true;
+                actionBtn.innerText = "Add 10-mL Water (Step 1/4)";
+                instruction.innerText = "1. Turn on balance & tare to zero. 2. Click 'Weigh the empty device'.";
+                counter.innerText = "Addition: 0 / 4";
+                badge.innerText = "Status: Tare & Weigh Empty Device";
+            } else if (simState.step === 1) {
+                lcd.innerText = "0.00 g";
+                statusSub.innerText = "TARED (0.00)";
+                indicator.className = "w-2 h-2 rounded-full bg-emerald-500";
+                actionBtn.disabled = true;
+                actionBtn.innerText = "Add 10-mL Water (Step 1/4)";
+                instruction.innerText = "Balance is tared. Now click 'Weigh the empty device'.";
+                counter.innerText = "Addition: 0 / 4";
+                badge.innerText = "Status: Ready to Weigh Empty Device";
+            } else if (simState.step === 2) {
+                lcd.innerText = simState.emptyMass.toFixed(2) + " g";
+                statusSub.innerText = "EMPTY DEVICE";
+                indicator.className = "w-2 h-2 rounded-full bg-cyan-500";
+                actionBtn.disabled = false;
+                actionBtn.innerText = "Add 10-mL Water (Addition 1)";
+                instruction.innerText = "Empty device weighed. Add first 10-mL of D.I. water.";
+                counter.innerText = "Addition: 0 / 4";
+                badge.innerText = "Status: Ready for Addition 1";
+            } else if (simState.step >= 3 && simState.step <= 6) {
+                const trialIdx = simState.step - 2;
+                const totalMass = simState.emptyMass + simState.addedMasses[trialIdx - 1];
+                lcd.innerText = totalMass.toFixed(2) + " g";
+                statusSub.innerText = `ADDITION ${trialIdx}`;
+                indicator.className = "w-2 h-2 rounded-full bg-cyan-500 animate-pulse";
+                
+                if (simState.step < 6) {
+                    actionBtn.disabled = false;
+                    actionBtn.innerText = `Add 10-mL Water (Addition ${trialIdx + 1})`;
+                    instruction.innerText = `Addition ${trialIdx} complete. Add next 10-mL increment up to ${(trialIdx + 1) * 10} mL mark.`;
+                } else {
+                    actionBtn.disabled = true;
+                    actionBtn.innerText = "All 4 Additions Complete";
+                    instruction.innerText = "All 4 additions completed successfully. Review calculated volumes in table below.";
+                }
+                counter.innerText = `Addition: ${Math.min(trialIdx, 4)} / 4`;
+                badge.innerText = `Status: Addition ${Math.min(trialIdx, 4)} Complete`;
+            }
+        };
+
+        window.renderSimTable = function() {
+            const tbody = document.getElementById('sim-data-tbody');
+            if (!tbody) return;
+
+            const density = simState.waterDensities[simState.device];
+            const emptyM = simState.emptyWeighed || simState.step >= 2 ? simState.emptyMass : null;
+
+            // Row 2: Mass after addition
+            let row2Cols = [
+                '<td class="p-3 font-bold text-slate-300">Mass after addition (g)</td>'
+            ];
+            for (let i = 0; i < 4; i++) {
+                const m = simState.addedMasses[i] > 0 ? (simState.emptyMass + simState.addedMasses[i]).toFixed(2) : '';
+                row2Cols.push(`<td class="p-3 text-center text-cyan-400 font-bold">${m}</td>`);
+            }
+
+            // Row 3: Mass before addition (empty device for 1st, previous total for 2nd-4th)
+            let row3Cols = [
+                '<td class="p-3 font-bold text-slate-300">Mass before addition (g)</td>'
+            ];
+            for (let i = 0; i < 4; i++) {
+                if (i === 0) {
+                    row3Cols.push(`<td class="p-3 text-center text-emerald-400">${emptyM !== null ? emptyM.toFixed(2) : ''}</td>`);
+                } else {
+                    const prevM = simState.addedMasses[i-1] > 0 ? (simState.emptyMass + simState.addedMasses[i-1]).toFixed(2) : '';
+                    row3Cols.push(`<td class="p-3 text-center text-emerald-400">${prevM}</td>`);
+                }
+            }
+
+            // Row 4: Mass of added water (g) = Mass after - Mass before
+            let row4Cols = [
+                '<td class="p-3 font-bold text-slate-300">Mass of added water (g)</td>'
+            ];
+            for (let i = 0; i < 4; i++) {
+                const addedM = simState.addedMasses[i];
+                row4Cols.push(`<td class="p-3 text-center text-amber-400">${addedM > 0 ? addedM.toFixed(2) : ''}</td>`);
+            }
+
+            // Row 5: Calculated volume of water (mL) = Mass of added water / density
+            let row5Cols = [
+                '<td class="p-3 font-bold text-slate-300">Calculated volume of water (mL)</td>'
+            ];
+            let totalVol = 0;
+            let validCount = 0;
+            for (let i = 0; i < 4; i++) {
+                const addedM = simState.addedMasses[i];
+                if (addedM > 0) {
+                    const vol = addedM / density;
+                    totalVol += vol;
+                    validCount++;
+                    row5Cols.push(`<td class="p-3 text-center text-cyan-300 font-bold">${vol.toFixed(2)}</td>`);
+                } else {
+                    row5Cols.push(`<td class="p-3 text-center"></td>`);
+                }
+            }
+
+            const avgVol = validCount > 0 ? totalVol / validCount : 0;
+
+            tbody.innerHTML = `
+                <tr class="bg-slate-900 text-slate-400 uppercase font-mono text-[11px]">
+                    <th class="p-3">Addition No.</th>
+                    <th class="p-3 text-center">1</th>
+                    <th class="p-3 text-center">2</th>
+                    <th class="p-3 text-center">3</th>
+                    <th class="p-3 text-center">4</th>
+                </tr>
+                <tr class="bg-slate-950">${row2Cols.join('')}</tr>
+                <tr class="bg-slate-950">${row3Cols.join('')}</tr>
+                <tr class="bg-slate-950">${row4Cols.join('')}</tr>
+                <tr class="bg-slate-950">${row5Cols.join('')}</tr>
+                <tr class="bg-slate-900 font-bold">
+                    <td colspan="4" class="p-3 text-right text-slate-300">Average volume (mL):</td>
+                    <td class="p-3 text-center text-cyan-400 text-sm">${validCount > 0 ? avgVol.toFixed(2) + ' mL' : '-'}</td>
+                </tr>
+            `;
+        };
+
+        // Quiz Submission Logic
+        window.submitQuiz = function() {
+            let score = 0;
+            const questions = document.querySelectorAll('#quiz-questions > div');
+            questions.forEach((qEl) => {
+                const qIdx = qEl.getAttribute('data-q');
+                const correctAns = parseInt(qEl.getAttribute('data-ans'));
+                const selected = qEl.querySelector(`input[name="q${qIdx}"]:checked`);
+                const feedbackEl = qEl.querySelector('.quiz-feedback');
+                
+                feedbackEl.classList.remove('hidden');
+                if (selected && parseInt(selected.value) === correctAns) {
+                    score++;
+                    feedbackEl.className = "quiz-feedback text-xs font-semibold pt-1 text-emerald-400";
+                    feedbackEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Correct!';
+                } else {
+                    feedbackEl.className = "quiz-feedback text-xs font-semibold pt-1 text-amber-400";
+                    feedbackEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Incorrect. Review experiment theory.';
+                }
+            });
+
+            document.getElementById('quiz-score').innerText = `Score: ${score} / ${questions.length}`;
+        };
+
+        // Initialization on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            window.updateCalc();
+            window.selectDevice('beaker');
+            if (window.katex) {
+                document.querySelectorAll('.katex-render').forEach(el => {
+                    try {
+                        const tex = el.getAttribute('data-tex');
+                        const displayMode = el.getAttribute('data-display') === 'true';
+                        katex.render(tex, el, { displayMode: displayMode, throwOnError: false });
+                    } catch(e) {}
+                });
+            }
+        });
+    </script>
+</body>
+</html>
