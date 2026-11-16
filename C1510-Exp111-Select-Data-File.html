@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Assigned File</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      margin: 0;
+    }
+    .box {
+      max-width: 520px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 20px;
+      background: #f8f8f8;
+    }
+    .result {
+      margin-top: 16px;
+      padding: 14px;
+      background: white;
+      border-radius: 6px;
+    }
+    a {
+      font-weight: bold;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Your assigned file</h2>
+    <p>The file link below was selected automatically.</p>
+
+    <div class="result">
+      <p>File link: <a id="fileLink" href="#" target="_blank" rel="noopener noreferrer"></a></p>
+    </div>
+  </div>
+
+  <script>
+    const files = {
+      1: {
+        label: "exp111-Data-Worksheets-A.docx",
+        url: "https://methodist.instructure.com/courses/14802/files/1881278/download"
+      },
+      2: {
+        label: "exp111-Data-Worksheets-B.docx",
+        url: "https://methodist.instructure.com/courses/14802/files/1881266/download"
+      },
+      3: {
+        label: "exp111-Data-Worksheets-C.docx",
+        url: "https://methodist.instructure.com/courses/14802/files/1881272/download"
+      },
+      4: {
+        label: "exp111-Data-Worksheets-D.docx",
+        url: "https://methodist.instructure.com/courses/14802/files/1881259/download"
+      }
+    };
+
+    const n = Math.floor(Math.random() * 4) + 1;
+    document.getElementById("fileLink").textContent = files[n].label;
+    document.getElementById("fileLink").href = files[n].url;
+  </script>
+</body>
+</html>
