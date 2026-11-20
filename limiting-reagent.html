@@ -2,15 +2,33 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
+<script>try{var _t=localStorage.getItem("experiment-simulation.theme");if(_t==="light"||_t==="dark")document.documentElement.dataset.theme=_t}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#070d18">
 <title>Experiment Simulation — Limiting Reagent Virtual Lab · Lite</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html[data-theme="light"]{
+  --bg:#eef3fa; --card:#ffffff; --card2:#f3f7fc; --line:#cdd8e6;
+  --txt:#14202f; --muted:#51647d; --accent:#0b6bb8; --accent-ink:#ffffff;
+  --good:#067647; --bad:#b42318; --gold:#92600a; --heat:#c4580f; --warn:#92600a;
+  --shadow:0 10px 28px rgba(30,50,80,.16); color-scheme:light;
+  --wall:#e3ecf6; --wg:#c5d8ec; --bt1:#cfdbea; --bt2:#a9bbd0; --cab:#b9c9dc; --lip:#8ea5bf; --edge:#6f89a8;
+}
+html[data-theme="light"] .benchsum{color:#51647d}
+html[data-theme="light"] .scenetag{color:#0b5fa5}
+html[data-theme="light"] .btn.primary,html[data-theme="light"] .pill.now b{color:#fff}
+/* The bench drawing was authored on a dark wall; in the light theme its pale glass lines and captions are re-inked. */
+html[data-theme="light"] #scene [stroke="#a9cbe8"],html[data-theme="light"] #scene [stroke="#cfe6ff"]{stroke:#4f7ba6}
+html[data-theme="light"] #scene [stroke="#e4f2ff"]{stroke:#2c4a6b}
+html[data-theme="light"] #scene [fill="#e4f2ff"]{fill:#2c4a6b}
+html[data-theme="light"] #scene text[fill="#8ea2c6"],html[data-theme="light"] #scene text[fill="#64809f"],html[data-theme="light"] #scene text[fill="#7f93b3"]{fill:#4a607c}
+html[data-theme="light"] #scene text[fill="#dff0ff"],html[data-theme="light"] #scene text[fill="#bfe6ff"],html[data-theme="light"] #scene text[fill="#cfe4ff"]{fill:#14202f}
 :root{
   --bg:#070d18; --card:#0f1a2b; --card2:#0b1524; --line:#1e2c44;
   --txt:#e9f0ff; --muted:#8ea2c6; --accent:#4fb8ff; --accent-ink:#04121f;
-  --good:#34d399; --bad:#fb7185; --gold:#fbbf24; --heat:#ff9a3c;
+  --good:#34d399; --bad:#fb7185; --gold:#fbbf24; --heat:#ff9a3c; --warn:#fbbf24;
+  --wall:#0a1422; --wg:#123049; --bt1:#26364c; --bt2:#111a28; --cab:#0d1726; --lip:#0b121d; --edge:#6a86a6;
   --shadow:0 14px 38px rgba(0,0,0,.45); --radius:16px; color-scheme:dark;
 }
 body{
@@ -70,7 +88,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 .scene{
   position:relative;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
-  background:#0a1422; box-shadow:var(--shadow);
+  background:var(--wall); box-shadow:var(--shadow);
 }
 .scene svg{display:block;width:100%;height:auto}
 .scenetag{
@@ -528,6 +546,7 @@ html.reduce-motion .pulse:not(g){opacity:.65}
   <button class="iconbtn" id="btnPrelab">📝 Pre-lab</button>
   <button class="iconbtn" id="btnPostlab">🧾 Post-lab</button>
   <button class="iconbtn" id="btnNotebook">📓 Notebook</button>
+  <button class="iconbtn" id="btnTheme" aria-label="Switch between light and dark theme">☀️ Light</button>
   <label class="animtoggle" title="Play the bench animations even when the system asks for reduced motion">
     <input type="checkbox" id="chkAnim"> Play animations
   </label>
@@ -866,7 +885,7 @@ function defs() {
     <stop offset="1" stop-color="#ffffff" stop-opacity=".28"/>
   </linearGradient>
   <linearGradient id="benchtop" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#26364c"/><stop offset="1" stop-color="#111a28"/>
+    <stop offset="0" style="stop-color:var(--bt1)"/><stop offset="1" style="stop-color:var(--bt2)"/>
   </linearGradient>
   <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#93aac1"/><stop offset=".5" stop-color="#5d748c"/><stop offset="1" stop-color="#37485c"/>
@@ -887,24 +906,75 @@ function defs() {
     <stop offset="0" stop-color="#2f8bff" stop-opacity=".95"/><stop offset=".5" stop-color="#7fd7ff" stop-opacity=".85"/><stop offset="1" stop-color="#ffcc73" stop-opacity=".8"/>
   </linearGradient>
   <radialGradient id="glow"><stop offset="0" stop-color="#ff9a3c" stop-opacity=".5"/><stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/></radialGradient>
-  <radialGradient id="wallglow"><stop offset="0" stop-color="#123049" stop-opacity=".9"/><stop offset="1" stop-color="#0a1422" stop-opacity="0"/></radialGradient>
+  <radialGradient id="wallglow"><stop offset="0" style="stop-color:var(--wg)" stop-opacity=".9"/><stop offset="1" style="stop-color:var(--wall)" stop-opacity="0"/></radialGradient>
   <linearGradient id="plastic" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#f2f8ff"/><stop offset="1" stop-color="#b9cde2"/>
   </linearGradient>
+  <linearGradient id="porc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfd9e4" stop-opacity=".8"/><stop offset=".3" stop-color="#ffffff" stop-opacity=".93"/><stop offset="1" stop-color="#b3c2d1" stop-opacity=".82"/></linearGradient>
+  <linearGradient id="capblue" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f5fa8"/><stop offset=".4" stop-color="#4a9be8"/><stop offset="1" stop-color="#1a4d8a"/></linearGradient>
+  <linearGradient id="porcelain" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b7c5d4"/><stop offset=".3" stop-color="#ffffff"/><stop offset="1" stop-color="#94a7bb"/></linearGradient>
+  <pattern id="tiles" width="64" height="40" patternUnits="userSpaceOnUse"><path d="M0 0H64M0 0V40" fill="none" stroke="#9fc3e8" stroke-opacity=".05"/></pattern>
   </defs>`;
 }
 
 function bg() {
-  return `<rect x="0" y="0" width="960" height="505" fill="#0a1422"/>
+  return `<rect x="0" y="0" width="960" height="505" style="fill:var(--wall)"/>
   <rect x="0" y="0" width="960" height="505" fill="url(#wallglow)"/>
-  <rect x="0" y="505" width="960" height="115" fill="url(#benchtop)"/>
-  <rect x="0" y="505" width="960" height="2.5" fill="#4a6482"/>
-  <rect x="0" y="507" width="960" height="16" fill="#0d1726" opacity=".5"/>`;
+  <rect x="0" y="0" width="960" height="505" fill="url(#tiles)"/>
+  <rect x="0" y="505" width="960" height="44" fill="url(#benchtop)"/>
+  <ellipse cx="480" cy="521" rx="430" ry="7" fill="#fff" opacity=".05"/>
+  <rect x="0" y="505" width="960" height="2.5" style="fill:var(--edge)"/>
+  <rect x="0" y="549" width="960" height="7" style="fill:var(--lip)"/>
+  <rect x="0" y="556" width="960" height="64" style="fill:var(--cab)"/>
+  <path d="M240 556 V620 M480 556 V620 M720 556 V620" style="stroke:var(--lip)" stroke-width="2"/>
+  ${[225, 495, 705, 735].map(hx => `<rect x="${hx}" y="574" width="10" height="26" rx="3" style="fill:var(--edge)"/>`).join('')}`;
 }
 const shadow = (x, y, rx, ry = 8) =>
   `<ellipse cx="${x}" cy="${y + 5}" rx="${rx}" ry="${ry}" fill="#000" opacity=".4"/>`;
 const cap = (x, y, t, fill = '#8ea2c6', size = 12.5) =>
   `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="650" fill="${fill}">${t}</text>`;
+
+/* ---------- glassware detail ---------- */
+/* The liquid surface seen from slightly above: a pale ellipse on the water line, clipped to the glass. */
+const surfaceEllipse = (cx, sy, rx, clipId) =>
+  `<ellipse cx="${cx}" cy="${sy}" rx="${Math.max(4, rx).toFixed(1)}" ry="${Math.min(5.5, Math.max(2, rx * 0.085)).toFixed(1)}" fill="#e9f7ff" fill-opacity=".22" stroke="#fff" stroke-opacity=".42" stroke-width="1.2" clip-path="url(#${clipId})"/>`;
+/* Beaker graduations. With o.grad = {max, k} the marks are a true mL scale (k = level at `max` mL), so the
+   50 mL minimum of the digest can be read straight off the glass; otherwise the plain four ticks. */
+function beakerGrads(x, y, w, h, o) {
+  let s = '';
+  const xr = x + w / 2, g = o.grad;
+  if (g) {
+    for (let V = 25; V <= g.max; V += 25) {
+      const major = V % 50 === 0, gy = beakerGeo(y, h, (V / g.max) * g.k);
+      if (gy < y - h + 14) break;
+      s += `<line x1="${xr - (major ? 22 : 13)}" y1="${gy}" x2="${xr - 3}" y2="${gy}" stroke="#e4f2ff" stroke-opacity="${major ? .7 : .45}" stroke-width="1.4"/>`;
+      if (major) s += `<text x="${xr - 25}" y="${gy + 3}" text-anchor="end" font-size="8.5" font-weight="700" fill="#e4f2ff" fill-opacity=".78">${V}</text>`;
+    }
+    s += `<text x="${xr - 25}" y="${y - h + 22}" text-anchor="end" font-size="8" fill="#e4f2ff" fill-opacity=".55">mL</text>`;
+  } else {
+    for (let i = 1; i <= 4; i++) {
+      const gy = y - h + (h - 18) * (1 - i / 5);
+      s += `<line x1="${xr - 17}" y1="${gy}" x2="${xr - 3}" y2="${gy}" stroke="#cfe6ff" stroke-opacity=".28" stroke-width="1.5"/>`;
+    }
+  }
+  s += `<path d="M${x - w / 2 + 12} ${y - 4} Q${x} ${y - 9} ${x + w / 2 - 12} ${y - 4}" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/>`;   /* thick glass base */
+  s += `<path d="M${xr - 7} ${y - h + 20} L${xr - 7} ${y - 40}" stroke="#fff" stroke-opacity=".12" stroke-width="3" stroke-linecap="round"/>`;
+  return s;
+}
+const flaskHalfW = (y, h, nw, bw, sy) => { const t0 = y - h * 0.54; return sy <= t0 ? nw : nw + (bw - nw) * Math.min(1, (sy - t0) / (h * 0.54 - 13)); };
+/* Erlenmeyer markings: 25/50/75 mL ticks on the 125-mL scale (50 mL sits at level .56) and the white enamel patch. */
+function flaskGrads(x, y, h, nw, bw) {
+  let s = '';
+  for (const V of [25, 50, 75]) {
+    const gy = flaskSurface(y, V / 50 * 0.56, h), xr = x + flaskHalfW(y, h, nw, bw, gy) - 5, len = V === 50 ? 20 : 12;
+    s += `<line x1="${xr - len}" y1="${gy}" x2="${xr}" y2="${gy}" stroke="#e4f2ff" stroke-opacity=".7" stroke-width="1.4"/>`;
+    s += `<text x="${xr - len - 3}" y="${gy + 3}" text-anchor="end" font-size="8" font-weight="700" fill="#e4f2ff" fill-opacity=".75">${V}</text>`;
+  }
+  s += `<rect x="${x - 21}" y="${y - 62}" width="42" height="25" rx="3" fill="#f4f8fc" opacity=".84"/>
+    <text x="${x}" y="${y - 47}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#26384d">125 mL</text>
+    <text x="${x}" y="${y - 40}" text-anchor="middle" font-size="5.5" fill="#4b6178">Erlenmeyer</text>`;
+  return s;
+}
 
 /* ---------- flask ---------- */
 /* Where the liquid surface sits inside a flask: the one place that geometry is defined, so a
@@ -922,6 +992,7 @@ function flask(x, y, o = {}) {
   s += `<clipPath id="${id}"><path d="${body}"/></clipPath>`;
   if (lvl > 0.02)
     s += `<rect${o.fillAnim ? ` class="pourfill"${o.fillDelay ? ` style="animation-delay:${o.fillDelay}s"` : ''}` : ''} x="${x-bw-8}" y="${top}" width="${(bw+8)*2}" height="${y-top+4}" fill="${o.fill || 'url(#clearliq)'}" opacity="${o.op || 1}" clip-path="url(#${id})"/>`;
+  if (lvl > 0.02 && !o.fillAnim) s += surfaceEllipse(x, top, flaskHalfW(y, h, nw, bw, top), id);
   if (o.crystals && lvl > 0.06) {
     const n = Math.round(4 + 6 * o.crystals), band = 8 + 14 * o.crystals;
     for (let i = 0; i < n; i++) {
@@ -949,6 +1020,7 @@ function flask(x, y, o = {}) {
   s += `<path d="${body}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
   s += `<ellipse cx="${x}" cy="${y-h}" rx="${nw}" ry="4.5" fill="none" stroke="#cfe6ff" stroke-opacity=".55" stroke-width="2"/>`;
   s += `<path d="M${x-nw+6} ${y-h+15} L${x-nw+6} ${y-h*0.62}" stroke="#fff" stroke-opacity=".2" stroke-width="3.5" stroke-linecap="round"/>`;
+  if (!o.rot) s += flaskGrads(x, y, h, nw, bw);
   s += o.bubbles ? bubbles(x - bw + 20, y, top, (bw - 20) * 2, 20) : '';
   s += `</g>`;
   return s;
@@ -1011,14 +1083,12 @@ function beaker(x, y, o = {}) {
       s += `<rect x="${cx}" y="${cy}" width="21" height="17" rx="3" fill="#e8f8ff" opacity=".65" stroke="#bfe8ff" stroke-opacity=".8" transform="rotate(${-18 + i * 9} ${cx + 10} ${cy + 8})" clip-path="url(#${id})"/>`;
     }
   }
+  if (lvl > 0.012 && !o.fillAnim && !o.drainAnim) s += surfaceEllipse(x, top, w / 2 - 2, id);
   if (o.bubbles) s += bubbles(x - w / 2 + 14, y, top, w - 28, 12);
   s += `<path d="${body}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
   s += `<ellipse cx="${x}" cy="${y-h}" rx="${w/2}" ry="7" fill="none" stroke="#cfe6ff" stroke-opacity=".45" stroke-width="2"/>`;
   s += `<path d="M${x+w/2-19} ${y-h} l17 -10 l3 11" fill="none" stroke="#cfe6ff" stroke-opacity=".5" stroke-width="2" stroke-linejoin="round"/>`;
-  for (let i = 1; i <= 4; i++) {
-    const gy = y - h + (h - 18) * (1 - i / 5);
-    s += `<line x1="${x+w/2-17}" y1="${gy}" x2="${x+w/2-3}" y2="${gy}" stroke="#cfe6ff" stroke-opacity=".28" stroke-width="1.5"/>`;
-  }
+  s += beakerGrads(x, y, w, h, o);
   s += `<path d="M${x-w/2+16} ${y-h+22} L${x-w/2+16} ${y-30}" stroke="#fff" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"/>`;
   return s;
 }
@@ -1026,11 +1096,19 @@ function beaker(x, y, o = {}) {
 /* ---------- balance ---------- */
 function balance(x, y, reading) {
   return `<g>
-    ${shadow(x, y, 100)}
+    ${shadow(x, y, 104)}
+    <rect x="${x-84}" y="${y-2}" width="18" height="7" rx="2" fill="#141c28"/><rect x="${x+66}" y="${y-2}" width="18" height="7" rx="2" fill="#141c28"/>
+    <path d="M${x-86} ${y-62} L${x-86} ${y-150} L${x+86} ${y-150} L${x+86} ${y-62} Z" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".45" stroke-width="2"/>
+    <path d="M${x-86} ${y-150} L${x-72} ${y-172} L${x+72} ${y-172} L${x+86} ${y-150}" fill="#cfe6ff" fill-opacity=".08" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M${x-86} ${y-150} V${y-62} M${x+86} ${y-150} V${y-62}" stroke="#cfe6ff" stroke-opacity=".55" stroke-width="3"/>
     <rect x="${x-96}" y="${y-62}" width="192" height="62" rx="10" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
     <rect x="${x-66}" y="${y-55}" width="132" height="33" rx="5" fill="#05121b" stroke="#1f4d5e"/>
     <text x="${x+56}" y="${y-32}" text-anchor="end" font-family="ui-monospace,monospace" font-size="19" font-weight="700" fill="#5ff0c8">${reading}</text>
+    <circle cx="${x-58}" cy="${y-48}" r="2.2" fill="#5ff0c8" opacity=".8"/>
+    <rect x="${x-60}" y="${y-17}" width="34" height="10" rx="3" fill="#2a394c" stroke="#54687e"/><text x="${x-43}" y="${y-9.5}" text-anchor="middle" font-size="6.5" font-weight="700" fill="#b8cadd">TARE</text>
+    <rect x="${x-20}" y="${y-17}" width="40" height="10" rx="3" fill="#2a394c" stroke="#54687e"/><text x="${x}" y="${y-9.5}" text-anchor="middle" font-size="6.5" font-weight="700" fill="#b8cadd">ON/OFF</text>
     <circle cx="${x-80}" cy="${y-22}" r="5" fill="#3aa0ff" opacity=".85"/>
+    <circle cx="${x+80}" cy="${y-22}" r="7" fill="#0b1624" stroke="#54687e"/><circle cx="${x+80}" cy="${y-22}" r="2.6" fill="#9fe3ff"/>
     <rect x="${x-46}" y="${y-70}" width="92" height="9" rx="3" fill="#4a5f77"/>
     <ellipse cx="${x}" cy="${y-92}" rx="70" ry="11" fill="#7d95ab"/>
     <ellipse cx="${x}" cy="${y-95}" rx="70" ry="11" fill="#c8dbeb"/>
@@ -1079,17 +1157,19 @@ function weighBowl(x, y, f) {
 
 /* ---------- reagent jar ---------- */
 function jar(x, y, o = {}) {
-  const w = o.w || 132, h = o.h || 148;
-  const lx = x - w / 2, ty = y - h;
-  const labelY = ty + 46;
+  const w = o.w || 132, h = o.h || 148, lx = x - w / 2, ty = y - h, tint = o.tint || '#cfe4ff';
+  const ridges = Array.from({ length: 9 }, (_, i) => `<line x1="${lx + 20 + i * 11}" y1="${ty + 2}" x2="${lx + 20 + i * 11}" y2="${ty + 20}" stroke="#2b3644" stroke-width="2"/>`).join('');
   return `<g>
     ${shadow(x, y, w / 2 + 4, 7)}
-    <rect x="${lx}" y="${ty+20}" width="${w}" height="${h-20}" rx="9" fill="#0c1826" stroke="#2c3f5c" stroke-width="2"/>
-    <rect x="${lx+7}" y="${ty+82}" width="${w-14}" height="${h-90}" rx="5" fill="${o.tint || '#cfe4ff'}" opacity=".2"/>
-    <path d="M${lx+18} ${ty+h} L${lx+28} ${ty+110} Q${x} ${ty+99} ${lx+w-28} ${ty+110} L${lx+w-18} ${ty+h} Z" fill="${o.tint || '#cfe4ff'}" opacity=".5"/>
-    <rect x="${lx+10}" y="${ty+8}" width="${w-20}" height="15" rx="5" fill="url(#metal)"/>
-    <text x="${x}" y="${labelY}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#dcecff">${o.label || ''}</text>
-    <text x="${x}" y="${ty+66}" text-anchor="middle" font-size="9.5" fill="#7f93b3">reagent grade</text>
+    <path d="M${lx+8} ${ty+34} Q${lx+8} ${ty+22} ${lx+20} ${ty+22} L${lx+w-20} ${ty+22} Q${lx+w-8} ${ty+22} ${lx+w-8} ${ty+34} L${lx+w-4} ${y-12} Q${lx+w-4} ${y} ${lx+w-16} ${y} L${lx+16} ${y} Q${lx+4} ${y} ${lx+4} ${y-12} Z" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".55" stroke-width="2"/>
+    <path d="M${lx+10} ${y-2} L${lx+14} ${ty+104} Q${x-14} ${ty+94} ${x+6} ${ty+104} Q${x+34} ${ty+112} ${lx+w-14} ${ty+102} L${lx+w-10} ${y-2} Z" fill="${tint}" opacity=".72"/>
+    <rect x="${lx+14}" y="${ty+44}" width="${w-28}" height="52" rx="3" fill="#f4f7fb" opacity=".96"/>
+    <text x="${x-8}" y="${ty+62}" text-anchor="middle" font-size="11" font-weight="800" fill="#14202f">${o.label || ''}</text>
+    <text x="${x-8}" y="${ty+75}" text-anchor="middle" font-size="8.5" fill="#4b6178">reagent grade · ACS</text>
+    <rect x="${lx+w-40}" y="${ty+74}" width="14" height="14" rx="1" fill="#fff" stroke="#d33a3a" stroke-width="1.6" transform="rotate(45 ${lx+w-33} ${ty+81})"/>
+    <text x="${lx+w-33}" y="${ty+85}" text-anchor="middle" font-size="10" font-weight="900" fill="#14202f">!</text>
+    <rect x="${lx+12}" y="${ty}" width="${w-24}" height="22" rx="5" fill="#151b24" stroke="#2c3a4d" stroke-width="1.5"/>${ridges}
+    <path d="M${lx+17} ${ty+30} L${lx+17} ${y-16}" stroke="#fff" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"/>
     ${o.active ? `<rect x="${lx-7}" y="${ty-7}" width="${w+14}" height="${h+10}" rx="14" fill="none" stroke="#4fb8ff" stroke-width="2.5" class="pulse"${loop()}/>` : ''}
   </g>`;
 }
@@ -1100,8 +1180,10 @@ function bottle(x, y, o = {}) {
     ${o.spray ? '' : shadow(x, y, 40)}
     <path d="M${x-34} ${y} L${x-34} ${y-96} Q${x-34} ${y-108} ${x-20} ${y-112} L${x-12} ${y-120} L${x+12} ${y-120} L${x+20} ${y-112} Q${x+34} ${y-108} ${x+34} ${y-96} L${x+34} ${y} Q${x+34} ${y+6} ${x+26} ${y+6} L${x-26} ${y+6} Q${x-34} ${y+6} ${x-34} ${y} Z"
       fill="url(#clearliq)" opacity=".55" stroke="#a9cbe8" stroke-opacity=".6" stroke-width="2"/>
-    <rect x="${x-13}" y="${y-142}" width="26" height="24" rx="5" fill="url(#metal)" stroke="#38495c"/>
-    <rect x="${x-4}" y="${y-160}" width="8" height="20" rx="3" fill="#8ea5bb"/>
+    <path d="M${x-5} ${y-140} L${x-2.5} ${y-160} L${x+2.5} ${y-160} L${x+5} ${y-140} Z" fill="#e8f1fa" stroke="#9fb6cc" stroke-width="1"/>
+    <rect x="${x-14}" y="${y-142}" width="28" height="24" rx="5" fill="url(#capblue)" stroke="#173f70"/>
+    ${[-8, -2, 4, 10].map(d => `<line x1="${x+d}" y1="${y-140}" x2="${x+d}" y2="${y-120}" stroke="#0f2f55" stroke-opacity=".5" stroke-width="1.5"/>`).join('')}
+    <path d="M${x-30} ${y-30} H${x+30} M${x-30} ${y-14} H${x+30}" stroke="#fff" stroke-opacity=".2" stroke-width="1.4"/>
     <rect x="${x-24}" y="${y-78}" width="48" height="34" rx="4" fill="#0d1c2c" opacity=".82" stroke="#38516d"/>
     <text x="${x}" y="${y-61}" text-anchor="middle" font-size="11" font-weight="800" fill="#bfe6ff">D.I.</text>
     <text x="${x}" y="${y-49}" text-anchor="middle" font-size="9" fill="#8ea2c6">H₂O</text>
@@ -1110,14 +1192,22 @@ function bottle(x, y, o = {}) {
 }
 
 /* ---------- hot plate ---------- */
-function hotplate(x, y, hot) {
+function hotplate(x, y, mode) {
+  const hot = !!mode && mode !== 'off';
+  const label = !hot ? 'OFF' : mode === 'vigorous' ? 'HIGH' : '100 °C';
+  const ticks = Array.from({ length: 9 }, (_, i) => { const a = Math.PI * (0.85 + 1.3 * i / 8); return `<line x1="${(x-92+Math.cos(a)*14).toFixed(1)}" y1="${(y-24+Math.sin(a)*14).toFixed(1)}" x2="${(x-92+Math.cos(a)*18).toFixed(1)}" y2="${(y-24+Math.sin(a)*18).toFixed(1)}" stroke="#7f93b3" stroke-width="1.4"/>`; }).join('');
   return `<g>
     ${shadow(x, y, 120, 9)}
+    <rect x="${x-110}" y="${y-3}" width="22" height="6" rx="2" fill="#141c28"/><rect x="${x+88}" y="${y-3}" width="22" height="6" rx="2" fill="#141c28"/>
     <rect x="${x-118}" y="${y-54}" width="236" height="54" rx="10" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
     <ellipse cx="${x}" cy="${y-54}" rx="96" ry="17" fill="#141d2a" stroke="#38495c" stroke-width="2"/>
     <ellipse cx="${x}" cy="${y-56}" rx="74" ry="12" fill="${hot ? '#502a1c' : '#232d3a'}" stroke="${hot ? '#a4552b' : '#33414f'}" stroke-width="2"/>
-    <circle cx="${x-92}" cy="${y-24}" r="11" fill="#2a3646" stroke="#54687e"/>
+    ${[56, 40, 24].map((r, i) => `<ellipse cx="${x}" cy="${y-56}" rx="${r}" ry="${r * 0.16}" fill="none" stroke="${hot ? '#ff9a3c' : '#54687e'}" stroke-opacity=".3"/>`).join('')}
+    <circle cx="${x-92}" cy="${y-24}" r="11" fill="#2a3646" stroke="#54687e"/>${ticks}
     <line x1="${x-92}" y1="${y-24}" x2="${x-92}" y2="${y-32}" stroke="${hot ? '#ff9a3c' : '#8ea2c6'}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="${x-60}" y="${y-40}" width="62" height="24" rx="4" fill="#05121b" stroke="#1f4d5e"/>
+    <text x="${x+28}" y="${y-22}" text-anchor="end" font-family="ui-monospace,monospace" font-size="15" font-weight="700" fill="${hot ? '#ffb066' : '#4a6a74'}">${label}</text>
+    ${hot ? `<rect x="${x+38}" y="${y-38}" width="38" height="14" rx="7" fill="#7a2a12" stroke="#ff9a3c"/><text x="${x+57}" y="${y-28}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#ffd2a8">HOT</text>` : ''}
     <circle cx="${x+96}" cy="${y-26}" r="5" fill="${hot ? '#ff6b3d' : '#3c4b5e'}"/>
     <text x="${x+96}" y="${y-12}" text-anchor="middle" font-size="8" fill="#7f93b3">HEAT</text>
     ${hot ? `<ellipse cx="${x}" cy="${y-58}" rx="92" ry="34" fill="url(#glow)" class="hglow"${loop()}/>` : ''}
@@ -1163,8 +1253,10 @@ function filterSetup(x, y, o = {}) {
   const armH = 14, armLen = 52;
   const armY = mouth + (neck - armH) / 2;
   s += `<rect x="${x+nw-6}" y="${armY}" width="${armLen}" height="${armH}" rx="${armH / 2}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#38495c" stroke-width="13" stroke-linecap="round"/>`;
-  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#566c85" stroke-width="7" stroke-linecap="round"/>`;
+  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#2b3644" stroke-width="14" stroke-linecap="round"/>`;
+  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#566c85" stroke-width="8" stroke-linecap="round"/>`;
+  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#1a222e" stroke-width="14" stroke-dasharray="2 7" opacity=".55"/>`;
+  s += `<rect x="${x+nw+armLen-10}" y="${armY-1}" width="12" height="${armH+2}" rx="3" fill="#8ea5bb" stroke="#2f3f52"/>`;
   /* The Büchner funnel itself: a rubber bung in the flask's neck, a short stem up to a flat perforated plate, and
      a shallow bowl above it that holds what is poured in until the vacuum draws it through. The bung is wider above
      the mouth than the neck is, so it seats on the rim; the stem runs down through it and stops inside. */
@@ -1174,7 +1266,7 @@ function filterSetup(x, y, o = {}) {
   s += `<path d="M${x-bungWide} ${mouth-bungH} L${x+bungWide} ${mouth-bungH} L${x+bungSeat} ${mouth+bungSkirt} L${x-bungSeat} ${mouth+bungSkirt} Z" fill="#2b3442" stroke="#161d26" stroke-width="1.5"/>`;
   s += `<rect x="${x-13}" y="${plateY}" width="26" height="${stemStop - plateY}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".45" stroke-width="1.6"/>`;
   s += `<clipPath id="${bowlId}"><path d="${bowl}"/></clipPath>`;
-  s += `<path d="${bowl}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
+  s += `<path d="${bowl}" fill="url(#porc)" stroke="#dbe8f4" stroke-opacity=".85" stroke-width="2.5"/>`;
   if (bowlLvl > 0.01) {
     s += `<rect class="bowlpass" style="--dur:${o.bowlDur || '3s'}${o.bowlDelay ? `;animation-delay:${o.bowlDelay}s` : ''}${o.bowlPaused ? ';animation-play-state:paused' : ''}"
       x="${x-86}" y="${bowlSurface}" width="172" height="${plateY - bowlSurface + 2}" fill="url(#milky)" opacity=".85" clip-path="url(#${bowlId})"/>`;
@@ -1218,13 +1310,17 @@ function filterSetup(x, y, o = {}) {
 
 /* ---------- evaporating dish ---------- */
 function dish(x, y, o = {}) {
-  const id = uid();
-  let s = `<clipPath id="${id}"><path d="M${x-84} ${y-44} A 84 46 0 0 0 ${x+84} ${y-44} Z"/></clipPath>`;
-  if (o.fill) s += `<path d="M${x-84} ${y-44} A 84 46 0 0 0 ${x+84} ${y-44} Z" fill="${o.fill}" clip-path="url(#${id})" opacity="${o.op || 1}"/>`;
-  s += `<path d="M${x-84} ${y-44} A 84 46 0 0 0 ${x+84} ${y-44}" fill="none" stroke="#a9cbe8" stroke-opacity=".55" stroke-width="2.5"/>`;
-  s += `<ellipse cx="${x}" cy="${y-44}" rx="84" ry="12" fill="url(#glassg)" stroke="#cfe6ff" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<ellipse cx="${x}" cy="${y-43}" rx="74" ry="9" fill="#0c1826" opacity=".45"/>`;
-  s += `<path d="M${x-72} ${y-40} A 72 36 0 0 0 ${x+72} ${y-40}" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="3"/>`;
+  let s = `<ellipse cx="${x}" cy="${y+1}" rx="28" ry="4" fill="#9fb0c2" stroke="#6f8399"/>`;
+  s += `<path d="M${x-84} ${y-44} A 84 46 0 0 0 ${x+84} ${y-44} Z" fill="url(#porcelain)" stroke="#8ea2b8" stroke-width="2"/>`;
+  s += `<path d="M${x-70} ${y-34} A 72 36 0 0 0 ${x-24} ${y-4}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/>`;
+  s += `<path d="M${x+78} ${y-49} l15 -5 l-7 13 Z" fill="#e8eef5" stroke="#8ea2b8" stroke-width="1.5" stroke-linejoin="round"/>`;
+  s += `<ellipse cx="${x}" cy="${y-44}" rx="84" ry="12" fill="#f4f8fc" stroke="#9fb3c8" stroke-width="2.5"/>`;
+  s += `<ellipse cx="${x}" cy="${y-43}" rx="75" ry="9" fill="#b9c8d8"/>`;
+  s += `<ellipse cx="${x}" cy="${y-45}" rx="68" ry="6" fill="#9db0c4" opacity=".7"/>`;
+  if (o.fill) {
+    s += `<ellipse cx="${x}" cy="${y-42}" rx="56" ry="6.5" fill="${o.fill}" opacity="${o.op || 1}"/>`;
+    s += `<ellipse cx="${x}" cy="${y-44}" rx="40" ry="4" fill="#f4f9ff" opacity=".9"/>`;
+  }
   if (o.paper) {
     s += `<ellipse cx="${x}" cy="${y-50}" rx="56" ry="12" fill="#f2f7fc" opacity=".92" stroke="#dbe9f6"/>`;
     s += `<ellipse cx="${x}" cy="${y-52}" rx="34" ry="8" fill="#ffffff"/>`;
@@ -1238,11 +1334,16 @@ function dish(x, y, o = {}) {
 
 /* ---------- burner ---------- */
 function burner(x, y, on) {
+  const ribs = `M${x+14} ${y-12} C ${x+70} ${y-12} ${x+88} ${y-2} ${x+130} ${y-6}`;
   return `<g>
-    ${shadow(x, y, 40, 6)}
+    ${shadow(x, y, 46, 6)}
+    <path d="${ribs}" fill="none" stroke="#7a2f2a" stroke-width="9" stroke-linecap="round"/>
+    <path d="${ribs}" fill="none" stroke="#3d1513" stroke-width="9" stroke-dasharray="1.6 5"/>
     <ellipse cx="${x}" cy="${y-4}" rx="40" ry="10" fill="#2a3646" stroke="#46596e" stroke-width="2"/>
+    <rect x="${x+16}" y="${y-18}" width="14" height="9" rx="2" fill="#8ea5bb" stroke="#2f3f52"/>
     <rect x="${x-13}" y="${y-52}" width="26" height="50" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
     <rect x="${x-19}" y="${y-62}" width="38" height="12" rx="4" fill="#5d748c" stroke="#2f3f52"/>
+    <ellipse cx="${x-9}" cy="${y-56}" rx="3.6" ry="2.6" fill="#0c1520"/><ellipse cx="${x+9}" cy="${y-56}" rx="3.6" ry="2.6" fill="#0c1520"/>
     <rect x="${x-6}" y="${y-72}" width="12" height="12" rx="3" fill="#8ea5bb"/>
     ${on ? `<g>
       <path d="M${x} ${y-78} C ${x-22} ${y-108} ${x-14} ${y-146} ${x} ${y-186} C ${x+14} ${y-146} ${x+22} ${y-108} ${x} ${y-78} Z" fill="url(#flame)" opacity=".9"/>
@@ -1256,16 +1357,22 @@ function burner(x, y, on) {
 function ringStand(x, y) {
   const rodX = x - 150, ringY = 336;
   let s = `<g>
-    <rect x="${rodX-62}" y="${y-12}" width="124" height="14" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
-    <rect x="${rodX-5}" y="${y-372}" width="11" height="362" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
-    <rect x="${rodX+2}" y="${ringY-9}" width="${x-rodX}" height="12" rx="5" fill="url(#steel)" stroke="#2f3f52"/>
-    <circle cx="${rodX+12}" cy="${ringY-3}" r="10" fill="#7d95ab" stroke="#2f3f52" stroke-width="2"/>
+    <path d="M${rodX-72} ${y+2} L${rodX-72} ${y-4} Q${rodX-72} ${y-14} ${rodX-60} ${y-14} L${rodX+60} ${y-14} Q${rodX+72} ${y-14} ${rodX+72} ${y-4} L${rodX+72} ${y+2} Z" fill="#2c3644" stroke="#161d26" stroke-width="1.5"/>
+    <rect x="${rodX-72}" y="${y-14}" width="144" height="3" rx="1.5" fill="#6d849b" opacity=".6"/>
+    <rect x="${rodX-5}" y="${y-372}" width="11" height="360" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
+    <rect x="${rodX-5}" y="${y-372}" width="11" height="7" rx="3" fill="#a9bdd0"/>
+    <rect x="${rodX+12}" y="${ringY-8}" width="${x-rodX-12}" height="9" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
+    <rect x="${rodX-15}" y="${ringY-22}" width="32" height="30" rx="5" fill="#3d4f63" stroke="#1f2b39"/>
+    <circle cx="${rodX+1}" cy="${ringY-7}" r="9" fill="#5d748c" stroke="#1f2b39" stroke-width="1.5"/>
+    <rect x="${rodX-34}" y="${ringY-11}" width="20" height="8" rx="3" fill="#8ea5bb" stroke="#2f3f52"/>
+    <circle cx="${rodX-36}" cy="${ringY-7}" r="7.5" fill="#7d95ab" stroke="#2f3f52" stroke-width="1.5"/>
     <ellipse cx="${x}" cy="${ringY}" rx="74" ry="15" fill="none" stroke="url(#steel)" stroke-width="7"/>
     <ellipse cx="${x}" cy="${ringY}" rx="72" ry="14" fill="#2c3644" opacity=".25"/>
   </g>`;
   s += `<g opacity=".85">
     ${[-48, -32, -16, 0, 16, 32, 48].map(dx => `<line x1="${x+dx}" y1="${ringY-12}" x2="${x+dx}" y2="${ringY+12}" stroke="#8ea5bb" stroke-width="1.4" opacity=".7"/>`).join('')}
     ${[-9, 0, 9].map(dy => `<line x1="${x-70}" y1="${ringY+dy}" x2="${x+70}" y2="${ringY+dy}" stroke="#8ea5bb" stroke-width="1.4" opacity=".7"/>`).join('')}
+    <ellipse cx="${x}" cy="${ringY}" rx="30" ry="7" fill="#d8d2c4" opacity=".75" stroke="#8a8474"/>
   </g>`;
   return s;
 }
@@ -1273,12 +1380,15 @@ function ringStand(x, y) {
 /* ---------- dropper ---------- */
 function dropper(x, y, label, active) {
   return `<g>
-    <rect x="${x-9}" y="${y-96}" width="18" height="30" rx="8" fill="#c94b5e" opacity=".85"/>
-    <rect x="${x-7}" y="${y-72}" width="14" height="66" rx="4" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".6" stroke-width="1.6"/>
-    <path d="M${x-3.5} ${y-8} L${x+3.5} ${y-8} L${x} ${y} Z" fill="#a9cbe8" opacity=".7"/>
-    <rect x="${x-7}" y="${y-52}" width="14" height="30" rx="4" fill="url(#clearliq)" opacity=".85"/>
-    <text x="${x}" y="${y-108}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#cfe4ff">${label}</text>
-    ${active ? `<rect x="${x-16}" y="${y-104}" width="32" height="112" rx="12" fill="none" stroke="#4fb8ff" stroke-width="2" class="pulse"${loop()}/>` : ''}
+    <path d="M${x-10} ${y-70} Q${x-15} ${y-84} ${x-10} ${y-96} Q${x} ${y-105} ${x+10} ${y-96} Q${x+15} ${y-84} ${x+10} ${y-70} Z" fill="#c94b5e" stroke="#8f2b3b"/>
+    <path d="M${x-6} ${y-94} Q${x-8.5} ${y-84} ${x-6} ${y-76}" stroke="#fff" stroke-opacity=".45" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <rect x="${x-9.5}" y="${y-72}" width="19" height="8" rx="2.5" fill="#8f2b3b"/>
+    <path d="M${x-7} ${y-65} L${x-7} ${y-22} L${x-2.5} ${y-3} L${x+2.5} ${y-3} L${x+7} ${y-22} L${x+7} ${y-65} Z" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".75" stroke-width="1.6"/>
+    <path d="M${x-5.2} ${y-50} L${x-5.2} ${y-23} L${x-1.8} ${y-6} L${x+1.8} ${y-6} L${x+5.2} ${y-23} L${x+5.2} ${y-50} Z" fill="url(#clearliq)" opacity=".9"/>
+    <ellipse cx="${x}" cy="${y-50}" rx="5.2" ry="1.4" fill="#e9f7ff" opacity=".6"/>
+    ${[0, 1, 2].map(i => `<line x1="${x+2}" y1="${y-60+i*9}" x2="${x+7}" y2="${y-60+i*9}" stroke="#e4f2ff" stroke-opacity=".55" stroke-width="1"/>`).join('')}
+    <text x="${x}" y="${y-110}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#cfe4ff">${label}</text>
+    ${active ? `<rect x="${x-16}" y="${y-106}" width="32" height="114" rx="12" fill="none" stroke="#4fb8ff" stroke-width="2" class="pulse"${loop()}/>` : ''}
   </g>`;
 }
 /* ==========================================================================
@@ -1431,7 +1541,7 @@ function sMix() {
   const fillLead = lead(rinsing ? rk : pouring('ca') ? 'ca' : 'na') + MIX_STREAM_DELAY;
   g += beaker(BX, BENCH, {
     level: lvl, fillAnim: anyPour || rinsing, fillFrom, fillDelay: fillLead,
-    cloud: mixed ? 0.82 : 0, sediment: mixed ? solidFrac(st.theoretical) : 0, w: 148, h: 168
+    cloud: mixed ? 0.82 : 0, sediment: mixed ? solidFrac(st.theoretical) : 0, w: 148, h: 168, grad: { max: 250, k: 1 }
   });
   /* The flask itself travels: drawn upright at the beaker's mouth axis, then carried in from its place on the
      bench (--carryx), tipped over the rim and brought back, while the solution runs down into the beaker. */
@@ -1483,13 +1593,13 @@ function sDigest() {
      when it tips; the stand is where it rests the rest of the time. */
   const spoutY = BENCH - 210 - 70, bodyY = spoutY + 160;   /* the beaker's mouth is at BENCH - 210 */
   let g = bg();
-  g += hotplate(470, BENCH, S.heat !== 'off');
+  g += hotplate(470, BENCH, S.heat);
   g += beaker(470, BENCH - 54, {
     level: lvl, fill: 'url(#milky)', w: 140, h: 156,
     fillAnim: topping, fillFrom: clamp(topupLvlFrom / lvl, 0, 1),
     fillDelay: TOPUP_STREAM_S - since(topupAt),
     sediment: solidFrac(st.theoretical),
-    bubbles: S.heat !== 'off', liqId: 'boilLiq'
+    bubbles: S.heat !== 'off', liqId: 'boilLiq', grad: { max: 250, k: 0.9 }
   });
   if (S.heat !== 'off') {
     for (let i = 0; i < 4; i++) {
@@ -1640,7 +1750,7 @@ function sDry() {
   let g = bg();
   g += ringStand(360, BENCH);
   g += burner(360, BENCH, S.burner);
-  g += dish(360, 356, {
+  g += dish(360, 330, {
     paper: S.paperIn, paperBurnt: paperCharred(),
     fill: S.paperIn ? '#ffffff' : null, op: 0.9
   });
@@ -3514,6 +3624,20 @@ if (LITE) {
 
 render();
 openIntro();
+/* ---------- light / dark theme ---------- */
+const THEME_KEY = 'experiment-simulation.theme';
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.content = t === 'light' ? '#eef3fa' : '#070d18';
+  const b = $('#btnTheme');
+  if (b) b.textContent = t === 'light' ? '🌙 Dark' : '☀️ Light';
+}
+applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+$('#btnTheme').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+});
 </script>
-</body>
 </html>
