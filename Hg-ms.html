@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Interactive mass spectrum of mercury. Click a peak to read its relative intensity."
+    />
+    <meta name="theme-color" content="#05080c" />
+    <title>Mass Spectrum of Mercury</title>
+    <script>
+      // Apply the saved theme before first paint so the page never flashes.
+      (() => {
+        let theme = null
+        try {
+          const stored = localStorage.getItem('spectra-theme')
+          if (stored === 'light' || stored === 'dark') theme = stored
+        } catch {
+          /* storage unavailable: fall back to the system preference */
+        }
+        if (!theme) {
+          theme = window.matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light'
+            : 'dark'
+        }
+        document.documentElement.dataset.theme = theme
+        const meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.content = theme === 'light' ? '#f5f7fb' : '#05080c'
+      })()
+    </script>
+    <script type="module">
+(function(){let e=document.createElement(`link`).relList;if(e&&e.supports&&e.supports(`modulepreload`))return;for(let e of document.querySelectorAll(`link[rel="modulepreload"]`))n(e);new MutationObserver(e=>{for(let t of e)if(t.type===`childList`)for(let e of t.addedNodes)e.tagName===`LINK`&&e.rel===`modulepreload`&&n(e)}).observe(document,{childList:!0,subtree:!0});function t(e){let t={};return e.integrity&&(t.integrity=e.integrity),e.referrerPolicy&&(t.referrerPolicy=e.referrerPolicy),t.credentials=e.crossOrigin===`use-credentials`?`include`:e.crossOrigin===`anonymous`?`omit`:`same-origin`,t}function n(e){if(e.ep)return;e.ep=!0;let n=t(e);fetch(e.href,n)}})();var e=`spectra-theme`,t=document.documentElement,n=document.getElementById(`theme-toggle`),r=document.querySelector(`meta[name="theme-color"]`);function i(e){let i=e===`light`;t.dataset.theme=e,n&&n.setAttribute(`aria-label`,i?`Switch to dark theme`:`Switch to light theme`),r&&(r.content=i?`#f5f7fb`:`#05080c`)}function a(){i(t.dataset.theme===`light`?`light`:`dark`),n?.addEventListener(`click`,()=>{let n=t.dataset.theme===`light`?`dark`:`light`;i(n);try{localStorage.setItem(e,n)}catch{}})}var o=`http://www.w3.org/2000/svg`,s=12,c=e=>`${e.toFixed(1)}%`,l=e=>`${e.approximate?`≈`:``}${c(e.intensity)}`,u=(e,t)=>Array.from({length:t-e+1},(t,n)=>e+n),d=e=>`Peak at mass number ${e.mass}${e.detail?`, ${e.detail}`:``}${e.approximate?`, approximate intensity`:``}`;function f(e,t={}){let n=document.createElementNS(o,e);for(let[e,r]of Object.entries(t))n.setAttribute(e,String(r));return n}function p({peaks:e,ranges:t,ticks:n,element:r,elementName:i,speciesHeading:o=`Isotope`}){let u=document.getElementById(`chart`),p=document.getElementById(`readout`),m=null,h=()=>Number(location.hash.slice(1));function g(t){m=t,_(t),u.querySelectorAll(`.peak`).forEach(n=>{let r=Number(n.dataset.mass),i=e.find(e=>e.mass===r),a=r===t;n.classList.toggle(`is-selected`,a),n.setAttribute(`aria-label`,a?`${d(i)}, intensity ${c(i.intensity)}`:`${d(i)}. Activate to show its intensity.`)});let n=e.find(e=>e.mass===t);p.innerHTML=`
+    <div class="stat">
+      <span class="stat-label">Mass number</span>
+      <span class="stat-value">${n.mass}</span>
+      <span class="stat-sub">m/z</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Relative intensity</span>
+      <span class="stat-value accent">${l(n)}</span>
+      <span class="stat-sub">tallest peak = 100%</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">${o}</span>
+      <span class="stat-value small">${n.label??`<sup>${n.mass}</sup>${r}`}</span>
+      <span class="stat-sub">${n.detail??`${i}-${n.mass}`}</span>
+    </div>
+    ${n.approximate?`<p class="approx-note">≈ approximate</p>`:``}
+  `}function _(e){let t=`#${e}`;if(location.hash!==t)try{history.replaceState(null,``,t)}catch{location.hash=t}}function v(){let r=Math.max(240,Math.round(u.clientWidth)),a=r<560,o=a?330:430,p={top:32,right:a?12:24,bottom:a?58:62,left:a?42:60},h=p.left,_=p.top,v=r-p.left-p.right,y=o-p.top-p.bottom,b=_+y,x=t.reduce((e,t)=>e+(t.max-t.min),0),S=(v-26*(t.length-1))/x,C=[],w=h;for(let e of t)C.push(w),w+=(e.max-e.min)*S+26;let T=e=>[C[e],C[e]+(t[e].max-t[e].min)*S],E=e=>{let n=t.findIndex(t=>e<=t.max);return C[n]+(e-t[n].min)*S},D=e=>b-e/100*y,O=a?10:11.5,k=f(`svg`,{viewBox:`0 0 ${r} ${o}`,width:r,height:o,class:`spectrum`,"aria-label":`Mass spectrum of ${i}, relative intensity against mass number`,role:`group`});for(let e=0;e<=100;e+=20){let n=D(e);e!==0&&t.forEach((e,t)=>{let[r,i]=T(t);k.appendChild(f(`line`,{x1:r,x2:i,y1:n,y2:n,class:`grid`}))});let r=f(`text`,{x:h-10,y:n+4,class:`axis-text`,"text-anchor":`end`,"font-size":O});r.textContent=e,k.appendChild(r)}t.forEach((e,t)=>{let[n,r]=T(t);k.appendChild(f(`line`,{x1:n,x2:r,y1:b,y2:b,class:`axis`}))});for(let e=0;e<t.length-1;e+=1){let t=T(e)[1]+13;k.appendChild(f(`path`,{d:`M${t-6} ${b+3}L${t} ${b-3}M${t-2} ${b+3}L${t+4} ${b-3}`,class:`axis-break`}))}for(let e of n){let t=E(e);k.appendChild(f(`line`,{x1:t,x2:t,y1:b,y2:b+5,class:`tick`}));let n=f(`text`,{x:t,y:b+(a?20:22),class:`axis-text`,"text-anchor":`middle`,"font-size":O});n.textContent=e,k.appendChild(n)}let A=f(`text`,{x:h+v/2,y:o-12,class:`axis-title`,"text-anchor":`middle`,"font-size":a?10:11});A.textContent=`Mass number`,k.appendChild(A);let j=a?9:13,M=f(`text`,{x:j,y:_+y/2,class:`axis-title`,"text-anchor":`middle`,"font-size":a?9:11,transform:`rotate(-90 ${j} ${_+y/2})`});M.textContent=`Relative intensity (%)`,k.appendChild(M);let N=Math.max(S*.98,20),P=a?5:6,F=a?3:3.5;e.forEach(e=>{let t=E(e.mass),n=D(e.intensity),r=m===e.mass,i=b-n<s,o=i?b-s:n,u=f(`g`,{class:`peak${r?` is-selected`:``}${i?` is-floored`:``}`,tabindex:`0`,role:`button`,"data-mass":e.mass,"aria-label":r?`${d(e)}, intensity ${c(e.intensity)}`:`${d(e)}. Activate to show its intensity.`});if(u.appendChild(f(`rect`,{x:t-N/2,y:_,width:N,height:y,fill:`transparent`,"pointer-events":`all`,class:`peak-hit`})),u.appendChild(f(`line`,{x1:t,x2:t,y1:b,y2:o,class:`peak-halo`,"stroke-width":P+12})),u.appendChild(f(`line`,{x1:t,x2:t,y1:b,y2:o,class:`peak-stem`,"stroke-width":P})),i){let e=b-4;u.appendChild(f(`path`,{d:`M${t-4} ${e+2}L${t+1} ${e-2}M${t-.5} ${e+2}L${t+4.5} ${e-2}`,class:`peak-break`}))}u.appendChild(f(`circle`,{cx:t,cy:o,r:F,class:`peak-cap`}));let p=f(`text`,{x:t,y:o-14,class:`peak-value`,"text-anchor":`middle`,"font-size":a?11:12,"aria-hidden":`true`});p.textContent=l(e),u.appendChild(p),u.addEventListener(`click`,()=>g(e.mass)),u.addEventListener(`keydown`,t=>{(t.key===`Enter`||t.key===` `)&&(t.preventDefault(),g(e.mass))}),k.appendChild(u)}),u.replaceChildren(k)}a(),v();let y=e.find(e=>e.mass===h());y&&g(y.mass),window.addEventListener(`hashchange`,()=>{let t=e.find(e=>e.mass===h());t&&g(t.mass)});let b=0,x=()=>{cancelAnimationFrame(b),b=requestAnimationFrame(v)};window.addEventListener(`resize`,x),new ResizeObserver(x).observe(u)}p({element:`Hg`,elementName:`mercury`,ranges:[{min:195,max:205}],ticks:u(196,204),peaks:[{mass:196,intensity:.5},{mass:198,intensity:33.4},{mass:199,intensity:56.5},{mass:200,intensity:77.4},{mass:201,intensity:44.1},{mass:202,intensity:100},{mass:204,intensity:23}]});
+  </script>
+    <style>
+:root{--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark;--bg:#05080c;--tint-a:#5eead414;--tint-b:#60a5fa0f;--panel:#0a1017;--panel-sheen:#94b0cd0b;--line:#18222e;--text:#e7eef6;--text-soft:#b9c9da;--muted:#7d8da0;--faint:#6e8199;--accent:#5eead4;--accent-strong:#d8fff8;--accent-glow:#5eead459;--stem:#8ea3bb;--stem-hover:#cfe0f0;--grid:#131c26;--axis:#223040;--axis-text:#6e8199;--halo:#5eead429;--halo-selected:#5eead424;--selection-glow:#5eead499;--shadow:#000000e6;--btn-bg:#94b0cd14;--btn-bg-hover:#94b0cd29;--mono:ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace}:root[data-theme=light]{--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light;--bg:#f5f7fb;--tint-a:#0d948817;--tint-b:#3b82f614;--panel:#fff;--panel-sheen:#0f172a05;--line:#e2e8f1;--text:#101a2b;--text-soft:#3d4d63;--muted:#5b6b80;--faint:#64748b;--accent:#0d9488;--accent-strong:#0f766e;--accent-glow:#0d94882e;--stem:#7d8fa7;--stem-hover:#2f4258;--grid:#eef2f8;--axis:#ced9e6;--axis-text:#64748b;--halo:#0d948821;--halo-selected:#0d94881f;--selection-glow:#0d948873;--shadow:#0f172a1f;--btn-bg:#0f172a0d;--btn-bg-hover:#0f172a17}*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;background:var(--bg)}html,body{margin:0}body{background:radial-gradient(900px 480px at 12% -12%, var(--tint-a), transparent 62%), radial-gradient(760px 420px at 102% -4%, var(--tint-b), transparent 58%), var(--bg);min-height:100svh;color:var(--text);-webkit-font-smoothing:antialiased;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;transition:background-color .2s,color .2s}.wrap{max-width:1040px;margin:0 auto;padding:52px 24px 76px}.intro{margin-bottom:28px}.topbar{justify-content:space-between;align-items:center;gap:16px;display:flex}.eyebrow{letter-spacing:.2em;text-transform:uppercase;color:var(--muted);align-items:center;gap:10px;margin:0;font-size:11px;display:flex}.eyebrow:before{content:"";background:var(--accent);opacity:.75;flex:none;width:26px;height:1px}.theme-toggle{border:1px solid var(--line);background:var(--btn-bg);width:44px;height:44px;color:var(--muted);cursor:pointer;touch-action:manipulation;border-radius:50%;flex:none;place-items:center;transition:background .15s,color .15s,border-color .15s;display:inline-grid}.theme-toggle:hover{background:var(--btn-bg-hover);color:var(--text)}.theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.theme-toggle svg{flex:none;width:16px;height:16px}.theme-toggle .icon-moon,:root[data-theme=light] .theme-toggle .icon-sun{display:none}:root[data-theme=light] .theme-toggle .icon-moon{display:block}.nav{flex-wrap:wrap;gap:8px;margin-top:18px;display:flex}.nav a{border:1px solid var(--line);background:var(--btn-bg);color:var(--muted);font-family:var(--mono);letter-spacing:.04em;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;text-decoration:none}.nav a:hover{background:var(--btn-bg-hover);color:var(--text)}.nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.nav a[aria-current=page]{border-color:var(--accent);background:var(--btn-bg-hover);color:var(--text)}.spectra{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0;padding:0;list-style:none;display:grid}.spectrum-link{border:1px solid var(--line);background:linear-gradient(180deg, var(--panel-sheen), transparent 46%), var(--panel);height:100%;color:var(--text);border-radius:14px;flex-direction:column;gap:4px;padding:18px 18px 20px;text-decoration:none;display:flex}.spectrum-link:hover{border-color:var(--accent)}.spectrum-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.spectrum-symbol{font-family:var(--mono);color:var(--accent);font-size:26px;font-weight:600}.spectrum-title{font-size:15px;font-weight:600}.spectrum-meta{color:var(--faint);font-size:12px}h1{letter-spacing:-.025em;margin:14px 0 0;font-size:clamp(28px,4vw,40px);font-weight:600;line-height:1.1}.lede{max-width:58ch;color:var(--muted);margin:12px 0 0;font-size:15px;line-height:1.6}.facts{flex-wrap:wrap;gap:14px 34px;margin:26px 0 0;padding:0;list-style:none;display:flex}.facts li{flex-direction:column;gap:5px;display:flex}.facts span{letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-size:10px}.facts b{font-family:var(--mono);color:var(--text);font-variant-numeric:tabular-nums;font-size:13.5px;font-weight:600}.card{border:1px solid var(--line);background:linear-gradient(180deg, var(--panel-sheen), transparent 46%), var(--panel);box-shadow:0 24px 60px -32px var(--shadow);border-radius:16px;padding:20px 22px 18px}.chart{width:100%}.spectrum{width:100%;height:auto;display:block;overflow:visible}.grid{stroke:var(--grid);stroke-width:1px}.axis,.tick{stroke:var(--axis);stroke-width:1px}.axis-break{stroke:var(--axis-text);stroke-width:1.5px}.axis-text{fill:var(--axis-text);font-family:var(--mono);font-variant-numeric:tabular-nums}.axis-title{fill:var(--faint);letter-spacing:.14em;text-transform:uppercase;font-family:var(--mono)}.peak{cursor:pointer;touch-action:manipulation;outline:none}.peak-stem{stroke:var(--stem);stroke-linecap:round;transition:stroke .15s}.peak-cap{fill:var(--stem);transition:fill .15s}.peak-halo{stroke:#0000;stroke-linecap:round;transition:stroke .18s}.peak:hover .peak-stem,.peak:focus-visible .peak-stem{stroke:var(--stem-hover)}.peak:hover .peak-cap,.peak:focus-visible .peak-cap{fill:var(--stem-hover)}.peak:hover .peak-halo,.peak:focus-visible .peak-halo{stroke:var(--halo)}.peak.is-selected .peak-stem{stroke:var(--accent);filter:drop-shadow(0 0 6px var(--selection-glow))}.peak.is-selected .peak-cap{fill:var(--accent-strong)}.peak.is-selected .peak-halo{stroke:var(--halo-selected)}.peak-value{fill:var(--accent);font-family:var(--mono);opacity:0;pointer-events:none;font-weight:600;transition:opacity .18s,transform .18s;transform:translateY(6px)}.peak.is-floored .peak-value{fill:var(--text-soft);opacity:1;font-weight:500;transform:translateY(0)}.peak-break{stroke:var(--panel);stroke-width:1.8px;stroke-linecap:butt}.peak.is-selected .peak-value{opacity:1;transform:translateY(0)}.readout{border-top:1px solid var(--line);grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:18px 24px;min-height:76px;margin-top:12px;padding-top:18px;display:grid}.readout-empty{color:var(--muted);grid-column:1/-1;align-self:center;align-items:center;gap:10px;margin:0;font-size:13.5px;display:flex}.readout-empty:before{content:"";background:var(--accent);border-radius:50%;flex:none;width:6px;height:6px;animation:2s ease-in-out infinite pulse}.stat{animation:.22s ease-out rise}.stat-label{letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-size:10px;display:block}.stat-value{font-family:var(--mono);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text);margin-top:7px;font-size:26px;font-weight:600;display:block}.stat-value.accent{color:var(--accent);text-shadow:0 0 22px var(--accent-glow)}.stat-value.small{color:var(--text-soft);font-size:19px}.stat-value sup{vertical-align:super;font-size:11px}.stat-sub{color:var(--faint);margin-top:4px;font-size:11.5px;display:block}.approx-note{color:var(--faint);grid-column:1/-1;margin:0;font-size:11.5px}.foot{color:var(--faint);margin:16px 0 0;font-size:12px;line-height:1.6}@keyframes rise{0%{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,to{opacity:.35}50%{opacity:1}}@media (width<=620px){.wrap{padding:22px 14px 48px}.intro{margin-bottom:20px}h1{margin-top:12px;font-size:clamp(26px,7.4vw,32px)}.lede{margin-top:10px;font-size:14px}.facts{gap:12px 22px;margin-top:20px}.card{border-radius:14px;padding:12px 12px 14px}.readout{grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:16px 14px;min-height:0;margin-top:8px;padding-top:14px}.stat-value{margin-top:5px;font-size:21px}}@media (prefers-reduced-motion:reduce){*,:before,:after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+  </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="intro">
+        <div class="topbar">
+          <p class="eyebrow">Mass spectrometry</p>
+          <button
+            class="theme-toggle"
+            id="theme-toggle"
+            type="button"
+            aria-label="Switch theme"
+          >
+            <svg
+              class="icon-sun"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"
+              ></path>
+            </svg>
+            <svg
+              class="icon-moon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+            </svg>
+          </button>
+        </div>
+        <nav class="nav" aria-label="Spectra">
+          <a href="Hg-ms.html" aria-current="page">Hg</a>
+          <a href="Ne-ms.html">Ne</a>
+          <a href="HCl-ms.html">HCl</a>
+          <a href="HBr-ms.html">HBr</a>
+          <a href="Br2-ms.html">Br₂</a>
+        </nav>
+        <h1>Mass Spectrum of Mercury</h1>
+        <p class="lede">
+          The isotopic peaks of mercury, drawn as relative intensity against mass number.
+          Click any peak to read its intensity.
+        </p>
+        <ul class="facts">
+          <li><span>Element</span><b>Hg</b></li>
+          <li><span>Atomic number</span><b>80</b></li>
+          <li><span>Peaks</span><b>196–204</b></li>
+        </ul>
+      </header>
+
+      <section class="card">
+        <div class="chart" id="chart"></div>
+
+        <div class="readout" id="readout" aria-live="polite" aria-atomic="true">
+          <p class="readout-empty">No peak selected — click a peak to reveal its intensity.</p>
+        </div>
+
+        <p class="foot">
+          Intensity is measured relative to the tallest peak in the spectrum, which is set
+          to 100%. Select another peak to compare the two. A peak too small to draw at its
+          true height is drawn as a short broken bar and labelled with its intensity.
+        </p>
+      </section>
+    </main>
+
+  </body>
+</html>
