@@ -2,33 +2,16 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<script>try{var _t=localStorage.getItem("experiment-simulation.theme");if(_t==="light"||_t==="dark")document.documentElement.dataset.theme=_t}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#070d18">
-<title>Experiment Simulation — Limiting Reagent Virtual Lab · Lite</title>
+<script>(function(){try{var t=localStorage.getItem('experiment-simulation.theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',t==='light'?'#edf2f9':'#070d18');}}catch(e){}})();</script>
+<title>Limiting Reagent Lab · Lite</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html[data-theme="light"]{
-  --bg:#eef3fa; --card:#ffffff; --card2:#f3f7fc; --line:#cdd8e6;
-  --txt:#14202f; --muted:#51647d; --accent:#0b6bb8; --accent-ink:#ffffff;
-  --good:#067647; --bad:#b42318; --gold:#92600a; --heat:#c4580f; --warn:#92600a;
-  --shadow:0 10px 28px rgba(30,50,80,.16); color-scheme:light;
-  --wall:#e3ecf6; --wg:#c5d8ec; --bt1:#cfdbea; --bt2:#a9bbd0; --cab:#b9c9dc; --lip:#8ea5bf; --edge:#6f89a8;
-}
-html[data-theme="light"] .benchsum{color:#51647d}
-html[data-theme="light"] .scenetag{color:#0b5fa5}
-html[data-theme="light"] .btn.primary,html[data-theme="light"] .pill.now b{color:#fff}
-/* The bench drawing was authored on a dark wall; in the light theme its pale glass lines and captions are re-inked. */
-html[data-theme="light"] #scene [stroke="#a9cbe8"],html[data-theme="light"] #scene [stroke="#cfe6ff"]{stroke:#4f7ba6}
-html[data-theme="light"] #scene [stroke="#e4f2ff"]{stroke:#2c4a6b}
-html[data-theme="light"] #scene [fill="#e4f2ff"]{fill:#2c4a6b}
-html[data-theme="light"] #scene text[fill="#8ea2c6"],html[data-theme="light"] #scene text[fill="#64809f"],html[data-theme="light"] #scene text[fill="#7f93b3"]{fill:#4a607c}
-html[data-theme="light"] #scene text[fill="#dff0ff"],html[data-theme="light"] #scene text[fill="#bfe6ff"],html[data-theme="light"] #scene text[fill="#cfe4ff"]{fill:#14202f}
 :root{
   --bg:#070d18; --card:#0f1a2b; --card2:#0b1524; --line:#1e2c44;
   --txt:#e9f0ff; --muted:#8ea2c6; --accent:#4fb8ff; --accent-ink:#04121f;
-  --good:#34d399; --bad:#fb7185; --gold:#fbbf24; --heat:#ff9a3c; --warn:#fbbf24;
-  --wall:#0a1422; --wg:#123049; --bt1:#26364c; --bt2:#111a28; --cab:#0d1726; --lip:#0b121d; --edge:#6a86a6;
+  --good:#34d399; --bad:#fb7185; --gold:#fbbf24; --heat:#ff9a3c;
   --shadow:0 14px 38px rgba(0,0,0,.45); --radius:16px; color-scheme:dark;
 }
 body{
@@ -88,16 +71,23 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 .scene{
   position:relative;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;
-  background:var(--wall); box-shadow:var(--shadow);
+  background:var(--scene-bg); box-shadow:var(--shadow);container-type:inline-size;
 }
 .scene svg{display:block;width:100%;height:auto}
 .scenetag{
   position:absolute;left:12px;top:11px;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
-  color:color-mix(in srgb,var(--accent) 85%,#fff);font-weight:800;opacity:.75;
+  color:var(--tag-ink);font-weight:800;opacity:.75;
 }
 .benchsum{
-  margin:0;padding:10px 14px 12px;font-size:12.5px;line-height:1.55;color:#93a7c2;
+  margin:0;padding:10px 14px 12px;font-size:12.5px;line-height:1.55;color:var(--muted);
   border-top:1px solid var(--line);
+}
+/* A caption is 12.5 units in a 960-unit scene: 9px of caption needs a 696px bench, and the two-column layout hands
+   the bench 595px at a 1021px window but 854px at 1280px, so the query follows the bench, not the window. */
+.caplegend{display:none;padding:9px 14px 0;font-size:11px;line-height:1.5;color:var(--muted)}
+@container (max-width:695px){
+  .cap{display:none}
+  .caplegend{display:block}
 }
 
 .panel{
@@ -160,11 +150,11 @@ input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px
 input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:99px;background:var(--line);border:1px solid var(--line)}
 input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;width:20px;height:20px;border-radius:50%;margin-top:-8px;
-  background:radial-gradient(circle at 35% 30%,#dff0ff,var(--accent));border:2px solid #06121f;
+  background:radial-gradient(circle at 35% 30%,#dff0ff,var(--accent));border:2px solid var(--thumb-edge);
   box-shadow:0 2px 8px rgba(0,0,0,.5);
 }
 input[type=range]::-moz-range-track{height:6px;border-radius:99px;background:var(--line)}
-input[type=range]::-moz-range-thumb{width:18px;height:18px;border:2px solid #06121f;border-radius:50%;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border:2px solid var(--thumb-edge);border-radius:50%;background:var(--accent)}
 
 .clock{
   display:flex;align-items:baseline;gap:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -198,6 +188,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:2px solid #061
 .rhead h2{font-size:25px;margin:6px 0 4px}
 .rhead p{color:var(--muted);font-size:13.5px;margin:0}
 .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+/* A results card can hold a table wider than the screen it is read on. min-width:0 stops the grid item
+   from growing to fit that table, and the card scrolls its own table instead of pushing the page wide. */
+.rgrid > *{min-width:0}
+.rgrid .card{overflow-x:auto}
 @media (max-width:880px){ .rgrid{grid-template-columns:1fr} }
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
 .card h3{font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px}
@@ -328,7 +322,7 @@ select.psel.bad{border-color:var(--bad);color:var(--bad)}
   .prelab .card{padding:13px}
 }
 
-.modal{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(3,7,15,.66);backdrop-filter:blur(3px)}
+.modal{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim);backdrop-filter:blur(3px)}
 .modalcard{width:100%;max-width:720px;max-height:86vh;background:var(--card);border:1px solid var(--line);
   border-radius:20px 20px 0 0;display:flex;flex-direction:column;animation:slideup .22s ease-out}
 @keyframes slideup{from{transform:translateY(26px);opacity:.6}to{transform:none;opacity:1}}
@@ -406,7 +400,7 @@ select.psel.bad{border-color:var(--bad);color:var(--bad)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 @keyframes bub{0%{transform:translateY(0);opacity:.85}100%{transform:translateY(calc(var(--bubrise,26px)*-1));opacity:0}}
-.bub{animation:bub 1.5s linear infinite}
+.bub{animation:bub calc(1.5s / var(--bubrate,1)) linear infinite}
 @keyframes steam{0%{transform:translateY(0) scaleX(1);opacity:0}25%{opacity:.5}100%{transform:translateY(-52px) scaleX(1.5);opacity:0}}
 .steam{animation:steam 3.2s ease-out infinite}
 @keyframes poul{0%,100%{opacity:.35}50%{opacity:.95}}
@@ -425,7 +419,7 @@ select.psel.bad{border-color:var(--bad);color:var(--bad)}
 .pourfill{transform-box:fill-box;transform-origin:bottom;animation:fillup 1.15s ease-out both}
 @keyframes streamcut{from{clip-path:inset(0 0 var(--pourcut0,0%) 0)}to{clip-path:inset(0 0 var(--pourcut) 0)}}
 @keyframes pourstream{0%{opacity:0}12%{opacity:.9}80%{opacity:.9}100%{opacity:0}}
-.pourstream{animation:pourstream 1.2s ease-out both,streamcut 1.15s ease-out both}
+.pourstream{animation:pourstream var(--pours,1.2s) ease-out both,streamcut 1.15s ease-out both}
 /* The flask is carried off the bench to the beaker, tipped over it while the solution runs in, then set
    back down. The transform pivots on the flask's mouth, so rotating it is what tips it over the rim; --carryx
    is how far the mouth has to travel from the bench. */
@@ -460,6 +454,11 @@ select.psel.bad{border-color:var(--bad);color:var(--bad)}
 .carry{animation:carry var(--dur,2.6s) ease-in-out both}
 @keyframes tipopen{0%,14%{transform:rotate(0deg)}34%,80%{transform:rotate(var(--tipdeg,-150deg))}100%{transform:rotate(0deg)}}
 .tipopen{transform-box:view-box;transform-origin:var(--px) var(--py);animation:tipopen var(--dur,2.6s) ease-in-out both}
+/* The label is printed on the glass, so a tipped bottle would show it upside down. It runs the tip's own keyframes,
+   on the tip's own clock, turned the other way: level for as long as the bottle is held tipped, and left alone while
+   the bottle is still upright on its way. */
+@keyframes tiplevel{0%,14%{transform:rotate(0deg)}34%,80%{transform:rotate(calc(-1 * var(--tipdeg,-150deg)))}100%{transform:rotate(0deg)}}
+.labellevel{transform-box:view-box;transform-origin:var(--lx) var(--ly);animation:tiplevel var(--dur,2.6s) ease-in-out both}
 /* A vessel emptying: it is drawn with a token level and --fillfrom is how many times taller the liquid was to
    begin with, so the drain runs it down to nothing rather than to a film. The glass clip keeps it inside. */
 @keyframes drainfill{from{transform:scaleY(var(--fillfrom))}to{transform:scaleY(0)}}
@@ -467,9 +466,11 @@ select.psel.bad{border-color:var(--bad);color:var(--bad)}
 /* What the Büchner bowl holds between the pour and the vacuum pulling it through: up, a moment, then down. */
 @keyframes bowlpass{0%{transform:scaleY(0)}34%{transform:scaleY(1)}62%{transform:scaleY(1)}92%,100%{transform:scaleY(0)}}
 .bowlpass{transform-box:fill-box;transform-origin:bottom;animation:bowlpass var(--dur,3s) ease-in-out both}
-/* The transfer pipet: down into the ice bath, back up, across to the funnel, squirt, home. */
-@keyframes pipetdip{0%{transform:none}14%,26%{transform:translate(0,var(--dip))}46%,84%{transform:translate(var(--wx),var(--wy))}100%{transform:none}}
-.pipetdip{animation:pipetdip var(--dur,3s) ease-in-out both}
+/* The trip a wash tool makes: from its own place on the bench, a stop of --dip on the way if it draws its water
+   there (the pipet in the ice bath), across to the funnel, and home. The bottle pours where it stands, so it leaves
+   --dip at 0. */
+@keyframes tooltrip{0%{transform:none}14%,26%{transform:translate(0,var(--dip))}46%,84%{transform:translate(var(--wx),var(--wy))}100%{transform:none}}
+.tooltrip{--dip:0px;animation:tooltrip var(--dur,3s) ease-in-out both}
 /* Air pulled through the cake while the vacuum is held: short dashes drawn down into the paper. */
 @keyframes airpull{0%{opacity:0;transform:translateY(-9px)}30%{opacity:.85}100%{opacity:0;transform:translateY(15px)}}
 .airpull{animation:airpull .9s linear infinite}
@@ -482,10 +483,26 @@ select.psel.bad{border-color:var(--bad);color:var(--bad)}
 .stirring{transform-box:view-box;transform-origin:var(--sx) var(--sy);animation:stir 1.6s ease-in-out}
 @keyframes stirswirl{0%{opacity:0;transform:rotate(0deg)}15%{opacity:1}85%{opacity:1}100%{opacity:0;transform:rotate(200deg)}}
 .stirswirl{transform-box:fill-box;transform-origin:center;animation:stirswirl 1.6s ease-in-out forwards}
+/* Swirling a flask by hand: it lifts clear of the bench, rocks ±8° about its own middle three times, and is set
+   back down on the same spot. The origin is the flask's centre, so it turns on the spot rather than swinging from
+   the bench like a pendulum. Three full oscillations, ending level. */
+@keyframes swirlflask{
+  0%{transform:none}
+  10%{transform:translateY(-12px)}
+  13%{transform:translateY(-12px) rotate(8deg)}
+  25%{transform:translateY(-12px) rotate(-8deg)}
+  38%{transform:translateY(-12px) rotate(8deg)}
+  50%{transform:translateY(-12px) rotate(-8deg)}
+  62%{transform:translateY(-12px) rotate(8deg)}
+  75%{transform:translateY(-12px) rotate(-8deg)}
+  87%{transform:translateY(-12px) rotate(8deg)}
+  100%{transform:none}
+}
+.swirlflask{transform-box:fill-box;transform-origin:center;animation:swirlflask 1.6s ease-in-out}
 /* Reduced motion governs everything on the bench, not just the pours: bubbles, steam, swirl rings, the
    hot-plate glow and drifting drops all stop, along with the grains and the carried flask.
-   html.reduce-motion is set from the system preference, and can be switched off by the "Play animations"
-   box in the top bar. Elements whose animation carries their meaning keep a still version instead. */
+   html.reduce-motion is set by unticking the "Play animations" box in the top bar; the bench plays by default.
+   Elements whose animation carries their meaning keep a still version instead. */
 html.reduce-motion #scene *{animation:none !important}
 html.reduce-motion .grain{opacity:0}                                     /* falling grains: pure motion */
 /* The spatula stays as the source cue: the heap and the readout show the result, but the tool is what ties the new
@@ -500,9 +517,10 @@ html.reduce-motion .mixbenchhush{opacity:0}
    running into. The bowl keeps a pool, and the pipet is shown over the funnel rather than in the ice bath. */
 html.reduce-motion .carry{transform:none}
 html.reduce-motion .tipopen{transform:rotate(var(--tipdeg,-150deg))}
+html.reduce-motion .labellevel{transform:rotate(calc(-1 * var(--tipdeg,0deg)))}
 html.reduce-motion .drainfill{transform:scaleY(var(--fillfrom))}
 html.reduce-motion .bowlpass{transform:scaleY(.55)}
-html.reduce-motion .pipetdip{transform:translate(var(--wx),var(--wy))}
+html.reduce-motion .tooltrip{transform:translate(var(--wx),var(--wy))}
 /* The five drops are one still: spread down the gap between the tip and the filtrate, as if caught in flight. */
 html.reduce-motion .dropfall{transform:translateY(calc(var(--fall,120px) * var(--at,.4)))}
 /* The stir is one still: the rod is held at the peak of its swing (the 25% keyframe) and the swirl ring stays at
@@ -520,9 +538,9 @@ html.reduce-motion .pulse:not(g){opacity:.65}
   color:inherit;cursor:pointer;white-space:nowrap;user-select:none;
 }
 .animtoggle:hover{border-color:#3f6d9a}
-/* Below ~1050px the five controls and a readable title cannot share one row, so the brand keeps a row of its own
+/* Below ~1140px the seven controls and a readable title cannot share one row, so the brand keeps a row of its own
    and the controls wrap under it. The tighter padding/font keeps those five on a single row down to 601px. */
-@media (min-width:601px) and (max-width:1050px){
+@media (min-width:601px) and (max-width:1140px){
   .topbar{flex-wrap:wrap;gap:8px}
   .brand{flex:1 1 100%}
   .iconbtn{flex:0 1 auto;padding:0 10px;font-size:12px}
@@ -530,6 +548,113 @@ html.reduce-motion .pulse:not(g){opacity:.65}
 }
 .motionnote{margin:10px 0 0}
 .animtoggle input{width:15px;height:15px;accent-color:#3aa0ff;cursor:pointer;margin:0}
+
+/* ==========================================================================
+   Theme: dark is the bench's own look; html[data-theme="light"] swaps the variables, the SVG bench
+   palette and the few colours that were written out in full. The choice is kept in localStorage.
+   ========================================================================== */
+:root{
+  --warn:#fbbf24; --warnink:#ffb066;
+  --scene-bg:#0a1422; --scrim:rgba(3,7,15,.66); --thumb-edge:#06121f;
+  --tag-ink:color-mix(in srgb,var(--accent) 85%,#fff);
+  /* the calculator widget's names, pointed at this page's own palette */
+  --panel:var(--card); --panel2:var(--card2); --ink:var(--txt);
+  --amber:#ff9a3c; --amber-ink:#1b0a00; --teal:var(--accent); --teal-ink:var(--accent-ink);
+}
+html[data-theme="light"]{
+  --bg:#edf2f9; --card:#ffffff; --card2:#f3f6fb; --line:#cbd6e6;
+  --txt:#0f1d33; --muted:#53678a; --accent:#0a6fc2; --accent-ink:#ffffff;
+  --good:#0b8a5f; --bad:#c81e45; --gold:#9a5d06; --heat:#e8741a; --warn:#b7791f; --warnink:#a85206;
+  --shadow:0 10px 26px rgba(28,52,92,.14);
+  --scene-bg:#e3eaf3; --scrim:rgba(20,34,58,.45); --thumb-edge:#ffffff; --tag-ink:var(--accent);
+  --amber:#b9560a; --amber-ink:#ffffff;
+  color-scheme:light;
+}
+html[data-theme="light"] .pill.done b{color:#fff}
+html[data-theme="light"] input[type=range]::-webkit-slider-thumb{background:radial-gradient(circle at 35% 30%,#fff,var(--accent));box-shadow:0 1px 5px rgba(20,40,80,.35)}
+html[data-theme="light"] .animtoggle:hover{border-color:var(--accent)}
+
+/* top-bar launchers: the theme switch and the calculator are icons, so they stay square when the bar wraps */
+.iconbtn.sq{padding:0;width:40px;flex:0 0 40px;justify-content:center}
+.iconbtn.sq svg{width:20px;height:20px}
+.iconbtn[aria-expanded="true"]{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card))}
+@media (max-width:1140px){ .iconbtn.sq{flex:0 0 40px;padding:0} }
+
+/* ---------- calculator (the standard draggable widget; this page opens it from the top bar) ---------- */
+.calc{
+  position:fixed; z-index:55; right:12px; top:calc(72px + env(safe-area-inset-top, 0px)); width:min(330px, calc(100vw - 24px));
+  background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); user-select:none; -webkit-user-select:none; overflow:hidden;
+}
+.calc-head{ display:flex; align-items:center; justify-content:space-between; padding:6px 6px 6px 12px; background:var(--panel2); cursor:grab; touch-action:none; font-size:12.5px; color:var(--muted); }
+.calc-head:active{ cursor:grabbing; }
+.calc-head .grip{ display:flex; gap:8px; align-items:center; }
+.calc-head .dots{ letter-spacing:2px; }
+.calc-head button{ width:38px; height:38px; border:0; background:transparent; border-radius:8px; font-size:20px; line-height:1; }
+.disp{ padding:10px 14px 6px; text-align:right; min-height:92px; display:flex; flex-direction:column; justify-content:flex-end; }
+.disp .expr{ font-size:15px; color:var(--muted); min-height:22px; overflow-x:auto; white-space:nowrap; direction:rtl; text-align:left; }
+.disp .expr span{ direction:ltr; unicode-bidi:plaintext; }
+.disp .res{ font-size:30px; font-weight:600; overflow-x:auto; white-space:nowrap; line-height:1.25; }
+.disp .res.err{ color:var(--bad); font-size:18px; }
+.disp .meta{ font-size:11.5px; color:var(--muted); display:flex; justify-content:space-between; }
+.keys{ display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; padding:8px 10px 10px; }
+.keys button{
+  min-height:46px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); font-size:16px; padding:0; touch-action:manipulation;
+}
+.keys button:active{ transform:translateY(1px); filter:brightness(1.15); }
+.keys .fn{ font-size:13.5px; color:var(--teal); }
+.keys .op{ color:var(--amber); font-weight:600; }
+.keys .eq{ background:var(--amber); color:var(--amber-ink); border-color:var(--amber); font-weight:700; }
+.keys .clr{ color:var(--bad); }
+.keys .on{ background:var(--teal); color:var(--teal-ink); border-color:var(--teal); }
+.calc-foot{ padding:0 10px 10px; }
+.calc-foot .btn{ width:100%; min-height:42px; font-size:13.5px; }
+.btn.teal{ background:var(--teal); border-color:var(--teal); color:var(--teal-ink); font-weight:600; }
+@media print{ .calc, #fab, #btnTheme{ display:none !important; } }
+
+/* ---------- the bench's own palette (SVG classes), dark first ---------- */
+.s-wall{fill:#0a1422}
+.s-grout{stroke:#14233a}
+.s-glow0{stop-color:#123049;stop-opacity:.9} .s-glow1{stop-color:#0a1422;stop-opacity:0}
+.s-b0{stop-color:#26364c} .s-b1{stop-color:#111a28}
+.s-edge{fill:#4a6482} .s-bshade{fill:#0d1726} .s-lipline{fill:#38506f} .s-lip{fill:#0a1220}
+.s-gl0{stop-opacity:.10} .s-gl1{stop-opacity:0}
+.s-sh0{stop-opacity:.6} 
+html[data-theme="light"] .s-wall{fill:#e3eaf3}
+html[data-theme="light"] .s-grout{stroke:#d3dce9}
+html[data-theme="light"] .s-glow0{stop-color:#ffffff;stop-opacity:.8} html[data-theme="light"] .s-glow1{stop-color:#e3eaf3;stop-opacity:0}
+html[data-theme="light"] .s-b0{stop-color:#d6dfeb} html[data-theme="light"] .s-b1{stop-color:#b4c2d4}
+html[data-theme="light"] .s-edge{fill:#8da2bd} html[data-theme="light"] .s-bshade{fill:#9fb2c9}
+html[data-theme="light"] .s-lipline{fill:#eef3f9} html[data-theme="light"] .s-lip{fill:#98aac1}
+html[data-theme="light"] .s-gl0{stop-opacity:.65}
+html[data-theme="light"] .shd{opacity:.55}
+
+/* glass, liquids and text drawn for a dark bench are re-inked for a light one */
+html[data-theme="light"] #scene [stroke="#a9cbe8"]{stroke:#3f6f9a}
+html[data-theme="light"] #scene [stroke="#cfe6ff"],
+html[data-theme="light"] #scene [stroke="#9dc3e0"]{stroke:#4f7ea8}
+html[data-theme="light"] #scene [stroke="#e9f6ff"]{stroke:#5b88b0}
+html[data-theme="light"] #scene [stroke="#c3d7e9"]{stroke:#8aa3bd}
+html[data-theme="light"] #scene [fill="#0b1624"]{fill:#7e9cb8}
+html[data-theme="light"] #scene .strm{stroke:#5fa8dc}
+html[data-theme="light"] #scene text[fill="#8ea2c6"]{fill:#4a5f7d}
+html[data-theme="light"] #scene text[fill="#dff0ff"]{fill:#12304f}
+html[data-theme="light"] #scene text[fill="#cfe4ff"]{fill:#1c3a5c}
+html[data-theme="light"] #scene text[fill="#bfe6ff"]{fill:#0b4f80}
+html[data-theme="light"] #scene text[fill="#ffb066"]{fill:#a85206}
+html[data-theme="light"] #scene text[fill="#fb7185"]{fill:#be123c}
+html[data-theme="light"] #scene .steam{stroke:#7d95ae}
+html[data-theme="light"] #glassg stop:nth-child(1){stop-color:#7aa6cf;stop-opacity:.30}
+html[data-theme="light"] #glassg stop:nth-child(2){stop-color:#ffffff;stop-opacity:.55}
+html[data-theme="light"] #glassg stop:nth-child(3){stop-color:#7aa6cf;stop-opacity:.10}
+html[data-theme="light"] #glassg stop:nth-child(4){stop-color:#7aa6cf;stop-opacity:.22}
+html[data-theme="light"] #glassg stop:nth-child(5){stop-color:#ffffff;stop-opacity:.50}
+html[data-theme="light"] #clearliq stop:nth-child(1){stop-color:#8fd0f5;stop-opacity:.46}
+html[data-theme="light"] #clearliq stop:nth-child(2){stop-color:#3f9edb;stop-opacity:.62}
+html[data-theme="light"] #icedliq stop:nth-child(1){stop-color:#bfe9fb;stop-opacity:.6}
+html[data-theme="light"] #icedliq stop:nth-child(2){stop-color:#6bbde4;stop-opacity:.62}
+html[data-theme="light"] #milky stop:nth-child(1){stop-color:#ffffff;stop-opacity:.97}
+html[data-theme="light"] #milky stop:nth-child(2){stop-color:#c4d8ea;stop-opacity:.95}
+html[data-theme="light"] #liqedge stop{stop-color:#0b3c63}
 </style>
 </head>
 <body>
@@ -538,7 +663,7 @@ html.reduce-motion .pulse:not(g){opacity:.65}
   <div class="brand">
     <div class="logo">🧪</div>
     <div>
-      <h1>Experiment&nbsp;Simulation · Virtual Lab</h1>
+      <h1>Limiting&nbsp;Reagent Lab</h1>
       <p class="sub"><span class="sublabel">Limiting reagent &amp; percent yield · </span>Ca(NO₃)₂·4H₂O + Na₃PO₄·12H₂O</p>
     </div>
   </div>
@@ -546,10 +671,11 @@ html.reduce-motion .pulse:not(g){opacity:.65}
   <button class="iconbtn" id="btnPrelab">📝 Pre-lab</button>
   <button class="iconbtn" id="btnPostlab">🧾 Post-lab</button>
   <button class="iconbtn" id="btnNotebook">📓 Notebook</button>
-  <button class="iconbtn" id="btnTheme" aria-label="Switch between light and dark theme">☀️ Light</button>
-  <label class="animtoggle" title="Play the bench animations even when the system asks for reduced motion">
+  <label class="animtoggle" title="Animate the bench: pours, bubbles, steam and glow">
     <input type="checkbox" id="chkAnim"> Play animations
   </label>
+  <button class="iconbtn sq" id="btnTheme" type="button" aria-label="Switch to light mode" title="Switch to light mode"></button>
+  <button class="iconbtn sq" id="fab" type="button" aria-label="Open calculator" aria-expanded="false" title="Calculator"></button>
 </header>
 
 <main>
@@ -561,6 +687,7 @@ html.reduce-motion .pulse:not(g){opacity:.65}
     <div class="scene">
       <div class="scenetag" id="sceneTag">Bench 1 · weighing station</div>
       <svg id="scene" viewBox="0 0 960 620" role="img" aria-label="Laboratory bench"></svg>
+      <div class="caplegend"></div>
       <p class="benchsum" id="benchSummary"></p>
     </div>
     <div class="benchhead" style="margin-top:10px">
@@ -598,17 +725,18 @@ html.reduce-motion .pulse:not(g){opacity:.65}
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="calc" id="calc" role="dialog" aria-label="Calculator" hidden></div>
 
 <script>
 /* Set to true only in the instructor copy. sync-lab.sh flips exactly this line to build
-   Experiment-Simulation-Instructor.html; nothing else in the two files differs. */
+   limiting-reagent-instructor.html; nothing else in the two files differs. */
 const INSTRUCTOR = false;
-/* Set to true only in the data-record edition (Experiment-Simulation-Lite.html), which records what
+/* Set to true only in the data-record edition (limiting-reagent-lite.html), which records what
    the bench measures and observes and calculates nothing; sync-lab.sh flips it. */
 const LITE = true;
 
 /* ==========================================================================
-   Experiment Simulation — Limiting reagent & percent yield
+   Limiting Reagent Lab — Limiting reagent & percent yield
    3 Ca(NO3)2 + 2 Na3PO4 -> Ca3(PO4)2 (s) + 6 NaNO3
    Reagents are the hydrates weighed in lab:
      Ca(NO3)2.4H2O  M = 236.15 g/mol
@@ -634,6 +762,9 @@ let topupLvlFrom = 0;                    /* the beaker level before that repleni
 let pourMixAt = -1e9;                    /* when the mixture was last poured into the funnel */
 let rinseBeakerAt = -1e9;                /* when the beaker was last rinsed into the funnel */
 let washAt = -1e9;                       /* when the precipitate was last washed */
+let wetAt = -1e9;                        /* when the filter paper was last wetted */
+let dishAt = -1e9;                       /* when the dish was last carried to the balance */
+let washFromBottle = false;              /* whether the wash in progress was poured from the wash bottle */
 let vacDryLeft = 0;                      /* lab minutes still to run on the pump hold, 0 when it is not running */
 let pumpStall = 0;                       /* ms of this filtration step the pump has spent switched off */
 let pumpOffAt = 0;                       /* when it went off, 0 while it is running */
@@ -653,8 +784,14 @@ const POUR_MIX_MS = 3000;     /* the beaker carried to the funnel, emptied throu
 const RINSE_FILL_MS = 2200;   /* the wash bottle filling the beaker before it is carried over */
 const RINSE_BEAKER_MS = 4200; /* that fill, then the beaker's own rinse into the funnel */
 const WASH_MS = 3000;         /* the pipet dipping into the ice bath, crossing to the funnel and squirting */
+const WET_MS = 2600;          /* the bottle crossing to the funnel, squirting onto the paper, and coming back */
+const WET_STREAM_S = WET_MS / 1000 * 0.46;   /* .tooltrip reaches the funnel 46% of the way through its clock */
+const WET_SQUIRT_S = 0.6;     /* how long it runs: enough to seat the paper, not half a wash portion */
+const WET_LAND_S = WET_STREAM_S + WET_SQUIRT_S;   /* the paper turns wet as the last of it lands */
 const DROPS_MS = 1300;        /* five drops, the last of them landing 1.27 s after the click that released them */
 let rinseQueue = [];                     /* rinse portions, the one on the bench and any queued behind it */
+const DISH_MS = 2600;        /* dish carried to the balance, held on the pan while it reads, and set back down */
+const DISH_LAND = 0.3;       /* where in that carry the dish is set down: .carry's own 30% keyframe */
 const RINSE_SPRAY = 900;                 /* ms the bottle spends over the flask before it is taken away */
 const RINSE_MS = RINSE_SPRAY + MIX_POUR_MS;   /* the spray, then the flask carried over and tipped */
 const RINSE_S = RINSE_SPRAY / 1000;      /* the same wait, for the animation-delay on the scene nodes */
@@ -684,23 +821,19 @@ const rinseEndsAt = () => (rinseQueue.length ? rinseQueue.at(-1).at + RINSE_MS :
    only the scene: rebuilding the panel would replace the mass slider and end a drag of it. */
 const repaintAfter = (wait, repaint = render) => setTimeout(repaint, wait + 120);
 
-/* Motion follows the system preference unless the "Play animations" box in the top bar overrides it; the switch
-   is a class on <html>, so the reduced-motion rules are plain CSS rather than a media query. */
-const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+/* The bench plays by default: the system's reduced-motion preference is not consulted, so the "Play animations"
+   box in the top bar is the only thing that stops it. The switch is a class on <html>, so the reduced-motion
+   rules stay plain CSS rather than a media query. */
 const MOTION_KEY = 'experiment-simulation.motion';
-let animOverride = null;   /* null = follow the system, true / false = the reader's choice */
-try {
-  const savedMotion = localStorage.getItem(MOTION_KEY);
-  if (savedMotion === 'on') animOverride = true;
-  else if (savedMotion === 'off') animOverride = false;
-} catch (e) {}
+let animOn = true;   /* the reader's choice, remembered across visits */
+try { if (localStorage.getItem(MOTION_KEY) === 'off') animOn = false; } catch (e) {}
 /* Carried by every step whose bench feedback is animated, so the switch is explained where the action is. */
 const motionReduced = () => document.documentElement.classList.contains('reduce-motion');
 const motionNote = () => motionReduced()
   ? `<p class="small motionnote">Motion is off — the bench shows the result without animating it. Tick <b>Play animations</b> in the top bar to watch.</p>`
   : '';
 function applyMotion() {
-  const reduce = animOverride === null ? motionQuery.matches : !animOverride;
+  const reduce = !animOn;
   document.documentElement.classList.toggle('reduce-motion', reduce);
   const box = $('#chkAnim');
   if (box) box.checked = !reduce;
@@ -721,7 +854,6 @@ const LOSS_TRANSFER = 5;   /* % left on the glassware and filter paper */
 const LOSS_FINES = 20;     /* % lost at most when the digest is skipped entirely */
 const LOSS_SPLATTER = 4;   /* % thrown out by a vigorous boil */
 const LOSS_BAKED = 4;      /* % baked onto the beaker wall below VOL_MIN */
-const LOSS_SLIP = 2.5;     /* % that slips past an unseated filter paper */
 const LOSS_REFILTER = 1.5; /* % lost in each extra filtration */
 const GAIN_NANO3 = 2;      /* % extra mass per missing wash, from NaNO₃ in the solid */
 const GAIN_CHAR = 2.5;     /* % extra mass of soot left by a charred filter paper */
@@ -735,6 +867,11 @@ const HYDRATE = { ca: 'Ca(NO₃)₂·4H₂O', na: 'Na₃PO₄·12H₂O' };
 const MASS_MIN = 0.900, MASS_MAX = 1.100, DRAFT_MAX = 1.200;
 const DISH_FULL = 0.500; /* g of precipitate that fills the dish drawing */
 const DIGEST_MIN = 15;  /* minutes of gentle boiling on the hot plate */
+/* The 250-mL beaker's drawn size, shared by every bench that shows one — the reaction beaker, that beaker on the hot
+   plate, the one carried to the funnel and the D.I. water beaker — so the four read as the same vessel. A Griffin
+   beaker is 70 mm across and 95 mm tall, so its width is 0.74 of its height: the height is what the four benches
+   agree on and the width follows from it, because a wider one reads as a jar rather than as a beaker. */
+const BEAKER_250_W = 124, BEAKER_250_H = 168;
 const VOL_MIN = 50;     /* mL of solution that must stay in the beaker */
 const WASH_MIN = 2;     /* portions of cold water drawn through the cake */
 const RINSE_MIN = 2;    /* rinse portions per flask before mixing */
@@ -790,6 +927,17 @@ function waterLands(k, at) {
     log('Added 50 mL D.I. water and washed the crystals into the flask.');
     render();
   }, landedS() * 1000 + 20);
+}
+/* The paper is wet only once the squirt has landed: the funnel's paper, the panel's tick, the bench summary and the
+   gate all read S.paperWet, so none of them can report it while the water is still in the air. With motion off there
+   is no squirt to wait for. */
+function wetLands(at) {
+  setTimeout(() => {
+    if (wetAt !== at) return;
+    S.paperWet = true;
+    log('Wet the filter paper so it seats on the funnel.');
+    render();
+  }, motionReduced() ? 0 : WET_LAND_S * 1000);
 }
 const constMass = () => S.weighDelta == null ? '—'
   : `${S.weigh1.toFixed(3)} g then ${S.finalWeigh.toFixed(3)} g — ${S.weighDelta.toFixed(3)} g apart`;
@@ -848,7 +996,7 @@ const STEPS = [
   { t: 'Dissolve in D.I. water', tag: 'Bench 1 · dissolving', hint: 'Add 50 mL of D.I. water to each flask and swirl until clear.' },
   { t: 'Mix the solutions', tag: 'Bench 1 · precipitation', hint: `Pour both flasks in, rinse them in ${RINSE_MIN} portions, and stir.` },
   { t: 'Digest the precipitate', tag: 'Bench 2 · hot plate', hint: `Boil gently for ${DIGEST_MIN} min, keep the volume above ${VOL_MIN} mL, then turn the heat off.` },
-  { t: 'Filter under vacuum', tag: 'Bench 2 · filtration', hint: `Seat the paper, pull vacuum, pour, rinse the beaker out, wash ${times(WASH_MIN)}, and draw air through the cake.` },
+  { t: 'Filter under vacuum', tag: 'Bench 2 · filtration', hint: 'Seat the filter paper, pull vacuum, pour, draw air through the cake, then switch the vacuum pump off.' },
   { t: 'Test the filtrate', tag: 'Bench 2 · filtrate tests', hint: 'Run both drop tests, then decide which reagent was in excess.' },
   { t: 'Dry and weigh', tag: 'Bench 3 · drying station', hint: 'Dry the precipitate over the burner, let it cool, then reweigh until two readings agree.' }
 ];
@@ -874,6 +1022,7 @@ const BENCH = 505;
    it. Kept loose from the flask so the flask can grow without dragging the funnel with it. */
 const PLATE_RISE = 213;
 const PLATE = BENCH - PLATE_RISE;
+const BOWL_GAP = 56;            /* the funnel's mouth this far above its plate */
 
 function defs() {
   return `<defs>
@@ -885,13 +1034,42 @@ function defs() {
     <stop offset="1" stop-color="#ffffff" stop-opacity=".28"/>
   </linearGradient>
   <linearGradient id="benchtop" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" style="stop-color:var(--bt1)"/><stop offset="1" style="stop-color:var(--bt2)"/>
+    <stop class="s-b0" offset="0" stop-color="#26364c"/><stop class="s-b1" offset="1" stop-color="#111a28"/>
   </linearGradient>
   <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#93aac1"/><stop offset=".5" stop-color="#5d748c"/><stop offset="1" stop-color="#37485c"/>
   </linearGradient>
   <linearGradient id="steel" x1="0" y1="0" x2="1" y2="0">
     <stop offset="0" stop-color="#46596e"/><stop offset=".35" stop-color="#8ea5bb"/><stop offset="1" stop-color="#3d4f63"/>
+  </linearGradient>
+  <linearGradient id="nickel" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#4d5f74"/><stop offset=".22" stop-color="#e4eef8"/><stop offset=".42" stop-color="#9fb3c8"/><stop offset=".78" stop-color="#5c6f84"/><stop offset="1" stop-color="#2f3e50"/>
+  </linearGradient>
+  <linearGradient id="castiron" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#4b5766"/><stop offset=".45" stop-color="#2b3441"/><stop offset="1" stop-color="#171d26"/>
+  </linearGradient>
+  <linearGradient id="rubber" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#1c232d"/><stop offset=".3" stop-color="#47525f"/><stop offset=".7" stop-color="#2a323d"/><stop offset="1" stop-color="#151b23"/>
+  </linearGradient>
+  <linearGradient id="rubberred" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#8f2338"/><stop offset=".3" stop-color="#e0596d"/><stop offset=".7" stop-color="#b3304a"/><stop offset="1" stop-color="#6f1a2c"/>
+  </linearGradient>
+  <linearGradient id="porcelain" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fbfcfe"/><stop offset=".55" stop-color="#e3e9f1"/><stop offset="1" stop-color="#b7c3d3"/>
+  </linearGradient>
+  <linearGradient id="porcelainin" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#9eabbd"/><stop offset="1" stop-color="#e9eef5"/>
+  </linearGradient>
+  <linearGradient id="paperwrap" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#8997a9" stop-opacity=".55"/><stop offset=".16" stop-color="#fff" stop-opacity="0"/>
+    <stop offset=".84" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#8997a9" stop-opacity=".5"/>
+  </linearGradient>
+  <linearGradient id="ldpe" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#c3d8ee" stop-opacity=".6"/><stop offset=".22" stop-color="#ffffff" stop-opacity=".42"/>
+    <stop offset=".6" stop-color="#d6e6f6" stop-opacity=".12"/><stop offset="1" stop-color="#a9c4df" stop-opacity=".5"/>
+  </linearGradient>
+  <linearGradient id="lcd" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0b2d30"/><stop offset="1" stop-color="#04151b"/>
   </linearGradient>
   <linearGradient id="milky" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#f4faff" stop-opacity=".95"/><stop offset="1" stop-color="#c6dcef" stop-opacity=".92"/>
@@ -902,79 +1080,99 @@ function defs() {
   <linearGradient id="icedliq" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#d6f4ff" stop-opacity=".5"/><stop offset="1" stop-color="#79c8ec" stop-opacity=".55"/>
   </linearGradient>
+  <linearGradient id="ice" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset=".6" stop-color="#d9f3ff" stop-opacity=".62"/><stop offset="1" stop-color="#9bd8f5" stop-opacity=".6"/>
+  </linearGradient>
+  <linearGradient id="liqedge" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#06304f" stop-opacity=".30"/><stop offset=".16" stop-color="#06304f" stop-opacity="0"/>
+    <stop offset=".78" stop-color="#06304f" stop-opacity="0"/><stop offset="1" stop-color="#06304f" stop-opacity=".26"/>
+  </linearGradient>
+  <linearGradient id="glassbase" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity="0"/><stop offset=".55" stop-color="#e6f3ff" stop-opacity=".22"/><stop offset="1" stop-color="#bfdcf2" stop-opacity=".12"/>
+  </linearGradient>
   <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#2f8bff" stop-opacity=".95"/><stop offset=".5" stop-color="#7fd7ff" stop-opacity=".85"/><stop offset="1" stop-color="#ffcc73" stop-opacity=".8"/>
   </linearGradient>
   <radialGradient id="glow"><stop offset="0" stop-color="#ff9a3c" stop-opacity=".5"/><stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/></radialGradient>
-  <radialGradient id="wallglow"><stop offset="0" style="stop-color:var(--wg)" stop-opacity=".9"/><stop offset="1" style="stop-color:var(--wall)" stop-opacity="0"/></radialGradient>
+  <radialGradient id="wallglow"><stop class="s-glow0" offset="0" stop-color="#123049" stop-opacity=".9"/><stop class="s-glow1" offset="1" stop-color="#0a1422" stop-opacity="0"/></radialGradient>
+  <radialGradient id="shadowg"><stop class="s-sh0" offset="0" stop-color="#000" stop-opacity=".6"/><stop class="s-sh0" offset=".55" stop-color="#000" stop-opacity=".34"/><stop class="s-sh1" offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  <radialGradient id="gloss"><stop class="s-gl0" offset="0" stop-color="#fff" stop-opacity=".1"/><stop class="s-gl1" offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <radialGradient id="pantop" cx=".42" cy=".4" r=".7">
+    <stop offset="0" stop-color="#f4f9fe"/><stop offset=".6" stop-color="#c8dbeb"/><stop offset="1" stop-color="#9bb2c8"/>
+  </radialGradient>
   <linearGradient id="plastic" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#f2f8ff"/><stop offset="1" stop-color="#b9cde2"/>
   </linearGradient>
-  <linearGradient id="porc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfd9e4" stop-opacity=".8"/><stop offset=".3" stop-color="#ffffff" stop-opacity=".93"/><stop offset="1" stop-color="#b3c2d1" stop-opacity=".82"/></linearGradient>
-  <linearGradient id="capblue" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f5fa8"/><stop offset=".4" stop-color="#4a9be8"/><stop offset="1" stop-color="#1a4d8a"/></linearGradient>
-  <linearGradient id="porcelain" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b7c5d4"/><stop offset=".3" stop-color="#ffffff"/><stop offset="1" stop-color="#94a7bb"/></linearGradient>
-  <pattern id="tiles" width="64" height="40" patternUnits="userSpaceOnUse"><path d="M0 0H64M0 0V40" fill="none" stroke="#9fc3e8" stroke-opacity=".05"/></pattern>
+  <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+    <stop offset=".30" stop-color="#fff" stop-opacity=".14"/>
+    <stop offset=".38" stop-color="#fff" stop-opacity=".05"/>
+    <stop offset=".52" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <pattern id="tiles" width="96" height="56" patternUnits="userSpaceOnUse">
+    <path class="s-grout" d="M0 .5H96M0 28.5H96M.5 0V28M48.5 28V56" fill="none" stroke="#14233a" stroke-width="1.2"/>
+  </pattern>
   </defs>`;
 }
 
 function bg() {
-  return `<rect x="0" y="0" width="960" height="505" style="fill:var(--wall)"/>
-  <rect x="0" y="0" width="960" height="505" fill="url(#wallglow)"/>
-  <rect x="0" y="0" width="960" height="505" fill="url(#tiles)"/>
-  <rect x="0" y="505" width="960" height="44" fill="url(#benchtop)"/>
-  <ellipse cx="480" cy="521" rx="430" ry="7" fill="#fff" opacity=".05"/>
-  <rect x="0" y="505" width="960" height="2.5" style="fill:var(--edge)"/>
-  <rect x="0" y="549" width="960" height="7" style="fill:var(--lip)"/>
-  <rect x="0" y="556" width="960" height="64" style="fill:var(--cab)"/>
-  <path d="M240 556 V620 M480 556 V620 M720 556 V620" style="stroke:var(--lip)" stroke-width="2"/>
-  ${[225, 495, 705, 735].map(hx => `<rect x="${hx}" y="574" width="10" height="26" rx="3" style="fill:var(--edge)"/>`).join('')}`;
+  return `<rect class="s-wall" x="0" y="0" width="960" height="${BENCH}" fill="#0a1422"/>
+  <rect x="0" y="0" width="960" height="${BENCH}" fill="url(#tiles)"/>
+  <rect x="0" y="0" width="960" height="${BENCH}" fill="url(#wallglow)"/>
+  <rect x="0" y="${BENCH}" width="960" height="115" fill="url(#benchtop)"/>
+  <ellipse cx="480" cy="${BENCH + 40}" rx="470" ry="26" fill="url(#gloss)"/>
+  <rect class="s-edge" x="0" y="${BENCH}" width="960" height="2.5" fill="#4a6482"/>
+  <rect class="s-bshade" x="0" y="${BENCH + 2}" width="960" height="16" fill="#0d1726" opacity=".5"/>
+  <rect class="s-lipline" x="0" y="611" width="960" height="1.4" fill="#38506f"/>
+  <rect class="s-lip" x="0" y="612.4" width="960" height="8" fill="#0a1220"/>`;
 }
+/* A contact shadow: dark under the glass, melting away to the sides, so a vessel stands on the bench instead of
+   hovering over a flat ellipse. */
 const shadow = (x, y, rx, ry = 8) =>
-  `<ellipse cx="${x}" cy="${y + 5}" rx="${rx}" ry="${ry}" fill="#000" opacity=".4"/>`;
-const cap = (x, y, t, fill = '#8ea2c6', size = 12.5) =>
-  `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="650" fill="${fill}">${t}</text>`;
+  `<ellipse class="shd" cx="${x}" cy="${y + 5}" rx="${(rx * 1.1).toFixed(1)}" ry="${ry + 1.5}" fill="url(#shadowg)"/>`;
+/* One baseline for every bench caption. They had drifted four units apart between benches, which read as the line
+   hopping as you stepped through the rail, so the height is baked into `cap`: there is no y to pass and get wrong. */
+const CAP_Y = BENCH + 58;
+const cap = (x, t) =>
+  `<text class="cap" x="${x}" y="${CAP_Y}" text-anchor="middle" font-size="12.5" font-weight="650" fill="#8ea2c6">${t}</text>`;
 
-/* ---------- glassware detail ---------- */
-/* The liquid surface seen from slightly above: a pale ellipse on the water line, clipped to the glass. */
-const surfaceEllipse = (cx, sy, rx, clipId) =>
-  `<ellipse cx="${cx}" cy="${sy}" rx="${Math.max(4, rx).toFixed(1)}" ry="${Math.min(5.5, Math.max(2, rx * 0.085)).toFixed(1)}" fill="#e9f7ff" fill-opacity=".22" stroke="#fff" stroke-opacity=".42" stroke-width="1.2" clip-path="url(#${clipId})"/>`;
-/* Beaker graduations. With o.grad = {max, k} the marks are a true mL scale (k = level at `max` mL), so the
-   50 mL minimum of the digest can be read straight off the glass; otherwise the plain four ticks. */
-function beakerGrads(x, y, w, h, o) {
+/* What makes drawn glass read as glass: light travelling along the wall, and the way a liquid pulls up where
+   it meets it. Both are clipped to the vessel, so the caller only gives the wall's box. */
+const glassSheen = (id, x, yTop, yBottom, half) =>
+  `<rect x="${x - half}" y="${yTop}" width="${half * 2}" height="${Math.max(4, yBottom - yTop)}" fill="url(#sheen)" clip-path="url(#${id})"/>`
+  + `<path d="M${x + half - 7} ${yTop + 10} L${x + half - 7} ${yBottom - 12}" stroke="#fff" stroke-opacity=".24" stroke-width="2.4" stroke-linecap="round" clip-path="url(#${id})"/>`;
+/* A meniscus: the liquid climbs the wall, so the surface is a shallow dish, not a straight edge. */
+const meniscus = (id, x, y, half) =>
+  `<ellipse cx="${x}" cy="${y}" rx="${half}" ry="3" fill="#2b6f9e" fill-opacity=".26" clip-path="url(#${id})"/>`
+  + `<path d="M${x - half} ${y - .4} Q${x} ${y + 4.2} ${x + half} ${y - .4}" fill="none" stroke="#e6f6ff" stroke-opacity=".6" stroke-width="1.5" clip-path="url(#${id})"/>`;
+/* The mouth of a vessel is a rolled lip around an opening — a dark bore, a thick bead of glass, a bright rim, the
+   inner edge below it, and the glint where the bead catches the light at the front. */
+const vesselLip = (x, y, rx, ry) => {
+  const p = (t) => `${(x + rx * Math.cos(t)).toFixed(1)} ${(y + ry * Math.sin(t)).toFixed(1)}`;
+  return `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#0b1624" fill-opacity=".55"/>
+  <ellipse cx="${x}" cy="${y}" rx="${rx + 1}" ry="${ry + 0.6}" fill="none" stroke="#e9f6ff" stroke-opacity=".34" stroke-width="4.2"/>
+  <ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="none" stroke="#e9f6ff" stroke-opacity=".85" stroke-width="2.2"/>
+  <ellipse cx="${x}" cy="${y + 1.6}" rx="${rx - 3.2}" ry="${ry * 0.55}" fill="none" stroke="#9dc3e0" stroke-opacity=".5" stroke-width="1.2"/>
+  <path d="M${p(2.5)} A${rx} ${ry} 0 0 0 ${p(1.9)}" fill="none" stroke="#fff" stroke-opacity=".95" stroke-width="1.6" stroke-linecap="round"/>`;
+};
+/* Glass has thickness: the wall is darker where light has to cross it (a band just inside the outline) and bright
+   at the very edge. Both bands are strokes of the vessel's own outline, clipped to it, so they follow any shape. */
+const glassWall = (d, id) =>
+  `<path d="${d}" fill="none" stroke="#04263f" stroke-opacity=".16" stroke-width="12" clip-path="url(#${id})"/>`
+  + `<path d="${d}" fill="none" stroke="#ffffff" stroke-opacity=".20" stroke-width="3.6" clip-path="url(#${id})"/>`;
+/* The shading that makes a liquid read as a volume: its sides, seen through curved glass, are darker than its middle. */
+const liquidBody = (x, w, top, bottom, id) =>
+  `<rect x="${x - w}" y="${top}" width="${w * 2}" height="${Math.max(2, bottom - top)}" fill="url(#liqedge)" clip-path="url(#${id})"/>`;
+/* A flat printed scale, as on a beaker: long and short bars in white enamel. */
+const enamelScale = (x0, x1, yTop, yBot, n, op = 0.62, ink = '#f1f8ff') => {
   let s = '';
-  const xr = x + w / 2, g = o.grad;
-  if (g) {
-    for (let V = 25; V <= g.max; V += 25) {
-      const major = V % 50 === 0, gy = beakerGeo(y, h, (V / g.max) * g.k);
-      if (gy < y - h + 14) break;
-      s += `<line x1="${xr - (major ? 22 : 13)}" y1="${gy}" x2="${xr - 3}" y2="${gy}" stroke="#e4f2ff" stroke-opacity="${major ? .7 : .45}" stroke-width="1.4"/>`;
-      if (major) s += `<text x="${xr - 25}" y="${gy + 3}" text-anchor="end" font-size="8.5" font-weight="700" fill="#e4f2ff" fill-opacity=".78">${V}</text>`;
-    }
-    s += `<text x="${xr - 25}" y="${y - h + 22}" text-anchor="end" font-size="8" fill="#e4f2ff" fill-opacity=".55">mL</text>`;
-  } else {
-    for (let i = 1; i <= 4; i++) {
-      const gy = y - h + (h - 18) * (1 - i / 5);
-      s += `<line x1="${xr - 17}" y1="${gy}" x2="${xr - 3}" y2="${gy}" stroke="#cfe6ff" stroke-opacity=".28" stroke-width="1.5"/>`;
-    }
+  for (let i = 0; i <= n; i++) {
+    const gy = yTop + (yBot - yTop) * i / n, long = i % 2 === 0;
+    s += `<line x1="${x1 - (long ? (x1 - x0) : (x1 - x0) * 0.55)}" y1="${gy.toFixed(1)}" x2="${x1}" y2="${gy.toFixed(1)}" stroke="${ink}" stroke-opacity="${op}" stroke-width="${long ? 1.7 : 1.4}" stroke-linecap="round"/>`;
   }
-  s += `<path d="M${x - w / 2 + 12} ${y - 4} Q${x} ${y - 9} ${x + w / 2 - 12} ${y - 4}" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/>`;   /* thick glass base */
-  s += `<path d="M${xr - 7} ${y - h + 20} L${xr - 7} ${y - 40}" stroke="#fff" stroke-opacity=".12" stroke-width="3" stroke-linecap="round"/>`;
   return s;
-}
-const flaskHalfW = (y, h, nw, bw, sy) => { const t0 = y - h * 0.54; return sy <= t0 ? nw : nw + (bw - nw) * Math.min(1, (sy - t0) / (h * 0.54 - 13)); };
-/* Erlenmeyer markings: 25/50/75 mL ticks on the 125-mL scale (50 mL sits at level .56) and the white enamel patch. */
-function flaskGrads(x, y, h, nw, bw) {
-  let s = '';
-  for (const V of [25, 50, 75]) {
-    const gy = flaskSurface(y, V / 50 * 0.56, h), xr = x + flaskHalfW(y, h, nw, bw, gy) - 5, len = V === 50 ? 20 : 12;
-    s += `<line x1="${xr - len}" y1="${gy}" x2="${xr}" y2="${gy}" stroke="#e4f2ff" stroke-opacity=".7" stroke-width="1.4"/>`;
-    s += `<text x="${xr - len - 3}" y="${gy + 3}" text-anchor="end" font-size="8" font-weight="700" fill="#e4f2ff" fill-opacity=".75">${V}</text>`;
-  }
-  s += `<rect x="${x - 21}" y="${y - 62}" width="42" height="25" rx="3" fill="#f4f8fc" opacity=".84"/>
-    <text x="${x}" y="${y - 47}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#26384d">125 mL</text>
-    <text x="${x}" y="${y - 40}" text-anchor="middle" font-size="5.5" fill="#4b6178">Erlenmeyer</text>`;
-  return s;
-}
+};
+
 
 /* ---------- flask ---------- */
 /* Where the liquid surface sits inside a flask: the one place that geometry is defined, so a
@@ -988,11 +1186,13 @@ function flask(x, y, o = {}) {
   const body = `M${x-nw} ${y-h} L${x+nw} ${y-h} L${x+nw} ${y-h*0.54} L${x+bw} ${y-13} Q${x+bw} ${y} ${x+bw-13} ${y} L${x-bw+13} ${y} Q${x-bw} ${y} ${x-bw} ${y-13} L${x-nw} ${y-h*0.54} Z`;
   const lvl = clamp(o.level || 0, 0, 1);
   const top = flaskSurface(y, lvl, h);
-  let s = `<g transform="${o.rot ? `rotate(${o.rot} ${x} ${y})` : ''}">`;
+  let s = o.sh ? shadow(x, y, bw, 7) : '';
+  s += `<g transform="${o.rot ? `rotate(${o.rot} ${x} ${y})` : ''}">`;
   s += `<clipPath id="${id}"><path d="${body}"/></clipPath>`;
-  if (lvl > 0.02)
+  if (lvl > 0.02) {
     s += `<rect${o.fillAnim ? ` class="pourfill"${o.fillDelay ? ` style="animation-delay:${o.fillDelay}s"` : ''}` : ''} x="${x-bw-8}" y="${top}" width="${(bw+8)*2}" height="${y-top+4}" fill="${o.fill || 'url(#clearliq)'}" opacity="${o.op || 1}" clip-path="url(#${id})"/>`;
-  if (lvl > 0.02 && !o.fillAnim) s += surfaceEllipse(x, top, flaskHalfW(y, h, nw, bw, top), id);
+    s += liquidBody(x, bw + 8, top, y + 2, id);
+  }
   if (o.crystals && lvl > 0.06) {
     const n = Math.round(4 + 6 * o.crystals), band = 8 + 14 * o.crystals;
     for (let i = 0; i < n; i++) {
@@ -1017,10 +1217,26 @@ function flask(x, y, o = {}) {
       }
     }
   }
+  if (lvl > 0.02) s += meniscus(id, x, top, bw * 0.86);
+  s += glassSheen(id, x, y - h + 4, y - 6, bw);
+  /* The neck is glass too: without a band down its bore and a bright edge on one wall it reads as a solid
+     rod between the body and the lip. */
+  s += `<rect x="${x-nw}" y="${y-h+3}" width="${nw*2}" height="${h*0.45}" fill="url(#sheen)" clip-path="url(#${id})"/>`;
+  s += `<path d="M${x+nw-1.4} ${y-h+7} L${x+nw-1.4} ${y-h*0.56}" stroke="#dff1ff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round" clip-path="url(#${id})"/>`;
+  s += glassWall(body, id);
   s += `<path d="${body}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<ellipse cx="${x}" cy="${y-h}" rx="${nw}" ry="4.5" fill="none" stroke="#cfe6ff" stroke-opacity=".55" stroke-width="2"/>`;
-  s += `<path d="M${x-nw+6} ${y-h+15} L${x-nw+6} ${y-h*0.62}" stroke="#fff" stroke-opacity=".2" stroke-width="3.5" stroke-linecap="round"/>`;
-  if (!o.rot) s += flaskGrads(x, y, h, nw, bw);
+  /* A thick moulded bottom: a lens of glass that catches the light, and a bright arc where it meets the wall. */
+  s += `<rect x="${x-bw}" y="${y-11}" width="${bw*2}" height="12" fill="url(#glassbase)" clip-path="url(#${id})"/>`;
+  s += `<ellipse cx="${x}" cy="${y-4.5}" rx="${bw-12}" ry="4.6" fill="none" stroke="#cfe6ff" stroke-opacity=".24" stroke-width="1.6" clip-path="url(#${id})"/>`;
+  /* The white enamel spot every Erlenmeyer carries for pencil notes, with its rough volume bars. */
+  const px = x + 5, py = y - h * 0.4, pw2 = 24, ph2 = 38;
+  s += `<rect x="${px}" y="${py}" width="${pw2}" height="${ph2}" rx="3" fill="#f3f8fd" fill-opacity=".78" clip-path="url(#${id})"/>`;
+  s += enamelScale(px + 3, px + pw2 - 4, py + 6, py + ph2 - 6, 4, 0.9, '#51657d');
+  /* The lip is flared and rolled: a ring a little wider than the neck, under the bore. */
+  s += `<rect x="${x-nw-2.6}" y="${y-h-1}" width="${nw*2+5.2}" height="7" rx="3.4" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".55" stroke-width="1.6"/>`;
+  s += vesselLip(x, y - h, nw + 1.4, 4.6);
+  s += `<path d="M${x-nw+6} ${y-h+15} L${x-nw+6} ${y-h*0.62}" stroke="#fff" stroke-opacity=".18" stroke-width="3" stroke-linecap="round"/>`;
+  s += `<path d="M${x+bw*0.66} ${y-62} L${x+bw*0.8} ${y-24}" stroke="#fff" stroke-opacity=".2" stroke-width="2.6" stroke-linecap="round" clip-path="url(#${id})"/>`;
   s += o.bubbles ? bubbles(x - bw + 20, y, top, (bw - 20) * 2, 20) : '';
   s += `</g>`;
   return s;
@@ -1029,11 +1245,14 @@ function flask(x, y, o = {}) {
 /* Bubbles in a boiling vessel. Each rises a fraction of the liquid's own depth, so it always breaks before the
    surface: a shallow volume gives short rises, and skips only the bubble that has no room rather than lifting
    any of them into the headspace above the liquid. */
-function bubbles(x, floorY, surfaceY, w, n) {
+function bubbles(x, floorY, surfaceY, w, n, vig = 0) {
   const depth = floorY - surfaceY;
+  /* A hard boil throws bigger bubbles and crosses the vessel quicker, so `vig` scales both: 0 is the gentle boil,
+     1 a vigorous one. */
+  const grow = 1 + 0.5 * vig, rate = 1 + 0.7 * vig;
   let s = '', k = 0;
   for (let i = 0; i < n; i++) {
-    const r = 3 + (i % 3) * 1.4;            /* the size cycle stays on i, so one skipped bubble doesn't shrink the rest */
+    const r = (3 + (i % 3) * 1.4) * grow;   /* the size cycle stays on i, so one skipped bubble doesn't shrink the rest */
     const rise = Math.min(26, (depth - 2 * r - 6) * 0.55);
     if (rise < 3) continue;                 /* no room under this one — the smaller bubbles still go in */
     const band = Math.max(1, depth - rise - 2 * r - 6);   /* how far apart the starting heights spread */
@@ -1044,8 +1263,8 @@ function bubbles(x, floorY, surfaceY, w, n) {
     /* White at .55 composited to ~1.07:1 against the precipitate band and the milky liquid, i.e. invisible. Tinted
        a shade darker than the liquid and drawn a little larger, the bubbles hold ~2–3:1 there without reading as
        anything but bubbles. */
-    s += `<circle class="bub" cx="${cx}" cy="${cy}" r="${r}" fill="#2f86c4" opacity=".85"
-      style="animation-delay:${loopPhase(k * 0.17)}s;--bubrise:${rise.toFixed(1)}px"/>`;
+    s += `<circle class="bub" cx="${cx}" cy="${cy}" r="${r.toFixed(1)}" fill="#2f86c4" opacity=".85"
+      style="animation-delay:${loopPhase(k * 0.17)}s;--bubrise:${rise.toFixed(1)}px${vig ? `;--bubrate:${rate.toFixed(2)}` : ''}"/>`;
     k++;
   }
   return s;
@@ -1060,7 +1279,8 @@ function beaker(x, y, o = {}) {
   const body = `M${x-w/2} ${y-h} L${x-w/2} ${y-14} Q${x-w/2} ${y} ${x-w/2+14} ${y} L${x+w/2-14} ${y} Q${x+w/2} ${y} ${x+w/2} ${y-14} L${x+w/2} ${y-h}`;
   const lvl = clamp(o.level || 0, 0, 1);
   const top = beakerGeo(y, h, lvl);
-  let s = `<clipPath id="${id}"><path d="${body}"/></clipPath>`;
+  let s = o.sh ? shadow(x, y, w / 2, 7) : '';
+  s += `<clipPath id="${id}"><path d="${body}"/></clipPath>`;
   const fillAttrs = o.fillAnim
     ? ` class="pourfill" style="--fillfrom:${clamp(o.fillFrom ?? 0.03, 0, 1).toFixed(3)}${o.fillDelay ? `;animation-delay:${o.fillDelay}s` : ''}"`
     : o.drainAnim
@@ -1075,47 +1295,69 @@ function beaker(x, y, o = {}) {
     const hs = 3 + 20 * o.sediment;
     s += `<rect x="${x-w/2-2}" y="${y-hs}" width="${w+4}" height="${hs+2}" fill="#e8f3fd" clip-path="url(#${id})"/>`;
     s += `<ellipse cx="${x}" cy="${y-hs}" rx="${w/2-5}" ry="${2+2*o.sediment}" fill="#f9fcff" clip-path="url(#${id})"/>`;
+    /* A settled solid is never smooth: a few darker grains in its surface. */
+    for (let i = 0; i < 9; i++) s += `<circle cx="${(x - w / 2 + 12 + (i * 29) % (w - 24)).toFixed(1)}" cy="${(y - hs + ((i * 7) % 5) - 1).toFixed(1)}" r="1.1" fill="#b9cde2" opacity=".7" clip-path="url(#${id})"/>`;
   }
   if (o.cubes && lvl > 0.06) {
-    for (let i = 0; i < 5; i++) {
-      const cx = x - w / 2 + 16 + (i * 27) % Math.max(10, w - 34);
-      const cy = top + 14 + (i * 19) % Math.max(10, y - top - 26);
-      s += `<rect x="${cx}" y="${cy}" width="21" height="17" rx="3" fill="#e8f8ff" opacity=".65" stroke="#bfe8ff" stroke-opacity=".8" transform="rotate(${-18 + i * 9} ${cx + 10} ${cy + 8})" clip-path="url(#${id})"/>`;
+    /* Ice: translucent blocks with a bevelled face and a bright corner. Some float, standing proud of the water. */
+    for (let i = 0; i < 6; i++) {
+      const cx = x - w / 2 + 14 + (i * 27) % Math.max(10, w - 38);
+      const cy = i % 3 === 0 ? top - 6 + (i % 2) * 3 : top + 14 + (i * 19) % Math.max(10, y - top - 28);
+      const rot = -18 + i * 9;
+      s += `<g transform="rotate(${rot} ${cx + 11} ${cy + 9})" clip-path="url(#${id})">
+        <rect x="${cx}" y="${cy}" width="22" height="18" rx="3.5" fill="url(#ice)" stroke="#bfe8ff" stroke-opacity=".85"/>
+        <rect x="${cx + 4}" y="${cy + 4}" width="14" height="10" rx="2.5" fill="#ffffff" fill-opacity=".28"/>
+        <path d="M${cx + 3} ${cy + 3} L${cx + 11} ${cy + 3}" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-opacity=".95"/></g>`;
     }
   }
-  if (lvl > 0.012 && !o.fillAnim && !o.drainAnim) s += surfaceEllipse(x, top, w / 2 - 2, id);
-  if (o.bubbles) s += bubbles(x - w / 2 + 14, y, top, w - 28, 12);
+  if (lvl > 0.012) s += liquidBody(x, w / 2 + 2, top, y + 2, id);
+  if (o.bubbles) s += bubbles(x - w / 2 + 14, y, top, w - 28, 12, o.boil === 'vigorous' ? 1 : 0);
+  if (lvl > 0.012) s += meniscus(id, x, top, w / 2 - 4);
+  s += glassSheen(id, x, y - h + 3, y - 5, w / 2);
+  s += glassWall(body, id);
   s += `<path d="${body}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<ellipse cx="${x}" cy="${y-h}" rx="${w/2}" ry="7" fill="none" stroke="#cfe6ff" stroke-opacity=".45" stroke-width="2"/>`;
-  s += `<path d="M${x+w/2-19} ${y-h} l17 -10 l3 11" fill="none" stroke="#cfe6ff" stroke-opacity=".5" stroke-width="2" stroke-linejoin="round"/>`;
-  s += beakerGrads(x, y, w, h, o);
+  /* The base is thick glass: a bright lens along the floor, and its arc where it meets the wall. */
+  s += `<rect x="${x-w/2}" y="${y-12}" width="${w}" height="13" fill="url(#glassbase)" clip-path="url(#${id})"/>`;
+  s += `<ellipse cx="${x}" cy="${y-4.5}" rx="${w/2-10}" ry="4.4" fill="none" stroke="#cfe6ff" stroke-opacity=".22" stroke-width="1.6" clip-path="url(#${id})"/>`;
+  /* The frosted write-on spot, and the printed scale up the front. */
+  const pw = Math.max(14, w * 0.2), ph = Math.max(18, w * 0.26), px = x - w / 2 + w * 0.2, py = y - h * 0.62;
+  s += `<rect x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" rx="3" fill="#eef5fb" fill-opacity=".34" stroke="#f1f8ff" stroke-opacity=".4" clip-path="url(#${id})"/>`;
+  s += enamelScale(x + w / 2 - 24, x + w / 2 - 5, y - h + 20, y - 24, 6);
+  s += vesselLip(x, y - h, w / 2, 6.6);
+  /* The pouring lip: the rim is drawn out into a spout on the right, where the glass bends to guide the stream. */
+  s += `<path d="M${x+w/2-15} ${y-h+.5} Q${x+w/2-3} ${y-h-1.6} ${x+w/2+5} ${y-h-5} Q${x+w/2+2.4} ${y-h+1} ${x+w/2+1} ${y-h+8}" fill="url(#glassg)" stroke="#cfe6ff" stroke-opacity=".7" stroke-width="2" stroke-linejoin="round"/>`;
   s += `<path d="M${x-w/2+16} ${y-h+22} L${x-w/2+16} ${y-30}" stroke="#fff" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"/>`;
   return s;
 }
 
 /* ---------- balance ---------- */
+/* ---------- balance ---------- */
 function balance(x, y, reading) {
   return `<g>
     ${shadow(x, y, 104)}
-    <rect x="${x-84}" y="${y-2}" width="18" height="7" rx="2" fill="#141c28"/><rect x="${x+66}" y="${y-2}" width="18" height="7" rx="2" fill="#141c28"/>
-    <path d="M${x-86} ${y-62} L${x-86} ${y-150} L${x+86} ${y-150} L${x+86} ${y-62} Z" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".45" stroke-width="2"/>
-    <path d="M${x-86} ${y-150} L${x-72} ${y-172} L${x+72} ${y-172} L${x+86} ${y-150}" fill="#cfe6ff" fill-opacity=".08" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M${x-86} ${y-150} V${y-62} M${x+86} ${y-150} V${y-62}" stroke="#cfe6ff" stroke-opacity=".55" stroke-width="3"/>
-    <rect x="${x-96}" y="${y-62}" width="192" height="62" rx="10" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
-    <rect x="${x-66}" y="${y-55}" width="132" height="33" rx="5" fill="#05121b" stroke="#1f4d5e"/>
+    <rect x="${x-90}" y="${y-4}" width="20" height="6" rx="2.5" fill="#0d131a"/><rect x="${x+70}" y="${y-4}" width="20" height="6" rx="2.5" fill="#0d131a"/>
+    <rect x="${x-96}" y="${y-62}" width="192" height="60" rx="11" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
+    <rect x="${x-90}" y="${y-54}" width="180" height="44" rx="7" fill="#1b2634" fill-opacity=".55" stroke="#3c5169" stroke-opacity=".7"/>
+    <rect x="${x-69}" y="${y-58}" width="138" height="37" rx="6" fill="#0b1119" stroke="#3a4d63"/>
+    <rect x="${x-65}" y="${y-54.5}" width="130" height="30" rx="4" fill="url(#lcd)" stroke="#1f4d5e"/>
     <text x="${x+56}" y="${y-32}" text-anchor="end" font-family="ui-monospace,monospace" font-size="19" font-weight="700" fill="#5ff0c8">${reading}</text>
-    <circle cx="${x-58}" cy="${y-48}" r="2.2" fill="#5ff0c8" opacity=".8"/>
-    <rect x="${x-60}" y="${y-17}" width="34" height="10" rx="3" fill="#2a394c" stroke="#54687e"/><text x="${x-43}" y="${y-9.5}" text-anchor="middle" font-size="6.5" font-weight="700" fill="#b8cadd">TARE</text>
-    <rect x="${x-20}" y="${y-17}" width="40" height="10" rx="3" fill="#2a394c" stroke="#54687e"/><text x="${x}" y="${y-9.5}" text-anchor="middle" font-size="6.5" font-weight="700" fill="#b8cadd">ON/OFF</text>
-    <circle cx="${x-80}" cy="${y-22}" r="5" fill="#3aa0ff" opacity=".85"/>
-    <circle cx="${x+80}" cy="${y-22}" r="7" fill="#0b1624" stroke="#54687e"/><circle cx="${x+80}" cy="${y-22}" r="2.6" fill="#9fe3ff"/>
-    <rect x="${x-46}" y="${y-70}" width="92" height="9" rx="3" fill="#4a5f77"/>
-    <ellipse cx="${x}" cy="${y-92}" rx="70" ry="11" fill="#7d95ab"/>
-    <ellipse cx="${x}" cy="${y-95}" rx="70" ry="11" fill="#c8dbeb"/>
-    <ellipse cx="${x}" cy="${y-95}" rx="52" ry="7" fill="#dfeefa" opacity=".7"/>
+    <path d="M${x-62} ${y-52} L${x-40} ${y-52} L${x-56} ${y-26} L${x-64} ${y-26} Z" fill="#7fe9d4" opacity=".12"/>
+    <circle cx="${x-80}" cy="${y-42}" r="6.2" fill="#0d141d" stroke="#5f7790"/><circle cx="${x-81}" cy="${y-43}" r="2.1" fill="#9ad0ff"/>
+    <circle cx="${x-80}" cy="${y-22}" r="4.6" fill="#3aa0ff" opacity=".9"/>
+    <rect x="${x+73}" y="${y-47}" width="14" height="9" rx="3" fill="#c9d6e4" stroke="#6d8196"/><rect x="${x+73}" y="${y-33}" width="14" height="9" rx="3" fill="#c9d6e4" stroke="#6d8196"/>
+    <rect x="${x-30}" y="${y-17}" width="60" height="3" rx="1.5" fill="#223245"/>
+    <path d="M${x-95} ${y-57} L${x+95} ${y-57}" stroke="#dceaf6" stroke-opacity=".4" stroke-width="1.6"/>
+    <rect x="${x-46}" y="${y-70}" width="92" height="9" rx="3" fill="#3f5268" stroke="#26354a"/>
+    <rect x="${x-10}" y="${y-84}" width="20" height="16" fill="url(#nickel)"/>
+    <path d="M${x-70} ${y-95} L${x-70} ${y-91.5} A70 11 0 0 0 ${x+70} ${y-91.5} L${x+70} ${y-95} Z" fill="#6f879d"/>
+    <ellipse cx="${x}" cy="${y-95}" rx="70" ry="11" fill="url(#pantop)" stroke="#e9f4fd" stroke-opacity=".7"/>
+    <ellipse cx="${x}" cy="${y-95}" rx="52" ry="7.6" fill="none" stroke="#8fa8c0" stroke-opacity=".45"/>
+    <ellipse cx="${x}" cy="${y-95}" rx="30" ry="4.2" fill="none" stroke="#8fa8c0" stroke-opacity=".35"/>
+    <ellipse cx="${x-26}" cy="${y-98}" rx="18" ry="2.8" fill="#fff" opacity=".6"/>
   </g>`;
 }
 
+/* The spatula tipping solid into the bowl: grains start under the blade and fall to the rim. */
 /* The spatula tipping solid into the bowl: grains start under the blade and fall to the rim. */
 function sprinkleInto(x, y, played = 0) {
   const rimY = y - 32;
@@ -1124,8 +1366,11 @@ function sprinkleInto(x, y, played = 0) {
     .join('');
   return `<g class="sprinkle">
     <g transform="rotate(16 ${x - 16} ${rimY - 80})">
-      <rect x="${x - 38}" y="${rimY - 84}" width="44" height="8" rx="4" fill="#e6f1fd" opacity=".95"/>
-      <line x1="${x + 4}" y1="${rimY - 80}" x2="${x + 46}" y2="${rimY - 102}" stroke="#9fb6cc" stroke-width="5" stroke-linecap="round"/>
+      <path d="M${x-40} ${rimY-80} Q${x-39} ${rimY-85.5} ${x-31} ${rimY-85} L${x+2} ${rimY-84.5} L${x+6} ${rimY-80} L${x+2} ${rimY-76} L${x-31} ${rimY-75.5} Q${x-39} ${rimY-74.5} ${x-40} ${rimY-80} Z" fill="url(#pantop)" stroke="#6f879d" stroke-width="1.2"/>
+      <line x1="${x-34}" y1="${rimY-82}" x2="${x-4}" y2="${rimY-82.6}" stroke="#fff" stroke-opacity=".8" stroke-width="1.4" stroke-linecap="round"/>
+      <rect x="${x+3}" y="${rimY-83.5}" width="9" height="7" rx="2" fill="#7f95ab" stroke="#4a5d72"/>
+      <line x1="${x + 11}" y1="${rimY - 80}" x2="${x + 48}" y2="${rimY - 103}" stroke="#4a5d72" stroke-width="5.6" stroke-linecap="round"/>
+      <line x1="${x + 11}" y1="${rimY - 80.8}" x2="${x + 47}" y2="${rimY - 103.4}" stroke="#c4d4e4" stroke-width="3" stroke-linecap="round"/>
     </g>
     ${grains}
   </g>`;
@@ -1148,72 +1393,150 @@ function dropsInto(x, tipY, surfaceY, played = 0) {
 function weighBowl(x, y, f) {
   const rimY = y - 32;
   const rx = 3 + 35 * f, ry = 1 + 15 * f;
+  let heap = '';
+  if (f > 0.01) {
+    const b = rimY + 1, t = b - ry * 2.05;
+    heap = `<path d="M${x-rx} ${b} C${x-rx*.7} ${b-ry*1.7} ${x-rx*.25} ${t} ${x} ${t} C${x+rx*.3} ${t} ${x+rx*.7} ${b-ry*1.6} ${x+rx} ${b} Q${x} ${b+ry*.5} ${x-rx} ${b} Z" fill="#ffffff" opacity=".97"/>`;
+    const n = Math.round(6 + 16 * f);
+    for (let i = 0; i < n; i++) {
+      const gx = x - rx * 0.8 + ((i * 37) % 100) / 100 * rx * 1.6;
+      const gy = b - 1 - ((i * 53) % 100) / 100 * ry * 1.5;
+      heap += `<circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="${(0.9 + (i % 3) * 0.4).toFixed(1)}" fill="${i % 2 ? '#d3e1ef' : '#b9cde2'}" opacity=".8"/>`;
+    }
+  }
   return `<g>
-    <path d="M${x-42} ${rimY} L${x-31} ${y} L${x+31} ${y} L${x+42} ${rimY} Z" fill="url(#plastic)" opacity=".9" stroke="#c3d7e9" stroke-width="1.5"/>
-    <ellipse cx="${x}" cy="${rimY}" rx="42" ry="9" fill="#f7fbff" opacity=".9"/>
-    <ellipse cx="${x}" cy="${rimY + 1 - ry}" rx="${rx}" ry="${ry}" fill="#ffffff" opacity="${f > 0.01 ? 0.95 : 0}"/>
+    <path d="M${x-42} ${rimY} L${x-31} ${y} L${x+31} ${y} L${x+42} ${rimY} Z" fill="url(#plastic)" opacity=".92" stroke="#c3d7e9" stroke-width="1.5"/>
+    <path d="M${x-14} ${rimY+8} L${x-12} ${y-3} M${x} ${rimY+8} L${x} ${y-3} M${x+14} ${rimY+8} L${x+12} ${y-3}" stroke="#8aa3bd" stroke-opacity=".35" stroke-width="1.4"/>
+    <path d="M${x-34} ${rimY + 8} L${x-27} ${y - 4}" stroke="#fff" stroke-opacity=".5" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M${x-41} ${rimY-2} L${x-52} ${rimY-6} L${x-43} ${rimY+5} Z" fill="#f2f8ff" stroke="#c3d7e9" stroke-width="1.3" stroke-linejoin="round"/>
+    <ellipse cx="${x}" cy="${rimY + 2.4}" rx="39" ry="8" fill="#b9cfe2" opacity=".5"/>
+    <ellipse cx="${x}" cy="${rimY}" rx="42" ry="9" fill="#f7fbff" opacity=".9" stroke="#fff" stroke-width="1.6"/>
+    ${heap}
   </g>`;
 }
 
 /* ---------- reagent jar ---------- */
+/* ---------- reagent jar ---------- */
+/* A wide-mouth glass reagent jar: clear glass, a heap of crystals inside, a ribbed black screw cap and a paper label
+   that wraps the curve. */
 function jar(x, y, o = {}) {
-  const w = o.w || 132, h = o.h || 148, lx = x - w / 2, ty = y - h, tint = o.tint || '#cfe4ff';
-  const ridges = Array.from({ length: 9 }, (_, i) => `<line x1="${lx + 20 + i * 11}" y1="${ty + 2}" x2="${lx + 20 + i * 11}" y2="${ty + 20}" stroke="#2b3644" stroke-width="2"/>`).join('');
+  const w = o.w || 132, h = o.h || 148;
+  const lx = x - w / 2, rx = lx + w, ty = y - h;
+  const tint = o.tint || '#cfe4ff';
+  const id = uid();
+  const body = `M${lx+12} ${ty+26} L${rx-12} ${ty+26} Q${rx} ${ty+28} ${rx} ${ty+42} L${rx} ${y-10} Q${rx} ${y} ${rx-12} ${y} L${lx+12} ${y} Q${lx} ${y} ${lx} ${y-10} L${lx} ${ty+42} Q${lx} ${ty+28} ${lx+12} ${ty+26} Z`;
+  const fillTop = ty + 96;
+  let pts = '';
+  for (let i = 0; i <= 10; i++) pts += ` L${(lx + 3 + (w - 6) * i / 10).toFixed(1)} ${(fillTop + ((i * 7) % 5) * 2.2 - 3 + (i % 2 ? -1.6 : 1.6)).toFixed(1)}`;
+  let grains = '';
+  for (let i = 0; i < 46; i++) {
+    const gx = lx + 6 + ((i * 41) % 100) / 100 * (w - 12), gy = fillTop + 2 + ((i * 29) % 100) / 100 * (y - fillTop - 6);
+    grains += `<rect x="${gx.toFixed(1)}" y="${gy.toFixed(1)}" width="${(3 + i % 3).toFixed(0)}" height="${(3 + (i + 1) % 3).toFixed(0)}" rx=".8" fill="${i % 3 ? '#ffffff' : '#9fb3c9'}" opacity="${i % 3 ? .55 : .35}" transform="rotate(${(i * 37) % 90} ${gx.toFixed(1)} ${gy.toFixed(1)})"/>`;
+  }
+  let ribs = '';
+  for (let i = 0; i < 17; i++) ribs += `<line x1="${lx + 11 + i * ((w - 22) / 16)}" y1="${ty + 4}" x2="${lx + 11 + i * ((w - 22) / 16)}" y2="${ty + 24}" stroke="#3a4757" stroke-width="1.3"/>`;
+  const ly = ty + 44, lh = 66;
   return `<g>
     ${shadow(x, y, w / 2 + 4, 7)}
-    <path d="M${lx+8} ${ty+34} Q${lx+8} ${ty+22} ${lx+20} ${ty+22} L${lx+w-20} ${ty+22} Q${lx+w-8} ${ty+22} ${lx+w-8} ${ty+34} L${lx+w-4} ${y-12} Q${lx+w-4} ${y} ${lx+w-16} ${y} L${lx+16} ${y} Q${lx+4} ${y} ${lx+4} ${y-12} Z" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".55" stroke-width="2"/>
-    <path d="M${lx+10} ${y-2} L${lx+14} ${ty+104} Q${x-14} ${ty+94} ${x+6} ${ty+104} Q${x+34} ${ty+112} ${lx+w-14} ${ty+102} L${lx+w-10} ${y-2} Z" fill="${tint}" opacity=".72"/>
-    <rect x="${lx+14}" y="${ty+44}" width="${w-28}" height="52" rx="3" fill="#f4f7fb" opacity=".96"/>
-    <text x="${x-8}" y="${ty+62}" text-anchor="middle" font-size="11" font-weight="800" fill="#14202f">${o.label || ''}</text>
-    <text x="${x-8}" y="${ty+75}" text-anchor="middle" font-size="8.5" fill="#4b6178">reagent grade · ACS</text>
-    <rect x="${lx+w-40}" y="${ty+74}" width="14" height="14" rx="1" fill="#fff" stroke="#d33a3a" stroke-width="1.6" transform="rotate(45 ${lx+w-33} ${ty+81})"/>
-    <text x="${lx+w-33}" y="${ty+85}" text-anchor="middle" font-size="10" font-weight="900" fill="#14202f">!</text>
-    <rect x="${lx+12}" y="${ty}" width="${w-24}" height="22" rx="5" fill="#151b24" stroke="#2c3a4d" stroke-width="1.5"/>${ridges}
-    <path d="M${lx+17} ${ty+30} L${lx+17} ${y-16}" stroke="#fff" stroke-opacity=".16" stroke-width="4" stroke-linecap="round"/>
+    <clipPath id="${id}"><path d="${body}"/></clipPath>
+    <path d="M${lx+3} ${y-3} L${lx+3} ${fillTop}${pts} L${rx-3} ${y-3} Z" fill="${tint}" fill-opacity=".9" clip-path="url(#${id})"/>
+    <g clip-path="url(#${id})">${grains}</g>
+    ${glassSheen(id, x, ty + 28, y - 3, w / 2)}
+    ${glassWall(body, id)}
+    <path d="${body}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".55" stroke-width="2"/>
+    <rect x="${lx+10}" y="${y-11}" width="${w-20}" height="11" fill="url(#glassbase)" clip-path="url(#${id})"/>
+    <rect x="${lx+11}" y="${ly}" width="${w-22}" height="${lh}" rx="2.5" fill="#f7f9fc" stroke="#b9c4d2" stroke-width="1"/>
+    <rect x="${lx+11}" y="${ly}" width="${w-22}" height="11" rx="2.5" fill="#1f5a99"/>
+    <text x="${x}" y="${ly+8.4}" text-anchor="middle" font-size="7.4" font-weight="700" letter-spacing=".6" fill="#e4eef9">REAGENT GRADE</text>
+    <text x="${x}" y="${ly+31}" text-anchor="middle" font-size="11" font-weight="800" fill="#12202f">${o.label || ''}</text>
+    <line x1="${lx+20}" y1="${ly+38}" x2="${rx-20}" y2="${ly+38}" stroke="#c4cedb"/>
+    <text x="${lx+20}" y="${ly+51}" font-size="7.6" fill="#4b5d73">ACS · 500 g</text>
+    <g transform="translate(${rx-31} ${ly+47.5}) rotate(45)"><rect x="-6" y="-6" width="12" height="12" fill="#fff" stroke="#d02a3a" stroke-width="1.7"/></g>
+    <text x="${rx-31}" y="${ly+51}" text-anchor="middle" font-size="9" font-weight="800" fill="#d02a3a">!</text>
+    <rect x="${lx+11}" y="${ly}" width="${w-22}" height="${lh}" rx="2.5" fill="url(#paperwrap)"/>
+    <rect x="${lx+6}" y="${ty+23}" width="${w-12}" height="6" rx="3" fill="#121821"/>
+    <rect x="${lx+9}" y="${ty+2}" width="${w-18}" height="24" rx="5" fill="url(#castiron)" stroke="#0d1218"/>
+    ${ribs}
+    <rect x="${lx+13}" y="${ty+4.5}" width="${w-26}" height="3.4" rx="1.7" fill="#fff" opacity=".16"/>
     ${o.active ? `<rect x="${lx-7}" y="${ty-7}" width="${w+14}" height="${h+10}" rx="14" fill="none" stroke="#4fb8ff" stroke-width="2.5" class="pulse"${loop()}/>` : ''}
   </g>`;
 }
 
 /* ---------- water bottle ---------- */
+/* ---------- water bottle ---------- */
+/* A squeeze wash bottle: translucent polyethylene with a moulded rib, the dip tube showing through, a screw cap
+   and a tapered nozzle. The nozzle's tip stays 160 above the base, which is where every pour is aimed from. */
 function bottle(x, y, o = {}) {
+  const id = uid();
+  const body = `M${x-34} ${y} L${x-34} ${y-96} Q${x-34} ${y-108} ${x-20} ${y-112} L${x-12} ${y-120} L${x+12} ${y-120} L${x+20} ${y-112} Q${x+34} ${y-108} ${x+34} ${y-96} L${x+34} ${y} Q${x+34} ${y+6} ${x+26} ${y+6} L${x-26} ${y+6} Q${x-34} ${y+6} ${x-34} ${y} Z`;
+  /* The sticker and its text as one piece, so a tipped bottle can turn the label back without splitting them. A bottle
+     turned by an animated tip passes `tipped` — the clock its tip runs on, which the keyframes mirror — and one held
+     at a single fixed angle passes `levelDeg`, turned back about its own centre. */
+  const plate = `<rect x="${x-24}" y="${y-78}" width="48" height="34" rx="4" fill="#f4f7fb" stroke="#9fb0c4"/>
+    <text x="${x}" y="${y-61}" text-anchor="middle" font-size="11" font-weight="800" fill="#1b2b40">D.I.</text>
+    <text x="${x}" y="${y-49}" text-anchor="middle" font-size="9" fill="#46607c">H₂O</text>`;
+  const label = o.tipped
+    ? `<g class="labellevel" style="--lx:${x}px;--ly:${y - 61}px;${o.tipped}">${plate}</g>`
+    : o.levelDeg ? `<g transform="rotate(${o.levelDeg} ${x} ${y - 61})">${plate}</g>`
+    : plate;
+  let ridges = '';
+  for (let i = 0; i < 17; i++) ridges += `<line x1="${x-12+i*1.5}" y1="${y-142}" x2="${x-12+i*1.5}" y2="${y-119}" stroke="#aebdcf" stroke-opacity=".7" stroke-width=".7"/>`;
   return `<g>
     ${o.spray ? '' : shadow(x, y, 40)}
-    <path d="M${x-34} ${y} L${x-34} ${y-96} Q${x-34} ${y-108} ${x-20} ${y-112} L${x-12} ${y-120} L${x+12} ${y-120} L${x+20} ${y-112} Q${x+34} ${y-108} ${x+34} ${y-96} L${x+34} ${y} Q${x+34} ${y+6} ${x+26} ${y+6} L${x-26} ${y+6} Q${x-34} ${y+6} ${x-34} ${y} Z"
-      fill="url(#clearliq)" opacity=".55" stroke="#a9cbe8" stroke-opacity=".6" stroke-width="2"/>
-    <path d="M${x-5} ${y-140} L${x-2.5} ${y-160} L${x+2.5} ${y-160} L${x+5} ${y-140} Z" fill="#e8f1fa" stroke="#9fb6cc" stroke-width="1"/>
-    <rect x="${x-14}" y="${y-142}" width="28" height="24" rx="5" fill="url(#capblue)" stroke="#173f70"/>
-    ${[-8, -2, 4, 10].map(d => `<line x1="${x+d}" y1="${y-140}" x2="${x+d}" y2="${y-120}" stroke="#0f2f55" stroke-opacity=".5" stroke-width="1.5"/>`).join('')}
-    <path d="M${x-30} ${y-30} H${x+30} M${x-30} ${y-14} H${x+30}" stroke="#fff" stroke-opacity=".2" stroke-width="1.4"/>
-    <rect x="${x-24}" y="${y-78}" width="48" height="34" rx="4" fill="#0d1c2c" opacity=".82" stroke="#38516d"/>
-    <text x="${x}" y="${y-61}" text-anchor="middle" font-size="11" font-weight="800" fill="#bfe6ff">D.I.</text>
-    <text x="${x}" y="${y-49}" text-anchor="middle" font-size="9" fill="#8ea2c6">H₂O</text>
+    <clipPath id="${id}"><path d="${body}"/></clipPath>
+    <path d="${body}" fill="url(#clearliq)" opacity=".55"/>
+    <path d="${body}" fill="url(#ldpe)"/>
+    ${liquidBody(x, 36, y - 112, y + 6, id)}
+    <line x1="${x+3}" y1="${y-118}" x2="${x+8}" y2="${y-3}" stroke="#ffffff" stroke-opacity=".55" stroke-width="2.4" clip-path="url(#${id})"/>
+    <line x1="${x+3}" y1="${y-118}" x2="${x+8}" y2="${y-3}" stroke="#4a7ca3" stroke-opacity=".28" stroke-width=".9" clip-path="url(#${id})"/>
+    <path d="M${x-34} ${y-20} Q${x} ${y-14} ${x+34} ${y-20} M${x-34} ${y-104} Q${x} ${y-98} ${x+34} ${y-104}" fill="none" stroke="#ffffff" stroke-opacity=".3" stroke-width="1.6" clip-path="url(#${id})"/>
+    <path d="M${x+30} ${y-100} L${x+30} ${y-4}" stroke="#8aa3bd" stroke-opacity=".3" stroke-width="1" clip-path="url(#${id})"/>
+    ${glassSheen(id, x, y - 116, y + 4, 34)}
+    <path d="${body}" fill="none" stroke="#a9cbe8" stroke-opacity=".6" stroke-width="2"/>
+    <rect x="${x-14}" y="${y-143}" width="28" height="25" rx="5" fill="#eef3f9" stroke="#8fa2b8"/>
+    ${ridges}
+    <rect x="${x-14}" y="${y-126}" width="28" height="4" fill="#3d8fd1" opacity=".85"/>
+    <rect x="${x-10}" y="${y-147}" width="20" height="7" rx="3" fill="#f6f9fc" stroke="#8fa2b8"/>
+    <path d="M${x-5} ${y-146} L${x-3} ${y-160} L${x+3} ${y-160} L${x+5} ${y-146} Z" fill="#e8eef5" stroke="#8fa2b8"/>
+    <ellipse cx="${x}" cy="${y-160}" rx="3" ry="1.3" fill="#53657b"/>
+    ${label}
     ${o.active ? `<ellipse cx="${x}" cy="${y-108}" rx="52" ry="66" fill="none" stroke="#4fb8ff" stroke-width="2" class="pulse"${loop()}/>` : ''}
   </g>`;
 }
 
 /* ---------- hot plate ---------- */
-function hotplate(x, y, mode) {
-  const hot = !!mode && mode !== 'off';
-  const label = !hot ? 'OFF' : mode === 'vigorous' ? 'HIGH' : '100 °C';
-  const ticks = Array.from({ length: 9 }, (_, i) => { const a = Math.PI * (0.85 + 1.3 * i / 8); return `<line x1="${(x-92+Math.cos(a)*14).toFixed(1)}" y1="${(y-24+Math.sin(a)*14).toFixed(1)}" x2="${(x-92+Math.cos(a)*18).toFixed(1)}" y2="${(y-24+Math.sin(a)*18).toFixed(1)}" stroke="#7f93b3" stroke-width="1.4"/>`; }).join('');
+/* ---------- hot plate ---------- */
+function hotplate(x, y, hot) {
+  const ticks = [-135, -90, -45, 0, 45, 90, 135].map(a => {
+    const r = a * Math.PI / 180, cx = x - 92, cy = y - 24;
+    return `<line x1="${(cx + Math.sin(r) * 14.5).toFixed(1)}" y1="${(cy - Math.cos(r) * 14.5).toFixed(1)}" x2="${(cx + Math.sin(r) * 17.5).toFixed(1)}" y2="${(cy - Math.cos(r) * 17.5).toFixed(1)}" stroke="#c9d6e4" stroke-opacity=".7" stroke-width="1.3"/>`;
+  }).join('');
+  let slots = '';
+  for (let i = 0; i < 4; i++) slots += `<rect x="${x-34}" y="${y-34+i*5.2}" width="68" height="2.4" rx="1.2" fill="#0a1017"/>`;
   return `<g>
     ${shadow(x, y, 120, 9)}
-    <rect x="${x-110}" y="${y-3}" width="22" height="6" rx="2" fill="#141c28"/><rect x="${x+88}" y="${y-3}" width="22" height="6" rx="2" fill="#141c28"/>
+    <rect x="${x-102}" y="${y-3}" width="22" height="5" rx="2" fill="#0b1118"/><rect x="${x+80}" y="${y-3}" width="22" height="5" rx="2" fill="#0b1118"/>
     <rect x="${x-118}" y="${y-54}" width="236" height="54" rx="10" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
+    <rect x="${x-111}" y="${y-39}" width="222" height="33" rx="7" fill="#1d2937" stroke="#364b63"/>
+    ${slots}
     <ellipse cx="${x}" cy="${y-54}" rx="96" ry="17" fill="#141d2a" stroke="#38495c" stroke-width="2"/>
-    <ellipse cx="${x}" cy="${y-56}" rx="74" ry="12" fill="${hot ? '#502a1c' : '#232d3a'}" stroke="${hot ? '#a4552b' : '#33414f'}" stroke-width="2"/>
-    ${[56, 40, 24].map((r, i) => `<ellipse cx="${x}" cy="${y-56}" rx="${r}" ry="${r * 0.16}" fill="none" stroke="${hot ? '#ff9a3c' : '#54687e'}" stroke-opacity=".3"/>`).join('')}
-    <circle cx="${x-92}" cy="${y-24}" r="11" fill="#2a3646" stroke="#54687e"/>${ticks}
-    <line x1="${x-92}" y1="${y-24}" x2="${x-92}" y2="${y-32}" stroke="${hot ? '#ff9a3c' : '#8ea2c6'}" stroke-width="3" stroke-linecap="round"/>
-    <rect x="${x-60}" y="${y-40}" width="62" height="24" rx="4" fill="#05121b" stroke="#1f4d5e"/>
-    <text x="${x+28}" y="${y-22}" text-anchor="end" font-family="ui-monospace,monospace" font-size="15" font-weight="700" fill="${hot ? '#ffb066' : '#4a6a74'}">${label}</text>
-    ${hot ? `<rect x="${x+38}" y="${y-38}" width="38" height="14" rx="7" fill="#7a2a12" stroke="#ff9a3c"/><text x="${x+57}" y="${y-28}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#ffd2a8">HOT</text>` : ''}
-    <circle cx="${x+96}" cy="${y-26}" r="5" fill="${hot ? '#ff6b3d' : '#3c4b5e'}"/>
+    <ellipse cx="${x}" cy="${y-56}" rx="74" ry="12" fill="${hot ? '#6a3219' : '#2a3544'}" stroke="${hot ? '#a4552b' : '#3d4b5c'}" stroke-width="2"/>
+    <ellipse cx="${x}" cy="${y-56}" rx="52" ry="8.4" fill="none" stroke="#fff" stroke-opacity=".07"/>
+    <ellipse cx="${x}" cy="${y-56}" rx="30" ry="4.8" fill="none" stroke="#fff" stroke-opacity=".07"/>
+    <ellipse cx="${x-22}" cy="${y-59}" rx="30" ry="3" fill="#fff" opacity=".08"/>
+    ${ticks}
+    <circle cx="${x-92}" cy="${y-24}" r="12" fill="#161e29" stroke="#54687e"/>
+    <circle cx="${x-92}" cy="${y-24}" r="9" fill="url(#nickel)" stroke="#1b2530"/>
+    <line x1="${x-92}" y1="${y-24}" x2="${x-92}" y2="${y-32}" stroke="${hot ? '#ff9a3c' : '#31404f'}" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${x+96}" cy="${y-26}" r="5.4" fill="${hot ? '#ff6b3d' : '#3c4b5e'}" stroke="#1a232e"/>
     <text x="${x+96}" y="${y-12}" text-anchor="middle" font-size="8" fill="#7f93b3">HEAT</text>
+    <path d="M${x-94} ${y-54} A 96 17 0 0 0 ${x+94} ${y-54}" fill="none" stroke="#dceaf6" stroke-opacity=".28" stroke-width="1.6"/>
+    <line x1="${x-112}" y1="${y-49}" x2="${x+112}" y2="${y-49}" stroke="#cfe0f0" stroke-opacity=".2" stroke-width="1.6"/>
     ${hot ? `<ellipse cx="${x}" cy="${y-58}" rx="92" ry="34" fill="url(#glow)" class="hglow"${loop()}/>` : ''}
   </g>`;
 }
 
+/* ---------- filtration ---------- */
 /* ---------- filtration ---------- */
 function filterSetup(x, y, o = {}) {
   const fw = 74, fh = 172;        /* half the base's width, and the flask's height: its mouth sits at y - fh */
@@ -1234,8 +1557,7 @@ function filterSetup(x, y, o = {}) {
   const top = coneTop + (y - padBase - coneTop) * (1 - lvl);
   /* The plate is measured from the bench this is drawn on, not from the flask's mouth, so the flask's height changes
      only how far its mouth sits below the funnel. */
-  const plateGap = 56;                     /* the funnel's mouth this far above the plate */
-  const plateY = y - PLATE_RISE, rim = plateY - plateGap;
+  const plateY = y - PLATE_RISE, rim = plateY - BOWL_GAP;
   const bowlId = uid();
   const bowl = `M${x-84} ${rim} L${x-62} ${plateY} L${x+62} ${plateY} L${x+84} ${rim} Z`;
   const bowlLvl = clamp(o.bowl || 0, 0, 1);
@@ -1247,40 +1569,65 @@ function filterSetup(x, y, o = {}) {
     : '';
   if (lvl > 0.02) s += `<rect${flaskFill} x="${x-fw-4}" y="${top}" width="${(fw+4)*2}" height="${y-top+2}" fill="${o.fill || 'url(#clearliq)'}" clip-path="url(#${id})"/>`;
   if (o.milky && lvl > 0.02) s += `<rect x="${x-fw-4}" y="${top}" width="${(fw+4)*2}" height="${y-top+2}" fill="url(#milky)" opacity="${o.milky}" clip-path="url(#${id})"/>`;
+  if (lvl > 0.02) {
+    s += liquidBody(x, fw + 4, top, y + 2, id);
+    /* The cone's wall is wider further down, so the surface's width is read from the level, not the base. */
+    const halfAt = nw + (fw - nw) * clamp((top - coneTop) / (y - foot - coneTop), 0, 1);
+    s += meniscus(id, x, top, Math.max(8, halfAt * 0.9));
+  }
+  s += glassSheen(id, x, mouth + 4, y - 6, fw);
+  s += glassWall(body, id);
   s += `<path d="${body}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<ellipse cx="${x}" cy="${mouth}" rx="${nw}" ry="7" fill="none" stroke="#cfe6ff" stroke-opacity=".45" stroke-width="2"/>`;
-  /* The side arm leaves the middle of the neck, above the cone, as it does on a filter flask. */
+  s += `<rect x="${x-fw}" y="${y-12}" width="${fw*2}" height="13" fill="url(#glassbase)" clip-path="url(#${id})"/>`;
+  s += `<ellipse cx="${x}" cy="${y-5}" rx="${fw-14}" ry="5" fill="none" stroke="#cfe6ff" stroke-opacity=".22" stroke-width="1.6" clip-path="url(#${id})"/>`;
+  /* the printed volume bars on a white enamel patch, as on the other glassware */
+  s += `<rect x="${x+22}" y="${y-92}" width="26" height="42" rx="3" fill="#f3f8fd" fill-opacity=".78" clip-path="url(#${id})"/>`;
+  s += enamelScale(x + 26, x + 44, y - 85, y - 56, 4, 0.9, '#51657d');
+  s += vesselLip(x, mouth, nw, 6.6);
+  /* The side arm leaves the middle of the neck, above the cone, as it does on a filter flask. It ends in a hose barb —
+     a ridge the tubing is pushed over — and the heavy-walled vacuum tubing runs on to the wall port. */
   const armH = 14, armLen = 52;
   const armY = mouth + (neck - armH) / 2;
+  const tube = `M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-176}`;
   s += `<rect x="${x+nw-6}" y="${armY}" width="${armLen}" height="${armH}" rx="${armH / 2}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#2b3644" stroke-width="14" stroke-linecap="round"/>`;
-  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#566c85" stroke-width="8" stroke-linecap="round"/>`;
-  s += `<path d="M${x+nw+armLen-12} ${armY + armH / 2} C ${x+150} ${armY+26} 900 ${y-160} 894 ${y-236}" fill="none" stroke="#1a222e" stroke-width="14" stroke-dasharray="2 7" opacity=".55"/>`;
-  s += `<rect x="${x+nw+armLen-10}" y="${armY-1}" width="12" height="${armH+2}" rx="3" fill="#8ea5bb" stroke="#2f3f52"/>`;
+  s += `<path d="${tube}" fill="none" stroke="#161d26" stroke-width="14" stroke-linecap="round"/>`;
+  s += `<path d="${tube}" fill="none" stroke="#313e4d" stroke-width="10" stroke-linecap="round"/>`;
+  s += `<path d="${tube}" fill="none" stroke="#7d91a7" stroke-opacity=".55" stroke-width="2" stroke-linecap="round" transform="translate(-2.4 -2.6)"/>`;
+  s += `<rect x="${x+nw+armLen-19}" y="${armY-3}" width="5" height="${armH+6}" rx="2.4" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".6" stroke-width="1.4"/>`;
   /* The Büchner funnel itself: a rubber bung in the flask's neck, a short stem up to a flat perforated plate, and
      a shallow bowl above it that holds what is poured in until the vacuum draws it through. The bung is wider above
      the mouth than the neck is, so it seats on the rim; the stem runs down through it and stops inside. */
   const bungH = 24, bungSkirt = 8, bungWide = 30, bungSeat = 22;
   /* The stem runs down into the bung and stops inside it, short of the neck's mouth. */
   const stemStop = mouth - bungH + 6;
-  s += `<path d="M${x-bungWide} ${mouth-bungH} L${x+bungWide} ${mouth-bungH} L${x+bungSeat} ${mouth+bungSkirt} L${x-bungSeat} ${mouth+bungSkirt} Z" fill="#2b3442" stroke="#161d26" stroke-width="1.5"/>`;
+  s += `<path d="M${x-bungWide} ${mouth-bungH} L${x+bungWide} ${mouth-bungH} L${x+bungSeat} ${mouth+bungSkirt} L${x-bungSeat} ${mouth+bungSkirt} Z" fill="url(#rubber)" stroke="#10161d" stroke-width="1.5"/>`;
+  s += `<ellipse cx="${x}" cy="${mouth-bungH}" rx="${bungWide}" ry="4.6" fill="#3b4654" stroke="#10161d"/>`;
+  s += `<path d="M${x-bungWide+4} ${mouth-bungH+9} L${x+bungWide-4} ${mouth-bungH+9}" stroke="#0e141b" stroke-opacity=".7" stroke-width="1.6"/>`;
   s += `<rect x="${x-13}" y="${plateY}" width="26" height="${stemStop - plateY}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".45" stroke-width="1.6"/>`;
   s += `<clipPath id="${bowlId}"><path d="${bowl}"/></clipPath>`;
-  s += `<path d="${bowl}" fill="url(#porc)" stroke="#dbe8f4" stroke-opacity=".85" stroke-width="2.5"/>`;
+  s += `<path d="${bowl}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".5" stroke-width="2"/>`;
   if (bowlLvl > 0.01) {
     s += `<rect class="bowlpass" style="--dur:${o.bowlDur || '3s'}${o.bowlDelay ? `;animation-delay:${o.bowlDelay}s` : ''}${o.bowlPaused ? ';animation-play-state:paused' : ''}"
       x="${x-86}" y="${bowlSurface}" width="172" height="${plateY - bowlSurface + 2}" fill="url(#milky)" opacity=".85" clip-path="url(#${bowlId})"/>`;
+    /* After the liquid, so the surface sits on it: the bowl wall slants, so its width follows the level. */
+    const halfAt = 62 + 22 * clamp((plateY - bowlSurface) / (plateY - rim), 0, 1);
+    s += meniscus(bowlId, x, bowlSurface, Math.max(10, halfAt * 0.9));
   }
-  /* The plate, with the ring of holes the filtrate is pulled through. */
-  s += `<ellipse cx="${x}" cy="${plateY}" rx="62" ry="10" fill="#dce8f4" opacity=".5" stroke="#cfe6ff" stroke-opacity=".55" stroke-width="1.6"/>`;
+  s += glassSheen(bowlId, x, rim + 2, plateY, 78);
+  s += glassWall(bowl, bowlId);
+  /* The plate, with the rings of holes the filtrate is pulled through. */
+  s += `<ellipse cx="${x}" cy="${plateY}" rx="62" ry="10" fill="#dce8f4" opacity=".55" stroke="#cfe6ff" stroke-opacity=".55" stroke-width="1.6"/>`;
   for (let i = 0; i < 9; i++) {
     const a = Math.PI * (0.08 + 0.84 * i / 8);
-    s += `<circle cx="${(x + Math.cos(a) * 50).toFixed(1)}" cy="${(plateY + Math.sin(a) * 6.5).toFixed(1)}" r="2.3" fill="#8fa9c4" opacity=".6"/>`;
+    s += `<circle cx="${(x + Math.cos(a) * 50).toFixed(1)}" cy="${(plateY + Math.sin(a) * 6.5).toFixed(1)}" r="2.3" fill="#5f7894" opacity=".7"/>`;
   }
-  s += `<ellipse cx="${x}" cy="${rim}" rx="84" ry="12" fill="#0c1826" opacity=".35" stroke="#cfe6ff" stroke-opacity=".5" stroke-width="2"/>`;
-  s += `<ellipse cx="${x}" cy="${rim}" rx="70" ry="9" fill="none" stroke="#cfe6ff" stroke-opacity=".18" stroke-width="2"/>`;
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI * (0.1 + 0.8 * i / 5);
+    s += `<circle cx="${(x + Math.cos(a) * 28).toFixed(1)}" cy="${(plateY + Math.sin(a) * 3.8).toFixed(1)}" r="2" fill="#5f7894" opacity=".6"/>`;
+  }
+  s += vesselLip(x, rim, 84, 12);
   if (o.paper) {
-    s += `<ellipse cx="${x}" cy="${plateY - 8}" rx="52" ry="8" fill="#f3f8fd" opacity=".92" stroke="#cfe6ff" stroke-opacity=".6"/>`;
+    s += `<ellipse cx="${x}" cy="${plateY - 8}" rx="52" ry="8" fill="#f3f8fd" opacity=".95" stroke="#9fb6cc" stroke-opacity=".8"/>`;
     s += `<ellipse cx="${x}" cy="${plateY - 10}" rx="44" ry="6" fill="#eaf3fb" opacity=".95"/>`;
   }
   if (o.cake) {
@@ -1288,6 +1635,7 @@ function filterSetup(x, y, o = {}) {
     const crx = 6 + 32 * c, cry = 2 + 5 * c;
     s += `<ellipse cx="${x}" cy="${plateY - 14}" rx="${crx}" ry="${cry}" fill="#ffffff" opacity=".95"/>`;
     s += `<ellipse cx="${x}" cy="${plateY - 16}" rx="${crx * 0.78}" ry="${cry * 0.7}" fill="#f7fbff"/>`;
+    for (let i = 0; i < 8; i++) s += `<circle cx="${(x - crx * .7 + (i * 31) % 100 / 100 * crx * 1.4).toFixed(1)}" cy="${(plateY - 16 + ((i * 17) % 7 - 3) * cry / 5).toFixed(1)}" r="1" fill="#b9cde2" opacity=".7"/>`;
     /* A dried cake shrinks and cracks as the last of the wash liquid comes out of it. */
     if (o.dry) s += `<path d="M${x-20} ${plateY-15} l9 4 l8 -5 M${x+5} ${plateY-20} l7 5 l9 -3"
       fill="none" stroke="#c3d5e6" stroke-width="1.3" stroke-linecap="round"/>`;
@@ -1308,87 +1656,127 @@ function filterSetup(x, y, o = {}) {
   return s;
 }
 
+/* The house vacuum: a wall-mounted valve with a lever, a ready lamp and a hose barb the tubing is pushed onto. */
+function vacPort(on) {
+  return `<g>
+    <rect x="858" y="262" width="48" height="58" rx="8" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
+    <rect x="864" y="268" width="36" height="32" rx="5" fill="#16202c" stroke="#33465c"/>
+    <circle cx="882" cy="285" r="10" fill="url(#nickel)" stroke="#1b2530"/>
+    <rect x="867" y="281.5" width="30" height="7" rx="3.5" fill="#d7e2ee" stroke="#6d8196" transform="rotate(${on ? -90 : 0} 882 285)"/>
+    <circle cx="882" cy="285" r="2.6" fill="#44556a"/>
+    <circle cx="895" cy="274" r="3.4" fill="${on ? '#39d99f' : '#3c4b5e'}" stroke="#10161d"/>
+    <text x="882" y="313" text-anchor="middle" font-size="7.5" font-weight="700" letter-spacing=".8" fill="#cfe0f0">VAC</text>
+    <rect x="888" y="320" width="12" height="9" rx="2" fill="url(#nickel)" stroke="#1b2530"/>
+    <rect x="886.5" y="323.5" width="15" height="2.8" rx="1.4" fill="#8ea5bb"/>
+    <path d="M858 266 L906 266" stroke="#dceaf6" stroke-opacity=".35" stroke-width="1.4"/>
+  </g>`;
+}
+
 /* ---------- evaporating dish ---------- */
+/* ---------- evaporating dish ---------- */
+/* White glazed porcelain, as it is on the bench: opaque, with a rolled rim, a flat foot and a pouring spout. */
 function dish(x, y, o = {}) {
-  let s = `<ellipse cx="${x}" cy="${y+1}" rx="28" ry="4" fill="#9fb0c2" stroke="#6f8399"/>`;
-  s += `<path d="M${x-84} ${y-44} A 84 46 0 0 0 ${x+84} ${y-44} Z" fill="url(#porcelain)" stroke="#8ea2b8" stroke-width="2"/>`;
-  s += `<path d="M${x-70} ${y-34} A 72 36 0 0 0 ${x-24} ${y-4}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/>`;
-  s += `<path d="M${x+78} ${y-49} l15 -5 l-7 13 Z" fill="#e8eef5" stroke="#8ea2b8" stroke-width="1.5" stroke-linejoin="round"/>`;
-  s += `<ellipse cx="${x}" cy="${y-44}" rx="84" ry="12" fill="#f4f8fc" stroke="#9fb3c8" stroke-width="2.5"/>`;
-  s += `<ellipse cx="${x}" cy="${y-43}" rx="75" ry="9" fill="#b9c8d8"/>`;
-  s += `<ellipse cx="${x}" cy="${y-45}" rx="68" ry="6" fill="#9db0c4" opacity=".7"/>`;
-  if (o.fill) {
-    s += `<ellipse cx="${x}" cy="${y-42}" rx="56" ry="6.5" fill="${o.fill}" opacity="${o.op || 1}"/>`;
-    s += `<ellipse cx="${x}" cy="${y-44}" rx="40" ry="4" fill="#f4f9ff" opacity=".9"/>`;
-  }
-  if (o.paper) {
-    s += `<ellipse cx="${x}" cy="${y-50}" rx="56" ry="12" fill="#f2f7fc" opacity=".92" stroke="#dbe9f6"/>`;
-    s += `<ellipse cx="${x}" cy="${y-52}" rx="34" ry="8" fill="#ffffff"/>`;
-  }
-  if (o.paperBurnt) {
-    s += `<ellipse cx="${x}" cy="${y-50}" rx="40" ry="8" fill="#2a2a2f" opacity=".55"/>`;
-    s += `<ellipse cx="${x}" cy="${y-52}" rx="30" ry="6" fill="#ffffff"/>`;
+  const id = uid();
+  /* Sized to sit inside the gauze ring (half-width 74) and the balance pan (half-width 70) rather than overhang
+     either: R is the rim, D the depth from rim to base. */
+  const R = 60, D = 32;
+  const bowl = `M${x-R} ${y-D} A ${R} ${D + 2} 0 0 0 ${x+R} ${y-D} Z`;
+  let s = `<clipPath id="${id}"><path d="${bowl}"/></clipPath>`;
+  s += `<ellipse cx="${x}" cy="${y+1}" rx="24" ry="3.4" fill="#8e9db1"/>`;
+  s += `<path d="${bowl}" fill="url(#porcelain)" stroke="#8f9eb2" stroke-width="1.6"/>`;
+  s += `<path d="M${x-R+13} ${y-D+11} Q${x-R+17} ${y-9} ${x-R+36} ${y-4}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="3.2" stroke-linecap="round" clip-path="url(#${id})"/>`;
+  s += `<path d="M${x+R-6} ${y-D+6} Q${x+R-14} ${y-12} ${x+R-32} ${y-3}" fill="none" stroke="#6f8097" stroke-opacity=".28" stroke-width="5" stroke-linecap="round" clip-path="url(#${id})"/>`;
+  /* the pouring spout */
+  s += `<path d="M${x+R-4} ${y-D-3} L${x+R+10} ${y-D-6} L${x+R-2} ${y-D+7} Z" fill="url(#porcelain)" stroke="#8f9eb2" stroke-width="1.4" stroke-linejoin="round"/>`;
+  /* the rim, and the opening inside it: shaded porcelain when empty, the contents when something is in it */
+  s += `<ellipse cx="${x}" cy="${y-D}" rx="${R}" ry="8.6" fill="#f8fafc" stroke="#8f9eb2" stroke-width="1.6"/>`;
+  s += `<ellipse cx="${x}" cy="${y-D+.8}" rx="${R-5}" ry="6.2" fill="${o.fill || 'url(#porcelainin)'}" stroke="#a9b6c6" stroke-width="1"/>`;
+  s += `<path d="M${x-R+10} ${y-D+3} A ${R-8} 7 0 0 0 ${x-R+34} ${y-D+7}" fill="none" stroke="#fff" stroke-opacity=".9" stroke-width="1.6" stroke-linecap="round"/>`;
+  /* One disc for the paper, painted white until it chars: painting a clean one under the char would leave a burnt
+     paper reading as white with a grey spot. It keeps the paper's footprint so the dark still reads at this size,
+     and wears the dish's own edge colour — on a white bowl a white paper shows only by its edge. The 2.4 stroke is
+     not taste: at the narrowest layout (360 px window) the scene scales to 0.33, so a thinner one lands under a
+     pixel and the rim fades to a tint. Do not shrink it back. */
+  if (o.paper || o.paperBurnt) {
+    s += o.paperBurnt
+      ? `<ellipse cx="${x}" cy="${y-D-5.5}" rx="40" ry="8.6" fill="#1b1b1f" opacity=".92"/>`
+      : `<ellipse cx="${x}" cy="${y-D-5.5}" rx="40" ry="8.6" fill="#e6f0fa" stroke="#a9cbe8" stroke-width="2.4"/>`;
+    s += `<ellipse cx="${x}" cy="${y-D-7.3}" rx="25" ry="5.7" fill="#ffffff"/>`;
   }
   return s;
 }
 
 /* ---------- burner ---------- */
+/* ---------- burner ---------- */
+/* A Bunsen burner: a heavy cast base, a nickel barrel, the air collar with its two ports, the gas nipple and its
+   rubber hose. The barrel's top is 72 above the bench, which is where the flame starts. */
 function burner(x, y, on) {
-  const ribs = `M${x+14} ${y-12} C ${x+70} ${y-12} ${x+88} ${y-2} ${x+130} ${y-6}`;
+  const hoseId = 'hf' + uid();
   return `<g>
-    ${shadow(x, y, 46, 6)}
-    <path d="${ribs}" fill="none" stroke="#7a2f2a" stroke-width="9" stroke-linecap="round"/>
-    <path d="${ribs}" fill="none" stroke="#3d1513" stroke-width="9" stroke-dasharray="1.6 5"/>
-    <ellipse cx="${x}" cy="${y-4}" rx="40" ry="10" fill="#2a3646" stroke="#46596e" stroke-width="2"/>
-    <rect x="${x+16}" y="${y-18}" width="14" height="9" rx="2" fill="#8ea5bb" stroke="#2f3f52"/>
-    <rect x="${x-13}" y="${y-52}" width="26" height="50" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
-    <rect x="${x-19}" y="${y-62}" width="38" height="12" rx="4" fill="#5d748c" stroke="#2f3f52"/>
-    <ellipse cx="${x-9}" cy="${y-56}" rx="3.6" ry="2.6" fill="#0c1520"/><ellipse cx="${x+9}" cy="${y-56}" rx="3.6" ry="2.6" fill="#0c1520"/>
-    <rect x="${x-6}" y="${y-72}" width="12" height="12" rx="3" fill="#8ea5bb"/>
+    ${shadow(x, y, 42, 6)}
+    <linearGradient id="${hoseId}" gradientUnits="userSpaceOnUse" x1="${x+58}" y1="0" x2="${x+190}" y2="0"><stop offset="0" stop-color="#2d3946"/><stop offset="1" stop-color="#2d3946" stop-opacity="0"/></linearGradient>
+    <path d="M${x+56} ${y-15} C ${x+92} ${y-15} ${x+96} ${y-3} ${x+130} ${y-3} L${x+190} ${y-3}" fill="none" stroke="url(#${hoseId})" stroke-width="9" stroke-linecap="round"/>
+    <ellipse cx="${x}" cy="${y-4}" rx="40" ry="10" fill="url(#castiron)" stroke="#10161d" stroke-width="1.5"/>
+    <path d="M${x-34} ${y-7} Q${x-30} ${y-20} ${x-12} ${y-25} L${x+12} ${y-25} Q${x+30} ${y-20} ${x+34} ${y-7} Q${x} ${y+2} ${x-34} ${y-7} Z" fill="url(#castiron)" stroke="#10161d"/>
+    <ellipse cx="${x}" cy="${y-9}" rx="36" ry="7.5" fill="none" stroke="#9fb3c8" stroke-opacity=".25"/>
+    <rect x="${x+28}" y="${y-20}" width="30" height="9" rx="3" fill="url(#nickel)" stroke="#1b2530"/>
+    <rect x="${x+48}" y="${y-22}" width="4" height="13" rx="2" fill="#8ea5bb"/><rect x="${x+54}" y="${y-22}" width="4" height="13" rx="2" fill="#8ea5bb"/>
+    <rect x="${x-11}" y="${y-72}" width="22" height="50" rx="3" fill="url(#nickel)" stroke="#2f3f52"/>
+    <rect x="${x-13}" y="${y-74}" width="26" height="6" rx="2.5" fill="url(#nickel)" stroke="#2f3f52"/>
+    <rect x="${x-15}" y="${y-46}" width="30" height="19" rx="3" fill="url(#nickel)" stroke="#2f3f52"/>
+    <ellipse cx="${x-8}" cy="${y-36.5}" rx="1.7" ry="5.6" fill="#0d141c"/><ellipse cx="${x+8}" cy="${y-36.5}" rx="1.7" ry="5.6" fill="#0d141c"/>
+    <line x1="${x-15}" y1="${y-29}" x2="${x+15}" y2="${y-29}" stroke="#2f3f52" stroke-width="1.2"/>
     ${on ? `<g>
+      <ellipse cx="${x}" cy="${y-120}" rx="34" ry="62" fill="url(#glow)" opacity=".4"/>
       <path d="M${x} ${y-78} C ${x-22} ${y-108} ${x-14} ${y-146} ${x} ${y-186} C ${x+14} ${y-146} ${x+22} ${y-108} ${x} ${y-78} Z" fill="url(#flame)" opacity=".9"/>
       <path d="M${x} ${y-80} C ${x-9} ${y-104} ${x-5} ${y-128} ${x} ${y-150} C ${x+5} ${y-128} ${x+9} ${y-104} ${x} ${y-80} Z" fill="#eaf9ff" opacity=".85"/>
+      <path d="M${x} ${y-80} C ${x-5} ${y-92} ${x-3} ${y-104} ${x} ${y-114} C ${x+3} ${y-104} ${x+5} ${y-92} ${x} ${y-80} Z" fill="#3b7dff" opacity=".7"/>
     </g>` : ''}
-    <text x="${x}" y="${y+22}" text-anchor="middle" font-size="10.5" fill="#7f93b3">Bunsen</text>
   </g>`;
 }
 
 /* ---------- ring stand ---------- */
+/* ---------- ring stand ---------- */
 function ringStand(x, y) {
   const rodX = x - 150, ringY = 336;
   let s = `<g>
-    <path d="M${rodX-72} ${y+2} L${rodX-72} ${y-4} Q${rodX-72} ${y-14} ${rodX-60} ${y-14} L${rodX+60} ${y-14} Q${rodX+72} ${y-14} ${rodX+72} ${y-4} L${rodX+72} ${y+2} Z" fill="#2c3644" stroke="#161d26" stroke-width="1.5"/>
-    <rect x="${rodX-72}" y="${y-14}" width="144" height="3" rx="1.5" fill="#6d849b" opacity=".6"/>
-    <rect x="${rodX-5}" y="${y-372}" width="11" height="360" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
-    <rect x="${rodX-5}" y="${y-372}" width="11" height="7" rx="3" fill="#a9bdd0"/>
-    <rect x="${rodX+12}" y="${ringY-8}" width="${x-rodX-12}" height="9" rx="4" fill="url(#steel)" stroke="#2f3f52"/>
-    <rect x="${rodX-15}" y="${ringY-22}" width="32" height="30" rx="5" fill="#3d4f63" stroke="#1f2b39"/>
-    <circle cx="${rodX+1}" cy="${ringY-7}" r="9" fill="#5d748c" stroke="#1f2b39" stroke-width="1.5"/>
-    <rect x="${rodX-34}" y="${ringY-11}" width="20" height="8" rx="3" fill="#8ea5bb" stroke="#2f3f52"/>
-    <circle cx="${rodX-36}" cy="${ringY-7}" r="7.5" fill="#7d95ab" stroke="#2f3f52" stroke-width="1.5"/>
+    <rect x="${rodX-62}" y="${y-13}" width="124" height="15" rx="5" fill="url(#castiron)" stroke="#10161d"/>
+    <rect x="${rodX-58}" y="${y-12}" width="116" height="2.6" rx="1.3" fill="#fff" opacity=".18"/>
+    <rect x="${rodX-5}" y="${y-372}" width="11" height="362" rx="4" fill="url(#nickel)" stroke="#2f3f52"/>
+    <rect x="${rodX-10}" y="${y-20}" width="21" height="9" rx="2" fill="url(#nickel)" stroke="#2f3f52"/>
+    <rect x="${rodX+2}" y="${ringY-9}" width="${x-rodX}" height="12" rx="5" fill="url(#nickel)" stroke="#2f3f52"/>
+    <rect x="${rodX-11}" y="${ringY-19}" width="28" height="27" rx="4" fill="url(#castiron)" stroke="#10161d"/>
+    <rect x="${rodX-6}" y="${ringY-27}" width="5" height="9" fill="#8ea5bb"/><circle cx="${rodX-3.5}" cy="${ringY-28}" r="5.4" fill="#b8c8d9" stroke="#2f3f52" stroke-width="1.6"/>
+    <circle cx="${rodX+12}" cy="${ringY-3}" r="7.5" fill="#b8c8d9" stroke="#2f3f52" stroke-width="2"/>
+    <line x1="${rodX+8.5}" y1="${ringY-3}" x2="${rodX+15.5}" y2="${ringY-3}" stroke="#2f3f52" stroke-width="1.6"/>
     <ellipse cx="${x}" cy="${ringY}" rx="74" ry="15" fill="none" stroke="url(#steel)" stroke-width="7"/>
     <ellipse cx="${x}" cy="${ringY}" rx="72" ry="14" fill="#2c3644" opacity=".25"/>
   </g>`;
   s += `<g opacity=".85">
     ${[-48, -32, -16, 0, 16, 32, 48].map(dx => `<line x1="${x+dx}" y1="${ringY-12}" x2="${x+dx}" y2="${ringY+12}" stroke="#8ea5bb" stroke-width="1.4" opacity=".7"/>`).join('')}
     ${[-9, 0, 9].map(dy => `<line x1="${x-70}" y1="${ringY+dy}" x2="${x+70}" y2="${ringY+dy}" stroke="#8ea5bb" stroke-width="1.4" opacity=".7"/>`).join('')}
-    <ellipse cx="${x}" cy="${ringY}" rx="30" ry="7" fill="#d8d2c4" opacity=".75" stroke="#8a8474"/>
   </g>`;
+  /* the ceramic centre of the wire gauze */
+  s += `<ellipse cx="${x}" cy="${ringY}" rx="34" ry="8.5" fill="#cdd6e1" fill-opacity=".85" stroke="#93a2b5"/>`;
   return s;
 }
 
 /* ---------- dropper ---------- */
+/* ---------- dropper ---------- */
 function dropper(x, y, label, active) {
+  const barrel = `M${x-7} ${y-66} L${x-7} ${y-26} L${x-3.4} ${y-8} L${x-1.8} ${y} L${x+1.8} ${y} L${x+3.4} ${y-8} L${x+7} ${y-26} L${x+7} ${y-66} Z`;
+  const id = uid();
   return `<g>
-    <path d="M${x-10} ${y-70} Q${x-15} ${y-84} ${x-10} ${y-96} Q${x} ${y-105} ${x+10} ${y-96} Q${x+15} ${y-84} ${x+10} ${y-70} Z" fill="#c94b5e" stroke="#8f2b3b"/>
-    <path d="M${x-6} ${y-94} Q${x-8.5} ${y-84} ${x-6} ${y-76}" stroke="#fff" stroke-opacity=".45" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-    <rect x="${x-9.5}" y="${y-72}" width="19" height="8" rx="2.5" fill="#8f2b3b"/>
-    <path d="M${x-7} ${y-65} L${x-7} ${y-22} L${x-2.5} ${y-3} L${x+2.5} ${y-3} L${x+7} ${y-22} L${x+7} ${y-65} Z" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".75" stroke-width="1.6"/>
-    <path d="M${x-5.2} ${y-50} L${x-5.2} ${y-23} L${x-1.8} ${y-6} L${x+1.8} ${y-6} L${x+5.2} ${y-23} L${x+5.2} ${y-50} Z" fill="url(#clearliq)" opacity=".9"/>
-    <ellipse cx="${x}" cy="${y-50}" rx="5.2" ry="1.4" fill="#e9f7ff" opacity=".6"/>
-    ${[0, 1, 2].map(i => `<line x1="${x+2}" y1="${y-60+i*9}" x2="${x+7}" y2="${y-60+i*9}" stroke="#e4f2ff" stroke-opacity=".55" stroke-width="1"/>`).join('')}
-    <text x="${x}" y="${y-110}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#cfe4ff">${label}</text>
-    ${active ? `<rect x="${x-16}" y="${y-106}" width="32" height="114" rx="12" fill="none" stroke="#4fb8ff" stroke-width="2" class="pulse"${loop()}/>` : ''}
+    <clipPath id="${id}"><path d="${barrel}"/></clipPath>
+    <path d="M${x-3} ${y-70} C ${x-13} ${y-75} ${x-12} ${y-93} ${x-5} ${y-99} C ${x-2} ${y-102} ${x+2} ${y-102} ${x+5} ${y-99} C ${x+12} ${y-93} ${x+13} ${y-75} ${x+3} ${y-70} Z" fill="url(#rubberred)"/>
+    <path d="M${x-7} ${y-90} Q${x-8} ${y-83} ${x-6} ${y-77}" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/>
+    <rect x="${x-9}" y="${y-72}" width="18" height="8" rx="2.5" fill="url(#castiron)" stroke="#10161d"/>
+    <path d="${barrel}" fill="url(#glassg)" stroke="#a9cbe8" stroke-opacity=".6" stroke-width="1.6"/>
+    <rect x="${x-8}" y="${y-52}" width="16" height="52" fill="url(#clearliq)" opacity=".9" clip-path="url(#${id})"/>
+    <line x1="${x-8}" y1="${y-52}" x2="${x+8}" y2="${y-52}" stroke="#e6f6ff" stroke-opacity=".6" stroke-width="1.2"/>
+    <line x1="${x-4}" y1="${y-64}" x2="${x-4}" y2="${y-14}" stroke="#fff" stroke-opacity=".32" stroke-width="2.4" stroke-linecap="round"/>
+    <text x="${x}" y="${y-108}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#cfe4ff">${label}</text>
+    ${active ? `<rect x="${x-16}" y="${y-104}" width="32" height="112" rx="12" fill="none" stroke="#4fb8ff" stroke-width="2" class="pulse"${loop()}/>` : ''}
   </g>`;
 }
 /* ==========================================================================
@@ -1411,19 +1799,21 @@ function sWeigh() {
   const active = !S.weighed.ca ? 'ca' : (!S.weighed.na ? 'na' : null);
   const m = active ? S.draft[active] : S.weighed.na;
   let g = bg();
-  g += `<text x="480" y="118" text-anchor="middle" font-size="13" fill="#64809f">Spatula · plastic weighing bowls · tared analytical balance</text>`;
   g += jar(214, BENCH, { label: 'Ca(NO₃)₂·4H₂O', tint: '#cfe4ff', active: active === 'ca' });
   g += jar(746, BENCH, { label: 'Na₃PO₄·12H₂O', tint: '#d3ffe9', active: active === 'na' });
   if (S.weighed.ca != null) {
     g += weighBowl(338, BENCH, heapFrac(S.weighed.ca));
-    g += cap(338, BENCH + 26, `${S.weighed.ca.toFixed(3)} g`);
+    /* A data label on the bowl, not a bench caption, so it keeps its own height instead of `cap`'s. */
+    g += `<text x="338" y="${BENCH + 26}" text-anchor="middle" font-size="12.5" font-weight="650"
+      fill="#8ea2c6">${S.weighed.ca.toFixed(3)} g</text>`;
   }
   g += balance(480, BENCH, `${m.toFixed(3)} g`);
   g += weighBowl(480, BENCH - 96, heapFrac(m));
   if (active && performance.now() - sprinkleAt < SPRINKLE_MS) g += sprinkleInto(480, BENCH - 96, since(sprinkleAt));
-  g += cap(480, BENCH + 66, active
-    ? `Weighing ${active === 'ca' ? 'calcium nitrate tetrahydrate' : 'sodium phosphate dodecahydrate'}`
-    : 'Both samples recorded', '#8ea2c6', 12);
+  /* Kept under 240 units wide so it starts to the right of the 1.100 g label over the left bowl (which ends at
+     360) instead of running under it; "tared" and the spatula are the panel's business, not the bench's. */
+  g += cap(480, 'weighing bowls · analytical balance');
+
   return g;
 }
 
@@ -1433,21 +1823,26 @@ function sDissolve() {
   const swirling = k => now - swirlAt[k] < STIR_MS;   /* the ring spins while the flask is swirled, then goes */
   const anyPouring = pouring('ca') || pouring('na');
   /* Each 50 mL portion leaves the beaker on the bench as the jug takes it, so the reservoir is drawn full for as
-     long as the water is still on its way to the flask. */
-  const diLevel = Math.max(0.36, 0.72 - (waterArrived('ca') ? 0.16 : 0) - (waterArrived('na') ? 0.16 : 0));
+     long as the water is still on its way to the flask. It holds 180 mL of its 250 mL, and the level is what is
+     left of that rather than a number picked to look right. */
+  const portions = ['ca', 'na'].filter(k => waterArrived(k)).length;
+  const diLevel = (180 - 50 * portions) / 250;
   let g = bg();
   const FILL = 0.56;   /* 50 mL in a 125-mL flask */
   /* The solid is in the flask from the weigh-out; water is added on top of it and swirling dissolves it. */
-  g += flask(300, BENCH, { level: S.waterCA ? FILL : 0, fillAnim: pouring('ca'), fillDelay: JUG_IN_S - since(pourAt.ca), crystals: S.swirlCA ? 0 : solidFrac(S.weighed.ca, DRAFT_MAX) });
-  g += flask(608, BENCH, { level: S.waterNA ? FILL : 0, fillAnim: pouring('na'), fillDelay: JUG_IN_S - since(pourAt.na), crystals: S.swirlNA ? 0 : solidFrac(S.weighed.na, DRAFT_MAX) });
-  g += `<g class="dibench" opacity="${anyPouring ? '.35' : '1'}">${beaker(838, BENCH, { level: diLevel, w: 104, h: 132 })}</g>`;
+  /* A swirl lifts the flask clear of the bench and rocks it about its own middle, then sets it back down. The ring
+     is drawn inside the moving group, so it rides up and rocks with the glass instead of hanging at bench height. */
+  const swirled = (k, x, o) => swirling(k)
+    ? `<g class="swirlflask" style="animation-delay:${-since(swirlAt[k])}s">${flask(x, BENCH, o)}${swirlArc(x, BENCH - 104, since(swirlAt[k]))}</g>`
+    : flask(x, BENCH, o);
+  g += swirled('ca', 300, { sh: true, level: S.waterCA ? FILL : 0, fillAnim: pouring('ca'), fillDelay: JUG_IN_S - since(pourAt.ca), crystals: S.swirlCA ? 0 : solidFrac(S.weighed.ca, DRAFT_MAX) });
+  g += swirled('na', 608, { sh: true, level: S.waterNA ? FILL : 0, fillAnim: pouring('na'), fillDelay: JUG_IN_S - since(pourAt.na), crystals: S.swirlNA ? 0 : solidFrac(S.weighed.na, DRAFT_MAX) });
+  g += `<g class="dibench" opacity="${anyPouring ? '.35' : '1'}">${beaker(838, BENCH, { sh: true, level: diLevel, w: BEAKER_250_W, h: BEAKER_250_H })}</g>`;
   if (pouring('ca')) g += waterPour(300, BENCH, FILL, since(pourAt.ca));
   if (pouring('na')) g += waterPour(608, BENCH, FILL, since(pourAt.na));
-  g += cap(300, BENCH + 62, waterArrived('ca') ? 'Ca(NO₃)₂ · 50 mL D.I. water' : 'Ca(NO₃)₂·4H₂O');
-  g += cap(608, BENCH + 62, waterArrived('na') ? 'Na₃PO₄ · 50 mL D.I. water' : 'Na₃PO₄·12H₂O');
-  g += cap(838, BENCH + 62, 'D.I. water');
-  if (swirling('ca')) g += swirlArc(300, BENCH - 104, since(swirlAt.ca));
-  if (swirling('na')) g += swirlArc(608, BENCH - 104, since(swirlAt.na));
+  g += cap(300, waterArrived('ca') ? 'Ca(NO₃)₂ · 50 mL D.I. water' : 'Ca(NO₃)₂·4H₂O');
+  g += cap(608, waterArrived('na') ? 'Na₃PO₄ · 50 mL D.I. water' : 'Na₃PO₄·12H₂O');
+  g += cap(838, '250-mL beaker · D.I. water');
   return g;
 }
 
@@ -1476,7 +1871,7 @@ function rinsePour(x, y, level, played = 0) {
   const bx = lipX, by = lipY + 160;                 /* spout tip sits on the pivot */
   return `<g>
     <g class="rinsespray"${played ? ` style="animation-delay:${-played}s"` : ''}>
-      <g transform="rotate(104 ${lipX} ${lipY})">${bottle(bx, by, { spray: true })}</g>
+      <g transform="rotate(104 ${lipX} ${lipY})">${bottle(bx, by, { spray: true, levelDeg: -104 })}</g>
     </g>
     ${pourStream(lipX, lipY, y + 4, flaskSurface(y, 0), flaskSurface(y, level), -played)}
   </g>`;
@@ -1485,11 +1880,11 @@ function rinsePour(x, y, level, played = 0) {
 /* A stream of liquid falling from a lip into a vessel: drawn all the way to the vessel's floor and clipped back
    to the water line by streamcut, which runs on the same 1.15 s ease-out as fillup, so the tip rides the surface
    as it climbs instead of hanging above it. fromSurface is where the liquid was before this pour. */
-function pourStream(x, lipY, floorY, fromSurface, toSurface, delay = 0, tint = '#cfe6ff') {
+function pourStream(x, lipY, floorY, fromSurface, toSurface, delay = 0, tint = '#cfe6ff', squirtS = 0) {
   const cut = s => ((floorY - (s + 3)) / (floorY - lipY) * 100).toFixed(2);
   const endY = toSurface + 3;
-  return `<g class="pourstream" style="--pourcut0:${cut(fromSurface)}%;--pourcut:${cut(toSurface)}%${delay ? `;animation-delay:${delay}s` : ''}">
-    <line x1="${x}" y1="${lipY}" x2="${x}" y2="${floorY}" stroke="${tint}" stroke-opacity=".72"
+  return `<g class="pourstream" style="--pourcut0:${cut(fromSurface)}%;--pourcut:${cut(toSurface)}%${delay ? `;animation-delay:${delay}s` : ''}${squirtS ? `;--pours:${squirtS}s` : ''}">
+    <line class="strm" x1="${x}" y1="${lipY}" x2="${x}" y2="${floorY}" stroke="${tint}" stroke-opacity=".72"
       stroke-width="7" stroke-linecap="round"/>
     <line x1="${x - 1.5}" y1="${lipY + 4}" x2="${x - 1.5}" y2="${floorY - 16}" stroke="#ffffff"
       stroke-opacity=".45" stroke-width="2.5" stroke-linecap="round"/>
@@ -1531,7 +1926,7 @@ function sMix() {
   const benchFlask = (k, poured) => {
     const washing = spraying && rinseTarget(k) && poured;   /* the washings rise in the flask under the bottle */
     return `<g${away(k) ? ` class="mixbenchhush" style="animation-delay:${lead(k)}s"` : ''}>${flask(FX[k], BENCH, {
-      level: poured ? (rinseTarget(k) ? RINSE_SPLASH : 0) : 0.56,
+      sh: true, level: poured ? (rinseTarget(k) ? RINSE_SPLASH : 0) : 0.56,
       fillAnim: washing, fillDelay: washing ? -since(rinse.at) : 0
     })}</g>`;
   };
@@ -1540,8 +1935,8 @@ function sMix() {
   g += benchFlask('na', S.pouredNA);
   const fillLead = lead(rinsing ? rk : pouring('ca') ? 'ca' : 'na') + MIX_STREAM_DELAY;
   g += beaker(BX, BENCH, {
-    level: lvl, fillAnim: anyPour || rinsing, fillFrom, fillDelay: fillLead,
-    cloud: mixed ? 0.82 : 0, sediment: mixed ? solidFrac(st.theoretical) : 0, w: 148, h: 168, grad: { max: 250, k: 1 }
+    sh: true, level: lvl, fillAnim: anyPour || rinsing, fillFrom, fillDelay: fillLead,
+    cloud: mixed ? 0.82 : 0, sediment: mixed ? solidFrac(st.theoretical) : 0, w: BEAKER_250_W, h: BEAKER_250_H
   });
   /* The flask itself travels: drawn upright at the beaker's mouth axis, then carried in from its place on the
      bench (--carryx), tipped over the rim and brought back, while the solution runs down into the beaker. */
@@ -1561,11 +1956,13 @@ function sMix() {
     g += stirring ? `<g class="stirring" style="--sx:${BX}px;--sy:${BENCH - 168}px${wait}">${rod}</g>` : rod;
     if (stirring) g += stirSwirl(BX, surf(lvl) + 6, played);
   }
-  g += bottle(852, BENCH);
-  g += cap(196, BENCH + 58, 'Ca(NO₃)₂ flask');
-  g += cap(330, BENCH + 58, 'Na₃PO₄ flask');
-  g += cap(628, BENCH + 58, '250-mL beaker · reaction mixture');
-  g += cap(852, BENCH + 58, 'D.I. water for rinsing');
+  /* The bottle on the bench is the one that sprays, so it is simply not drawn while it is over a flask — one
+     bottle in one place, no fade to keep in step with the spray. */
+  if (!spraying) g += bottle(852, BENCH);
+  g += cap(196, 'Ca(NO₃)₂');
+  g += cap(330, 'Na₃PO₄');
+  g += cap(628, '250-mL beaker · mixture');
+  g += cap(852, 'wash bottle · D.I. water');
   /* Kept above the carry: a tipped flask reaches y ≈ 187 on its pivot over the rim. */
   if (mixed) g += `<text x="628" y="${BENCH - 330}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#dff0ff" opacity=".85">Ca₃(PO₄)₂ forming — the mixture turns cloudy</text>`;
   return g;
@@ -1579,11 +1976,18 @@ function stirSwirl(x, y, played = 0) {
 
 function stirRod(x, y) {
   return `<g><line x1="${x-52}" y1="${y-40}" x2="${x+34}" y2="${y+96}" stroke="#cfe6ff" stroke-opacity=".65" stroke-width="6" stroke-linecap="round"/>
-  <line x1="${x-50}" y1="${y-38}" x2="${x+36}" y2="${y+96}" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/></g>`;
+  <line x1="${x-50}" y1="${y-38}" x2="${x+36}" y2="${y+96}" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="${x-52}" cy="${y-40}" r="4.2" fill="#e9f6ff" fill-opacity=".7" stroke="#cfe6ff" stroke-opacity=".8"/>
+  <circle cx="${x+34}" cy="${y+96}" r="3.6" fill="#e9f6ff" fill-opacity=".55"/></g>`;
 }
 
 /* The digest beaker's level: the volume it holds, as a fraction of the 250-mL beaker. */
 const digestLvl = () => clamp((S.vol / 250) * 0.9, 0.02, 0.94);
+
+/* The digest beaker is the reaction beaker carried over to the hot plate; it stands on the plate, so its base is
+   DIGEST_BASE rather than the bench itself. */
+const DIGEST_BASE = BENCH - 54;
+const DIGEST_MOUTH = DIGEST_BASE - BEAKER_250_H;
 
 function sDigest() {
   const lvl = digestLvl();
@@ -1591,34 +1995,35 @@ function sDigest() {
   const topping = performance.now() - topupAt < TOPUP_MS;
   /* The bottle parks with its spout 70 above the beaker's mouth, so the body swings up and clear of the glass
      when it tips; the stand is where it rests the rest of the time. */
-  const spoutY = BENCH - 210 - 70, bodyY = spoutY + 160;   /* the beaker's mouth is at BENCH - 210 */
+  const spoutY = DIGEST_MOUTH - 70, bodyY = spoutY + 160;   /* the spout parks 70 above the beaker's mouth */
   let g = bg();
-  g += hotplate(470, BENCH, S.heat);
+  g += hotplate(470, BENCH, S.heat !== 'off');
   g += beaker(470, BENCH - 54, {
-    level: lvl, fill: 'url(#milky)', w: 140, h: 156,
+    level: lvl, fill: 'url(#milky)', w: BEAKER_250_W, h: BEAKER_250_H,
     fillAnim: topping, fillFrom: clamp(topupLvlFrom / lvl, 0, 1),
     fillDelay: TOPUP_STREAM_S - since(topupAt),
     sediment: solidFrac(st.theoretical),
-    bubbles: S.heat !== 'off', liqId: 'boilLiq', grad: { max: 250, k: 0.9 }
+    bubbles: S.heat !== 'off', boil: S.heat, liqId: 'boilLiq'
   });
   if (S.heat !== 'off') {
     for (let i = 0; i < 4; i++) {
-      g += `<path class="steam" d="M${440 + i * 22} ${BENCH - 226} q 8 -18 0 -34 q -8 -16 0 -30" fill="none" stroke="#dff0ff" stroke-width="2.5" stroke-linecap="round" opacity=".5"${loop(i * 0.7)}/>`;
+      g += `<path class="steam" d="M${440 + i * 22} ${DIGEST_MOUTH - 16} q 8 -18 0 -34 q -8 -16 0 -30" fill="none" stroke="#dff0ff" stroke-width="2.5" stroke-linecap="round" opacity=".5"${loop(i * 0.7)}/>`;
     }
   }
   if (topping) {
     /* The bottle that normally stands on the bench is the one being carried, so the stand copy is not drawn. */
-    g += `<g class="carry" style="--dx:${838 - 470}px;--dy:${BENCH - bodyY}px;--dur:${TOPUP_MS / 1000}s;animation-delay:${-since(topupAt)}s">
-      <g class="tipopen" style="--px:470px;--py:${spoutY}px;--tipdeg:-150deg;--dur:${TOPUP_MS / 1000}s;animation-delay:${-since(topupAt)}s">${bottle(470, bodyY, { spray: true })}</g>
+    const topClock = `--dur:${TOPUP_MS / 1000}s;animation-delay:${-since(topupAt)}s`;
+    g += `<g class="carry" style="--dx:${838 - 470}px;--dy:${BENCH - bodyY}px;${topClock}">
+      <g class="tipopen" style="--px:470px;--py:${spoutY}px;--tipdeg:-150deg;${topClock}">${bottle(470, bodyY, { spray: true, tipped: topClock })}</g>
     </g>`;
     g += pourStream(470, spoutY, BENCH - 64,
-      beakerGeo(BENCH - 54, 156, topupLvlFrom), beakerGeo(BENCH - 54, 156, lvl),
+      beakerGeo(DIGEST_BASE, BEAKER_250_H, topupLvlFrom), beakerGeo(DIGEST_BASE, BEAKER_250_H, lvl),
       TOPUP_STREAM_S - since(topupAt));
   } else {
     g += bottle(838, BENCH, { active: S.vol < 70 });
   }
-  g += cap(470, BENCH + 62, '250-mL beaker on the hot plate');
-  g += cap(838, BENCH + 62, 'D.I. water to replenish');
+  g += cap(470, '250-mL beaker on the hot plate');
+  g += cap(838, 'wash bottle · D.I. water');
   const warn = S.vol < VOL_MIN;
   /* The note sits directly over the mouth the bottle pours into, so the action replaces it for its 2.6 s. */
   if (!topping) g += `<text x="470" y="${BENCH - 250}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${warn ? '#fb7185' : '#8ea2c6'}">${warn ? `Volume below ${VOL_MIN} mL — add water now` : S.heat === 'vigorous' ? 'Vigorous boil — splattering' : S.heat === 'gentle' ? `Gentle boil · digest ${DIGEST_MIN} min` : `Digest ${DIGEST_MIN} min · heat off`}</text>`;
@@ -1633,7 +2038,15 @@ function sFilter() {
   const bottleTurn = rinsing && now - rinseBeakerAt < RINSE_FILL_MS;   /* the wash bottle filling the beaker */
   const beakerTurn = rinsing && !bottleTurn;                           /* then the beaker rinsing the funnel */
   const washing = now - washAt < WASH_MS;
+  const warmWash = washing && washFromBottle;   /* this wash gets the bottle, not the pipet */
+  /* The trip runs on the wash's clock, not the render's: a repaint mid-wash (the vacuum clock ticking, a panel
+     redraw) has to pick the animation up where it is, so it starts that far in on a negative delay. */
+  const washClock = `--dur:${WASH_MS / 1000}s;animation-delay:${-since(washAt)}s`;
+  const wetClock = `--dur:${WET_MS / 1000}s;animation-delay:${-since(wetAt)}s`;
   const carrying = pouring || beakerTurn;      /* the beaker is off its place on the bench */
+  /* Seating the paper is the warm wash's own trip, so it only plays while the bottle and the funnel are otherwise
+     idle: a pour or a wash begun during its 2.6 s is the one thing that would give the funnel a second stream. */
+  const wetting = !motionReduced() && !carrying && !bottleTurn && !washing && now - wetAt < WET_MS;
   const milky = S.clarity === 'cloudy' ? 0.5 : (poured ? 0.15 : 0);
   /* The cake is what has been precipitated so far — the theoretical yield — sized like the dish. It is on the paper
      from the moment the mixture is filtered, washing only cleans it, so it thickens a little as it is washed. */
@@ -1644,22 +2057,39 @@ function sFilter() {
   const MIX = 0.42, RINSED = 0.18, DRAWN = 0.02;
   /* Where the beaker is held to pour: tipped clockwise, its lowest corner is the far side of its mouth, so that
      corner — not the pivot — has to sit over the rim. Held high and tipped well over, the whole glass stays clear
-     of the funnel: at 70° its lowest point is at y 200, above the rim's near edge at 224, and its body is left of
-     the bowl. Only the stream crosses into the funnel. */
-  const BH = 146, POSE_X = 720, POSE_Y = 180;      /* the beaker's base in the pour pose */
-  const PIVOT_X = POSE_X - 62, PIVOT_Y = POSE_Y - BH;   /* its rim's left corner: where the tip turns about */
-  const LIP_X = 700, LIP_Y = 150;                  /* its rim's pouring corner, and the stream under it */
+     of the funnel: its lowest point sits above the rim's near edge at 224, and its body is left of the bowl. Only
+     the stream crosses into the funnel. */
+  const BH = BEAKER_250_H, POSE_X = 720, POSE_Y = 202;      /* the beaker's base in the pour pose */
+  const PIVOT_X = POSE_X - BEAKER_250_W / 2, PIVOT_Y = POSE_Y - BH;   /* its rim's left corner, where the tip turns */
   const TIP = 70;                                  /* how far over it is tipped, in degrees */
+  /* The lip is the rim's far corner swung down by the tip, so the stream leaves the glass wherever the pose puts it
+     instead of at a height written out beside it. */
+  const LIP_X = PIVOT_X + BEAKER_250_W * Math.cos(TIP * Math.PI / 180);
+  const LIP_Y = PIVOT_Y + BEAKER_250_W * Math.sin(TIP * Math.PI / 180);
   /* To draw `from` while the rect is drawn at DRAWN: the rect runs from the base pad to the level, so it is
      12 + (h - 20) * level tall, not level / level. */
   const drainFrom = from => (12 + (BH - 20) * from) / (12 + (BH - 20) * DRAWN);
   let g = bg();
   g += iceBath(150, BENCH);
-  /* The transfer pipet stands over the ice bath, and makes the trip to the funnel when the cake is washed. */
+  /* A wash is poured from one of two tools: the transfer pipet for cold water, the wash bottle for warm. Both make
+     the same trip, from their own place on the bench to the funnel and back, so they share one class, one clock and
+     one destination. */
+  const RIM_Y = PLATE - BOWL_GAP;        /* the bowl's mouth */
+  const WASH_X = 700, WASH_Y = RIM_Y - 30;      /* a wash hangs higher: its label hangs with it */
+  const WET_SPOUT_Y = RIM_Y - 12;        /* the squirt has no label, so it only clears the rim */
+  const trip = (x, spoutY, toY = WASH_Y) => `--wx:${WASH_X - x}px;--wy:${toY - spoutY}px`;
+  /* The wash bottle leaving its stand for the funnel: it travels as .tooltrip and tips as .tipopen about its spout,
+     so the body swings clear above the funnel instead of covering the cake. A warm wash and wetting the paper are
+     the same trip, differing only in the clock they are handed and how low they park. */
+  const bottleTrip = (clock, toY = WASH_Y) => `<g class="tooltrip" style="${trip(262, BENCH - 160, toY)};${clock}">
+      <g class="tipopen" style="--px:262px;--py:${BENCH - 160}px;--tipdeg:-150deg;${clock}">
+        ${bottle(262, BENCH, { spray: true, tipped: clock })}
+      </g>
+    </g>`;
   const pipet = (active) => dropper(150, BENCH - 300, 'cold D.I. water', active);
-  g += washing
-    ? `<g class="pipetdip" style="--wx:${700 - 150}px;--wy:${206 - (BENCH - 300)}px;--dip:270px;--dur:${WASH_MS / 1000}s">${pipet(true)}</g>`
-    : pipet(poured && S.washCount < WASH_MIN);
+  g += washing && !warmWash
+    ? `<g class="tooltrip" style="${trip(150, BENCH - 300)};--dip:270px;${washClock}">${pipet(true)}</g>`
+    : pipet(!washing && poured && S.washCount < WASH_MIN);
   /* The beaker travels to the funnel, tips, runs empty, and is set back down in its own place. It is kept out of
      the bench until after the funnel is drawn, so a tipped beaker sits in front of the bowl it is pouring into. */
   let carried = '';
@@ -1674,26 +2104,31 @@ function sFilter() {
     const clock = `--dur:${dur}s;animation-delay:${wait}s`;
     carried = `<g class="carry" style="--dx:${400 - POSE_X}px;--dy:${BENCH - POSE_Y}px;${clock}">
       <g class="tipopen" style="--px:${PIVOT_X}px;--py:${PIVOT_Y}px;--tipdeg:${TIP}deg;${clock}">
-        ${beaker(POSE_X, POSE_Y, { level: DRAWN, fill: 'url(#clearliq)', w: 124, h: BH, ...drain })}
+        ${beaker(POSE_X, POSE_Y, { level: DRAWN, fill: 'url(#clearliq)', w: BEAKER_250_W, h: BH, ...drain })}
       </g>
     </g>`;
   } else {
     g += beaker(400, BENCH, {
-      level: bottleTurn ? RINSED : (poured ? 0 : MIX), fill: 'url(#milky)', w: 124, h: BH,
+      sh: true, level: bottleTurn ? RINSED : (poured ? 0 : MIX), fill: 'url(#milky)', w: BEAKER_250_W, h: BH,
       fillAnim: bottleTurn, fillFrom: 12 / (12 + (BH - 20) * RINSED), fillDelay: 0.62 - since(rinseBeakerAt)
     });
   }
-  g += cap(400, BENCH + 58, 'mixture from the beaker');
-  /* The wash bottle that rinses the beaker out: it fills the beaker first, then stands by. */
+  g += cap(400, '250-mL beaker · mixture');
+  /* The wash bottle: it fills the beaker first, then stands by, and it is also what a warm wash is poured from.
+     Either job takes it off its place on the bench, so only one of them draws it. */
   if (bottleTurn) {
     const clock = `--dur:${RINSE_FILL_MS / 1000}s;animation-delay:${-since(rinseBeakerAt)}s`;
     g += `<g class="carry" style="--dx:${262 - 400}px;--dy:${BENCH - 456}px;${clock}">
       <g class="tipopen" style="--px:400px;--py:296px;--tipdeg:-150deg;${clock}">
-        ${bottle(400, 456, { spray: true })}
+        ${bottle(400, 456, { spray: true, tipped: clock })}
       </g>
     </g>`;
     g += pourStream(400, 296, BENCH - 10,
       beakerGeo(BENCH, BH, 0), beakerGeo(BENCH, BH, RINSED), 0.62 - since(rinseBeakerAt));
+  } else if (warmWash) {
+    g += bottleTrip(washClock);
+  } else if (wetting) {
+    g += bottleTrip(wetClock, WET_SPOUT_Y);
   } else {
     g += bottle(262, BENCH, { active: poured && !S.beakerRinsed });
   }
@@ -1715,50 +2150,72 @@ function sFilter() {
   g += carried;
   /* Whatever is pouring into the funnel runs its stream from the lip to the plate. It is tinted a little deeper
      than the other pours because it passes in front of the funnel's white paper. */
-  const intoFunnel = (x, y, at, streamS) => pourStream(x, y, PLATE, PLATE, PLATE, streamS - since(at), '#8ec4e6');
+  const intoFunnel = (x, y, at, streamS, squirtS = 0) =>
+    pourStream(x, y, PLATE, PLATE, PLATE, streamS - since(at), '#8ec4e6', squirtS);
   if (pouring) g += intoFunnel(LIP_X, LIP_Y + 6, pourMixAt, POUR_STREAM_S);
   if (beakerTurn) g += intoFunnel(LIP_X, LIP_Y + 6, rinseBeakerAt, RINSE_STREAM_S);
-  if (washing) g += intoFunnel(700, 206, washAt, WASH_STREAM_S);
-  g += `<g>
-    <rect x="864" y="266" width="30" height="46" rx="7" fill="url(#metal)" stroke="#2a394c" stroke-width="2"/>
-    <rect x="872" y="278" width="14" height="22" rx="4" fill="${S.vacuum ? '#39d99f' : '#3c4b5e'}"/>
-    <text x="879" y="332" text-anchor="middle" font-size="10" fill="#7f93b3">vacuum</text>
-  </g>`;
-  g += cap(700, BENCH + 58, 'Büchner funnel · side-arm flask');
+  if (washing) g += intoFunnel(WASH_X, WASH_Y, washAt, WASH_STREAM_S);
+  if (wetting) g += intoFunnel(WASH_X, WET_SPOUT_Y, wetAt, WET_STREAM_S, WET_SQUIRT_S);
+  g += vacPort(S.vacuum);
+  g += cap(700, 'Büchner funnel · filter flask · vacuum pump');
   /* What the bench says about the pump: nothing draws through with the vacuum line off, and a dry cake is not left
      sitting under vacuum. They share one caption line above the funnel; the pump-off warning is only for something
      actually in flight, since at rest the panel already shows the line as off. */
   const drawing = carrying || bottleTurn || washing || vacDryLeft > 0;
   const pumpNote = !S.vacuum && drawing
-    ? ['The pump is off — nothing is being drawn through the funnel', '#ffb066']
+          ? ['The vacuum pump is off — nothing is being drawn through the funnel', '#ffb066']
     : vacDryLeft > 0 ? ['Drawing air through the cake under vacuum', '#bfe6ff']
-    : S.vacuumDry && S.vacuum ? ['The cake is dry — switch the vacuum off before lifting the funnel', '#ffb066']
+    : S.vacuumDry && S.vacuum ? ['The cake is dry — switch the vacuum pump off before lifting the funnel', '#ffb066']
     : null;
   if (pumpNote) g += `<text x="700" y="178" text-anchor="middle" font-size="12.5" font-weight="700" fill="${pumpNote[1]}">${pumpNote[0]}</text>`;
-  g += cap(150, BENCH + 58, 'ice bath · wash water');
+  g += cap(150, 'ice bath · wash water');
   return g;
 }
 
 function iceBath(x, y) {
   return `<g>
-    ${beaker(x, y, { level: 0.62, fill: 'url(#icedliq)', w: 132, h: 118, cubes: true })}
+    ${beaker(x, y, { sh: true, level: 0.62, fill: 'url(#icedliq)', w: 132, h: 118, cubes: true })}
     ${beaker(x, y - 4, { level: 0.5, fill: 'url(#icedliq)', w: 62, h: 92 })}
   </g>`;
 }
 
+/* The dish goes to the balance and comes back: one clock, and the two repaints that belong to it — the one when the
+   dish lands, where the pan starts reading it, and the one that sets it back down on the gauze. */
+function carryDish() {
+  dishAt = performance.now();
+  repaintAfter(DISH_MS * DISH_LAND);
+  repaintAfter(DISH_MS);
+}
+
 function sDry() {
+  const now = performance.now();
+  const weighing = now - dishAt < DISH_MS;   /* the dish is on its way to the pan, or on it */
+  /* The balance holds the last mass it was given — the empty dish, the latest reweigh, or the final one — so a
+     reading is never lost once it has been taken, drifted or not. But it reads its pan, not the log: the carry sets
+     the dish down at its 30% keyframe, and until then the pan is empty and the display says so. With motion off the
+     dish is pinned on the pan from the first frame, so it reads at once. */
+  const last = S.finalWeigh ?? S.weigh1 ?? S.dishMass;
+  const onPan = !animOn || now - dishAt >= DISH_MS * DISH_LAND;
+  const shown = onPan ? last : 0;
   let g = bg();
   g += ringStand(360, BENCH);
   g += burner(360, BENCH, S.burner);
-  g += dish(360, 330, {
+  g += balance(760, BENCH, shown != null ? `${shown.toFixed(3)} g` : '— — —');
+  /* The dish is drawn once, either on the gauze or in the hand that carries it to the pan and back. On the gauze it
+     sits on the ring's own plane, so the ring's front arc shows under the bowl instead of being swallowed by it. */
+  const dishOpts = {
     paper: S.paperIn, paperBurnt: paperCharred(),
-    fill: S.paperIn ? '#ffffff' : null, op: 0.9
-  });
-  g += balance(760, BENCH, S.finalWeigh != null ? `${S.finalWeigh.toFixed(3)} g` : '— — —');
-  if (S.finalWeigh != null) g += weighBowl(760, BENCH - 96, solidFrac(S.measuredMass));
-  g += cap(360, BENCH + 62, 'ring stand · wire gauze · evaporating dish');
-  g += cap(760, BENCH + 62, 'balance for the dish');
-  if (S.burner) g += `<text x="360" y="196" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffb066">Drying the precipitate — the paper burns off</text>`;
+    fill: S.paperIn ? '#ffffff' : null
+  };
+  g += weighing
+    ? `<g class="carry" style="--dx:${360 - 760}px;--dy:${336 - 410}px;--dur:${DISH_MS / 1000}s;animation-delay:${-since(dishAt)}s">${dish(760, 410, dishOpts)}</g>`
+    : dish(360, 336, dishOpts);
+  /* The burner is named in this line rather than under itself, so both captions sit on the same line as every
+     other bench's. Named in full because this caption is the only place the apparatus is identified — the burner
+     has no label of its own — and the lab runs a hot plate as well, so "burner" alone would not say which. */
+  g += cap(360, 'ring stand · Bunsen burner · wire gauze · evaporating dish');
+  g += cap(760, 'analytical balance');
+  if (S.burner) g += `<text x="360" y="196" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffb066">Drying the precipitate — the filter paper burns off</text>`;
   return g;
 }
 
@@ -1768,20 +2225,24 @@ function sTest() {
   const cloudB = dosed('b') && st.lim === 'na' ? 0.35 + 0.65 * clamp(st.caFrac, 0, 1) : 0;
   /* The two portions are drawn alike, so the droppers, the liquid surface and the drops can share one set of
      numbers: the droppers hang at DROP_Y and the filtrate sits at `surface`. */
-  const LEVEL = 0.42, BE_H = 142, DROP_Y = BENCH - 200;
+  /* Portions of a ~100 mL filtrate, so these are drawn at the proportions a real 100-mL beaker has against the
+     250-mL reaction beaker (0.71 as wide, 0.74 as tall) and filled to half their height: ~50 mL in a 100-mL beaker
+     reads as half full. Drawn any larger they read as another 250-mL beaker, half full of the whole filtrate. */
+  const LEVEL = 0.5, BE_W = 88, BE_H = 124, DROP_Y = BENCH - 200;
   const surface = beakerGeo(BENCH, BE_H, LEVEL);
   const dropping = k => {
     const played = since(dropAt[k]);
     return played < DROPS_MS / 1000 ? dropsInto(k === 'a' ? 320 : 640, DROP_Y, surface, played) : '';
   };
   let g = bg();
-  g += beaker(320, BENCH, { level: LEVEL, w: 138, h: BE_H, cloud: cloudA });
-  g += beaker(640, BENCH, { level: LEVEL, w: 138, h: BE_H, cloud: cloudB });
+  g += beaker(320, BENCH, { sh: true, level: LEVEL, w: BE_W, h: BE_H, cloud: cloudA });
+  g += beaker(640, BENCH, { sh: true, level: LEVEL, w: BE_W, h: BE_H, cloud: cloudB });
   g += dropper(320, DROP_Y, 'Ca(NO₃)₂ drops', !S.dropsA);
   g += dropper(640, DROP_Y, 'Na₃PO₄ drops', !S.dropsB);
   g += dropping('a') + dropping('b');     /* above the droppers, below the verdict they earn */
-  g += cap(320, BENCH + 58, 'filtrate · portion A');
-  g += cap(640, BENCH + 58, 'filtrate · portion B');
+  /* A ~100 mL filtrate split in two, each half in a 100-mL beaker drawn to scale (see BE_W/BE_H). */
+  g += cap(320, '100-mL beaker · filtrate portion A');
+  g += cap(640, '100-mL beaker · filtrate portion B');
   if (dosed('a')) g += `<text x="320" y="${BENCH - 168}" text-anchor="middle" font-size="12" font-weight="700" fill="${cloudA ? '#dff0ff' : '#8ea2c6'}">${cloudA ? 'white precipitate' : 'no precipitate'}</text>`;
   if (dosed('b')) g += `<text x="640" y="${BENCH - 168}" text-anchor="middle" font-size="12" font-weight="700" fill="${cloudB ? '#dff0ff' : '#8ea2c6'}">${cloudB ? 'white precipitate' : 'no precipitate'}</text>`;
   return g;
@@ -1827,12 +2288,17 @@ function benchSummary() {
     }
     case 4: {
       const bits = [];
-      if (S.paperWet) bits.push('paper seated wet');
+      if (S.paperWet) bits.push('filter paper seated wet');
       bits.push(S.pouredMix ? `cake ${theo}` : 'nothing poured yet');
       if (S.pouredMix) bits.push(S.clarity === 'cloudy' ? 'filtrate cloudy, refilter it'
         : S.refilters ? 'refiltered, filtrate clear' : 'filtrate clear');
       bits.push(S.beakerRinsed ? 'beaker rinsed into the funnel' : 'beaker not rinsed');
-      bits.push(`${S.washCount}/${WASH_MIN} washes from the ice bath${S.washWarm ? ' (warm water)' : ''}`, `vacuum ${S.vacuum ? 'on' : 'off'}`);
+      /* While a wash is running the summary names the tool. At the narrow width the drawn dropper and bottle are too
+         small to tell apart, and the log line has already scrolled past by the time the wash is over. */
+      bits.push(performance.now() - washAt < WASH_MS
+        ? `washing with the ${washFromBottle ? 'wash bottle, warm water' : 'dropper, cold water'}`
+        : `${S.washCount}/${WASH_MIN} washes${S.washWarm ? ', warm water from the wash bottle' : ' from the ice bath'}`);
+      bits.push(`vacuum pump ${S.vacuum ? 'on' : 'off'}`);
       if (S.vacuumDry) bits.push('wash liquid drawn through');
       return sentence(bits);
     }
@@ -1842,14 +2308,14 @@ function benchSummary() {
       return `A + Ca(NO₃)₂ drops: ${a}; B + Na₃PO₄ drops: ${b}.`;
     }
     case 6: {
-      const charred = paperCharred() ? '; the paper is charred' : '';
+      const charred = paperCharred() ? '; the filter paper is charred' : '';
       if (S.finalWeigh != null) return `Dish ${S.dishMass.toFixed(3)} g + ${S.measuredMass.toFixed(3)} g of Ca₃(PO₄)₂ = ${S.finalWeigh.toFixed(3)} g on the balance, constant to ${S.weighDelta.toFixed(3)} g${charred}.`;
       const bits = [];
       if (S.dishMass == null) bits.push('dish not weighed yet');
-      else bits.push(`dish ${S.dishMass.toFixed(3)} g${S.paperIn ? ' with the paper and precipitate inside' : ', empty'}`);
+      else bits.push(`dish ${S.dishMass.toFixed(3)} g${S.paperIn ? ' with the filter paper and precipitate inside' : ', empty'}`);
       if (S.burner) bits.push(`over the lit burner, ${S.dryTime.toFixed(1)} min`);
       else if (S.dryTime > 0) bits.push(`heated ${S.dryTime.toFixed(1)} min, burner off`);
-      if (charred) bits.push('paper charred');
+      if (charred) bits.push('filter paper charred');
       if (S.weigh1 != null) bits.push(`one reading ${S.weigh1.toFixed(3)} g, not constant yet`);
       bits.push('balance empty');
       return sentence(bits);
@@ -1911,7 +2377,7 @@ function panel() {
 
 function pWeigh() {
   const active = !S.weighed.ca ? 'ca' : (!S.weighed.na ? 'na' : null);
-  let h = `<p class="instr">Weigh out <b>about 1.000 g</b> of each solid, as the handout's procedure asks — the balance accepts <b>${MASS_MIN.toFixed(3)}–${MASS_MAX.toFixed(3)} g</b>. The bottles hold the <b>hydrates</b>, so the molar masses below are the tetrahydrate and the dodecahydrate. Both bowls start empty at <b>0.000 g</b>: drag the slider, then record the exact mass.</p>${motionNote()}`;
+  let h = `<p class="instr">Weigh out <b>about 1.000 g</b> of each solid, as the handout's procedure asks — the balance accepts <b>${MASS_MIN.toFixed(3)}–${MASS_MAX.toFixed(3)} g</b>. The jars hold the <b>hydrates</b>, so the molar masses below are the tetrahydrate and the dodecahydrate. Both bowls start empty at <b>0.000 g</b>: drag the slider, then record the exact mass.</p>${motionNote()}`;
 
   h += `<div class="task ${S.weighed.ca != null ? 'done' : (active === 'ca' ? 'active' : '')}">
     <div class="taskhead"><span>① Ca(NO₃)₂·4H₂O</span>${S.weighed.ca != null ? '<span class="checkmark">✓</span>' : ''}</div>`;
@@ -1985,7 +2451,7 @@ function pMix() {
 
 function pDigest() {
   const pct = clamp(S.boilTime / DIGEST_MIN * 100, 0, 100);
-  return `<p class="instr">Heat the mixture on the hot plate. A <b>gentle</b> boil for ${DIGEST_MIN} minutes builds larger, filterable crystals. Vigorous boiling throws product out and makes fines that pass the paper.</p>${motionNote()}
+  return `<p class="instr">Heat the mixture on the hot plate. A <b>gentle</b> boil for ${DIGEST_MIN} minutes builds larger, filterable crystals. Vigorous boiling throws product out and makes fines that pass the filter paper.</p>${motionNote()}
   <div class="clock"><span id="boilClock">${S.boilTime.toFixed(1)}</span><small>/ ${DIGEST_MIN.toFixed(1)} min digested</small></div>
   <div class="bar warm"><i id="boilBar" style="width:${pct}%"></i></div>
   <p class="vol ${S.vol < VOL_MIN ? 'warn' : ''}">Solution volume: <b id="boilVol">${S.vol.toFixed(0)}</b> mL <span class="small">(keep above ${VOL_MIN} mL)</span></p>
@@ -2005,14 +2471,14 @@ function pDigest() {
 
 function pFilter() {
   const cleared = S.clarity === 'clear' || S.refilters > 0;
-  return `<p class="instr">Seat the ashless paper in the Büchner funnel with a little D.I. water, start the vacuum, then decant the mixture through it. Rinse the beaker out into the funnel so the last of the solid follows, then wash the cake with <b>cold</b> water — warm water dissolves a little of the precipitate.</p>${motionNote()}
+  return `<p class="instr">Seat the filter paper in the Büchner funnel with a little D.I. water, start the vacuum pump, then decant the mixture through it. Rinse the beaker out into the funnel so the last of the solid follows, then wash the cake with <b>cold</b> water — warm water dissolves a little of the precipitate.</p>${motionNote()}
   <div class="task ${S.paperWet ? 'done' : 'active'}">
     <div class="taskhead"><span>Seat the filter paper</span>${S.paperWet ? '<span class="checkmark">✓</span>' : ''}</div>
-    <button class="btn ${S.paperWet ? '' : 'primary'}" data-act="wetpaper" style="width:100%" ${S.paperWet ? 'disabled' : ''}>Wet the paper</button>
+    <button class="btn ${S.paperWet ? '' : 'primary'}" data-act="wetpaper" style="width:100%" ${S.paperWet ? 'disabled' : ''}>Wet the filter paper</button>
   </div>
-  <div class="task ${S.vacuum ? 'done' : 'active'}">
-    <div class="taskhead"><span>Vacuum line</span><span class="tag">${S.vacuum ? 'on' : 'off'}</span></div>
-    <button class="btn" data-act="vacuum" style="width:100%">${S.vacuum ? 'Turn vacuum off' : 'Turn vacuum on'}</button>
+  <div class="task ${S.vacuumDry && S.vacuum ? 'active' : S.vacuum ? 'done' : 'active'}">
+    <div class="taskhead"><span>Vacuum pump</span><span class="tag">${S.vacuum ? 'on' : 'off'}</span></div>
+    <button class="btn ${S.vacuumDry && S.vacuum ? 'warm' : ''}" data-act="vacuum" style="width:100%">${S.vacuum ? 'Turn the vacuum pump off' : 'Turn the vacuum pump on'}</button>
   </div>
   <div class="task ${S.pouredMix ? 'done' : 'active'}">
     <div class="taskhead"><span>Pour the mixture through</span>${S.pouredMix ? '<span class="checkmark">✓</span>' : ''}</div>
@@ -2024,7 +2490,7 @@ function pFilter() {
   <div class="task ${S.beakerRinsed ? 'done' : 'active'}">
     <div class="taskhead"><span>Rinse the beaker into the funnel</span>${S.beakerRinsed ? '<span class="checkmark">✓</span>' : ''}</div>
     <button class="btn ${S.beakerRinsed ? '' : 'primary'}" data-act="rinsebeaker" style="width:100%" ${!S.pouredMix || !S.vacuum || S.beakerRinsed ? 'disabled' : ''}>Rinse it out with the wash bottle</button>
-    ${S.pouredMix && !S.vacuum && !S.beakerRinsed ? `<p class="small" style="margin:6px 0 0;color:#ffb066">Switch the vacuum line on — a rinse would only sit in the funnel.</p>` : ''}
+    ${S.pouredMix && !S.vacuum && !S.beakerRinsed ? `<p class="small" style="margin:6px 0 0;color:var(--warnink)">Switch the vacuum pump on — a rinse would only sit in the funnel.</p>` : ''}
   </div>
   <div class="task ${S.washCount >= WASH_MIN ? 'done' : 'active'}">
     <div class="taskhead"><span>Wash the precipitate</span><span class="tag">${S.washCount}/${WASH_MIN} portions${S.washWarm ? ' · warm' : ''}</span></div>
@@ -2032,25 +2498,25 @@ function pFilter() {
       <button class="btn primary" data-act="wash" data-val="cold" ${!S.pouredMix || !S.vacuum || S.washCount >= WASH_MIN ? 'disabled' : ''}>Cold water</button>
       <button class="btn" data-act="wash" data-val="warm" ${!S.pouredMix || !S.vacuum || S.washCount >= WASH_MIN ? 'disabled' : ''}>Warm water</button>
     </div>
-    <p class="small" style="margin:6px 0 0">Cold water keeps Ca₃(PO₄)₂ insoluble; warm water washes the NaNO₃ out faster but dissolves some product with it.</p>
-    ${!S.vacuum ? `<p class="small" style="margin:4px 0 0;color:#ffb066">Switch the vacuum line on — a wash only draws through with the pump running.</p>` : ''}
+    <p class="small" style="margin:6px 0 0">Cold water keeps Ca₃(PO₄)₂ insoluble; warm water washes the NaNO₃ out faster but dissolves some product with it. A skipped wash leaves the NaNO₃ in the cake, where it weighs as extra product.</p>
+    ${!S.vacuum ? `<p class="small" style="margin:4px 0 0;color:var(--warnink)">Switch the vacuum pump on — a wash only draws through with it running.</p>` : ''}
   </div>
   <div class="task ${S.vacuumDry ? 'done' : 'active'}">
     <div class="taskhead"><span>Draw air through the cake</span>${S.vacuumDry ? '<span class="checkmark">✓</span>' : ''}</div>
     ${vacDryLeft > 0
-      ? `<div class="clock"><span id="vacDryClock">${mmss(vacDryLeft)}</span><small>left of ${VACDRY_MIN}:00 on the pump</small></div>
+      ? `<div class="clock"><span id="vacDryClock">${mmss(vacDryLeft)}</span><small>left of ${VACDRY_MIN}:00 on the vacuum pump</small></div>
         <div class="bar"><i id="vacDryBar" style="width:${(100 * (1 - vacDryLeft / VACDRY_MIN)).toFixed(0)}%"></i></div>`
-      : `<button class="btn" data-act="vacdry" style="width:100%" ${!S.pouredMix || !S.vacuum || S.vacuumDry ? 'disabled' : ''}>Hold vacuum 2 min</button>
-        ${S.pouredMix && !S.vacuum && !S.vacuumDry ? `<p class="small" style="margin:6px 0 0">Switch the vacuum line on to draw air through the cake.</p>` : ''}`}
+      : `<button class="btn" data-act="vacdry" style="width:100%" ${!S.pouredMix || !S.vacuum || S.vacuumDry ? 'disabled' : ''}>Run the vacuum pump 2 min</button>
+        ${S.pouredMix && !S.vacuum && !S.vacuumDry ? `<p class="small" style="margin:6px 0 0">Switch the vacuum pump on to draw air through the cake.</p>` : ''}`}
   </div>
-  ${S.vacuumDry && S.vacuum ? `<p class="small" style="margin:8px 0 0;color:#ffb066">The cake is dry — switch the vacuum line off before you lift the funnel off the flask.</p>` : ''}
+  ${S.vacuumDry && S.vacuum ? `<p class="small" style="margin:8px 0 0;color:var(--warnink)">The cake is dry — switch the vacuum pump off before you lift the funnel off the filter flask.</p>` : ''}
   ${logBlock()}`;
 }
 
 function pDry() {
   const needRedry = S.weigh1 != null && S.dryTime < S.weighDry + REDRY_MIN;
   const charred = paperCharred();
-  let h = `<p class="instr">Weigh the clean evaporating dish, transfer the filter paper into it, then dry it over the burner. The ashless paper burns away cleanly and leaves only Ca₃(PO₄)₂ — but only if you stop at about ${DRY_MIN} min. Past ${CHAR_MIN} min the paper chars and the carbon it leaves is weighed as if it were product. Weigh the cooled dish, then heat it again and reweigh: a solid that is still damp reads heavy, and the reweigh is what catches it.</p>`;
+  let h = `<p class="instr">Weigh the clean evaporating dish, transfer the filter paper into it, then dry it over the burner. The ashless filter paper burns away cleanly and leaves only Ca₃(PO₄)₂ — but only if you stop at about ${DRY_MIN} min. Past ${CHAR_MIN} min the filter paper chars and the carbon it leaves is weighed as if it were product. Weigh the cooled dish, then heat it again and reweigh: a solid that is still damp reads heavy, and the reweigh is what catches it.</p>`;
   h += `<div class="task ${S.dishMass != null ? 'done' : 'active'}">
     <div class="taskhead"><span>Weigh the evaporating dish</span>${S.dishMass != null ? '<span class="checkmark">✓</span>' : ''}</div>
     ${S.dishMass != null
@@ -2069,7 +2535,7 @@ function pDry() {
       <button class="btn primary" data-act="weighfinal" ${S.burner || !S.paperIn || needRedry ? 'disabled' : ''}>Cool &amp; weigh</button>
     </div>
     ${S.weigh1 != null && S.finalWeigh == null ? `<p class="small" style="margin:6px 0 0">Last reading <b style="color:var(--txt)">${S.weigh1.toFixed(3)} g</b>. ${needRedry ? `Heat it again for at least ${REDRY_MIN} min, then weigh.` : 'Weigh again.'} Two readings within ${WEIGH_TOL} g mean constant mass.</p>` : ''}
-    ${charred ? `<div class="obs cloudy">The paper has charred — carbon stays with the solid, and each reweigh drifts. This dish will never reach constant mass.</div>` : ''}
+    ${charred ? `<div class="obs cloudy">The filter paper has charred — carbon stays with the solid, and each reweigh drifts. This dish will never reach constant mass.</div>` : ''}
     ${charred && S.charWeighs >= 2 && S.finalWeigh == null ? `<button class="btn" data-act="weighcharred" style="width:100%;margin-top:8px">Record the mass anyway — the determination is compromised</button>` : ''}
   </div>`;
   if (S.finalWeigh != null) {
@@ -2121,11 +2587,26 @@ function gate() {
     case 1: return waterArrived('ca') && S.swirlCA && waterArrived('na') && S.swirlNA;
     case 2: return S.pouredCA && S.pouredNA && S.rinses >= RINSE_MIN && S.stirred;
     case 3: return S.heat === 'off';
-    case 4: return S.paperWet && S.pouredMix && S.vacuumDry && (S.clarity === 'clear' || S.refilters > 0);
+    /* A cake still under vacuum cannot be lifted, so the pump has to be off before this step is done. The washes
+       are a choice, not a gate: skipping one leaves NaNO₃ in the solid and comes back as extra weighed mass, and
+       warm water pays for itself the same way. */
+    case 4: return S.paperWet && S.pouredMix && S.vacuumDry && !S.vacuum
+      && (S.clarity === 'clear' || S.refilters > 0);
     case 5: return dosed('a') && dosed('b') && (LITE || !!S.answer);
     case 6: return S.finalWeigh != null;
   }
   return false;
+}
+
+/* What the filtration step is still waiting for, in the order the panel lists it, so a reader who has finished every
+   task can see why Continue is still off. */
+function filterMissing() {
+  if (!S.paperWet) return 'Wet the filter paper so it seats on the funnel.';
+  if (!S.pouredMix) return S.vacuum ? 'Pour the mixture into the funnel.' : 'Turn the vacuum pump on, then pour the mixture into the funnel.';
+  if (!(S.clarity === 'clear' || S.refilters > 0)) return 'The filtrate is cloudy — pour it back and refilter it.';
+  if (!S.vacuumDry) return S.vacuum ? 'Run the vacuum pump 2 min to draw the cake dry.' : 'Turn the vacuum pump on, then run it 2 min to draw the cake dry.';
+  if (S.vacuum) return 'The cake is dry — turn the vacuum pump off to finish this step.';
+  return '';
 }
 
 function updateGate() {
@@ -2135,7 +2616,7 @@ function updateGate() {
   b.disabled = !ok;
   b.textContent = S.step === STEPS.length - 1 ? (LITE ? 'Finish →' : 'See results →') : 'Continue →';
   const hint = $('#gateHint');
-  if (hint) hint.textContent = ok ? '' : STEPS[S.step].hint;
+  if (hint) hint.textContent = ok ? '' : (S.step === 4 && filterMissing()) || STEPS[S.step].hint;
 }
 
 function render() {
@@ -2156,6 +2637,8 @@ function redrawScene() {
   _uid = 0;
   const sc = $('#scene');
   if (sc) sc.innerHTML = defs() + scene();
+  const legend = $('.caplegend');
+  if (legend && sc) legend.textContent = [...sc.querySelectorAll('text.cap')].map(t => t.textContent).join(' / ');
   syncSummary();
 }
 
@@ -2260,14 +2743,21 @@ function doAct(act, val) {
       log('Replenished the beaker with 25 mL D.I. water.');
       break;
     case 'wetpaper':
-      S.paperWet = true;
-      log('Wet the filter paper so it seats on the funnel.');
+      wetAt = performance.now();
+      repaintAfter(WET_MS);
+      wetLands(wetAt);
       break;
     case 'vacuum':
       S.vacuum = !S.vacuum;
       if (S.vacuum) { if (pumpOffAt) { pumpStall += performance.now() - pumpOffAt; pumpOffAt = 0; } }
       else if (!pumpOffAt) pumpOffAt = performance.now();
-      log(S.vacuum ? 'Vacuum line on.' : 'Vacuum line off.');
+      log(S.vacuum ? 'Vacuum pump on.' : 'Vacuum pump off.');
+      if (!S.vacuum && vacDryLeft > 0 && S.pouredMix) {
+        /* A hold still running is ended by the pump going off: the cake is as dry as that run left it. */
+        clearInterval(vacTimer); vacTimer = null;
+        vacDryLeft = 0; S.vacuumDry = true;
+        log('Stopped the pump during the air hold; the cake has drawn as dry as it will.');
+      }
       break;
     case 'pourmix':
       S.pouredMix = true;
@@ -2277,7 +2767,7 @@ function doAct(act, val) {
       S.clarity = S.boilTime >= DIGEST_MIN && !S.vigorous ? 'clear' : 'cloudy';
       log(S.clarity === 'clear'
         ? 'Decanted the mixture through the funnel; the filtrate runs clear.'
-        : `Decanted the mixture; the filtrate is still cloudy because ${S.vigorous ? 'the vigorous boil threw fines through the paper' : 'the precipitate was not digested'}.`);
+        : `Decanted the mixture; the filtrate is still cloudy because ${S.vigorous ? 'the vigorous boil threw fines through the filter paper' : 'the precipitate was not digested'}.`);
       break;
     case 'refilter':
       S.refilters++;
@@ -2285,10 +2775,11 @@ function doAct(act, val) {
       log('Returned the cloudy filtrate to the beaker and filtered again — it now runs clear.');
       break;
     case 'wash':
-      if (!S.vacuum) { toast('The pump is off — a wash would not draw through the cake.'); return; }
+      if (!S.vacuum) { toast('The vacuum pump is off — a wash would not draw through the cake.'); return; }
       S.washCount = Math.min(WASH_MIN, S.washCount + 1);
       pumpStall = 0; pumpOffAt = 0;
       washAt = performance.now();
+      washFromBottle = val === 'warm';   /* warm water comes from the bottle, cold from the pipet */
       repaintAfter(WASH_MS);
       if (val === 'warm') S.washWarm = true;
       log(val === 'warm'
@@ -2296,7 +2787,7 @@ function doAct(act, val) {
         : 'Washed the precipitate with cold D.I. water from the dropper.');
       break;
     case 'rinsebeaker':
-      if (!S.vacuum) { toast('The pump is off — the rinse would only sit in the funnel.'); return; }
+      if (!S.vacuum) { toast('The vacuum pump is off — the rinse would only sit in the funnel.'); return; }
       S.beakerRinsed = true;
       pumpStall = 0; pumpOffAt = 0;
       rinseBeakerAt = performance.now();
@@ -2305,13 +2796,14 @@ function doAct(act, val) {
       log('Rinsed the beaker into the funnel so the last of the solid followed it.');
       break;
     case 'vacdry':
-      if (!S.vacuum) { toast('The pump is off — switch the vacuum line on and hold again.'); return; }
+      if (!S.vacuum) { toast('The vacuum pump is off — switch it on and run it again.'); return; }
       vacDryLeft = VACDRY_MIN;
       ensureVac();
-      log('Held the vacuum for 2 min; air is drawn through the cake until the wash liquid is gone.');
+      log('Ran the vacuum pump for 2 min; air is drawn through the cake until the wash liquid is gone.');
       break;
     case 'weighdish':
       S.dishMass = Math.round((41 + Math.random() * 6) * 1000) / 1000;
+      carryDish();
       log(`Mass of the empty evaporating dish: ${S.dishMass.toFixed(3)} g.`);
       break;
     case 'transfer':
@@ -2324,6 +2816,7 @@ function doAct(act, val) {
       log(S.burner ? 'Lit the burner and began drying the precipitate.' : 'Turned the burner off and let the dish cool.');
       break;
     case 'weighfinal': {
+      carryDish();
       if (S.scatter == null) S.scatter = (Math.random() * 2 - 1) * SCATTER;
       const charred = paperCharred();
       /* A charred paper sheds soot, so each reading sits higher than the last and the dish never
@@ -2356,6 +2849,7 @@ function doAct(act, val) {
     }
     case 'weighcharred': {
       if ((S.charWeighs || 0) < 2) { toast('Weigh it a second time — you have not seen it drift yet.'); return; }
+      carryDish();
       /* The sheet prints the pair that was actually compared: the first reading and the last. */
       const last = S.weigh1;
       S.weigh1 = S.charFirst;
@@ -2398,7 +2892,7 @@ function ensureVac() {
     if (vacDryLeft <= 0) {
       clearInterval(vacTimer); vacTimer = null;
       S.vacuumDry = true;      /* the cake is dry, and the step closes */
-      log('The cake has drawn dry — cracked and matte on the paper.');
+      log('The cake has drawn dry — cracked and matte on the filter paper.');
       render();
     }
   }, VAC_TICK);
@@ -2434,7 +2928,7 @@ function updateBoilUI() {
   if (v && v.parentElement) v.parentElement.classList.toggle('warn', S.vol < VOL_MIN);
   const liq = document.getElementById('boilLiq');
   if (liq) {
-    const yB = BENCH - 54, hh = 156;
+    const yB = DIGEST_BASE, hh = BEAKER_250_H;
     const top = beakerGeo(yB, hh, clamp((S.vol / 250) * 0.9, 0.02, 0.94));
     liq.setAttribute('y', top);
     liq.setAttribute('height', (yB - top + 2));
@@ -2477,7 +2971,6 @@ function yieldParts() {
   if (S.boilTime < DIGEST_MIN) parts.push({ label: 'Fines from a short digest', pct: -LOSS_FINES * (1 - S.boilTime / DIGEST_MIN) });
   if (S.vigorous) parts.push({ label: 'Splatter from a vigorous boil', pct: -LOSS_SPLATTER });
   if (S.lowVol) parts.push({ label: 'Product baked onto the beaker wall', pct: -LOSS_BAKED });
-  if (!S.paperWet) parts.push({ label: 'Solid slipped past an unseated paper', pct: -LOSS_SLIP });
   if (S.refilters) parts.push({ label: `Refiltered ${times(S.refilters)}`, pct: -LOSS_REFILTER * S.refilters });
   if (S.washWarm) parts.push({ label: 'Product dissolved by the warm wash', pct: -LOSS_WARM });
   if (S.washCount < WASH_MIN) {
@@ -2572,7 +3065,7 @@ function benchLogHTML() {
 /* The data-record edition's screen: measurements and the bench's own tests, no worked results. */
 function liteResultsHTML() {
   return `<header class="rhead">
-    <div class="eyebrow">Experiment Simulation · data record</div>
+    <div class="eyebrow">Limiting Reagent Lab · data record</div>
     <h2>Run complete — the data is recorded</h2>
     <p>This edition records what you weighed and observed; it works out no moles, no limiting reagent and no yield. The filtrate tests below are the bench's own result — the simulation decides whether a cloud forms.</p>
   </header>
@@ -2652,7 +3145,6 @@ function resultsHTML() {
   if (S.lowVol) errors.push(`<b>Volume fell below ${VOL_MIN} mL</b> during digestion, leaving product baked onto the beaker wall.`);
   if (S.boilTime < DIGEST_MIN) errors.push(`<b>Digested for only ${S.boilTime.toFixed(1)} min</b> instead of ${DIGEST_MIN} — the crystals stayed small, so fines passed the filter paper and product was lost in the extra filtration.`);
   if (S.refilters > 0) errors.push('<b>The filtrate was cloudy</b> and had to be filtered again; each transfer loses solid.');
-  if (!S.paperWet) errors.push('<b>The filter paper was not seated</b> with D.I. water, so some solid slipped past the edge.');
   if (S.washCount < WASH_MIN) errors.push(`<b>The precipitate was washed only ${S.washCount} of ${WASH_MIN} times</b>, so soluble NaNO₃ stayed with the solid and inflates the mass.`);
   if (!S.beakerRinsed) errors.push('<b>The beaker was never rinsed into the funnel</b>, so the product stuck to its wall was weighed as a loss rather than recovered.');
   if (S.washWarm) errors.push('<b>The cake was washed with warm water</b>, which dissolves a little Ca₃(PO₄)₂, so some product left in the washings.');
@@ -2663,7 +3155,7 @@ function resultsHTML() {
   const rows = rowTable(dataRowList({ limiting: false, percent: false }));
 
   return `<header class="rhead">
-    <div class="eyebrow">Experiment Simulation · results</div>
+    <div class="eyebrow">Limiting Reagent Lab · results</div>
     <h2>${limName} was the limiting reagent</h2>
     <p>${excName} was in excess by ${excLeft.toFixed(3)} g, and the precipitate was Ca₃(PO₄)₂.</p>
   </header>
@@ -2845,7 +3337,7 @@ function introHTML() {
 
   return `<header class="plhead">
     <div class="eyebrow">Introduction</div>
-    <h2>Experiment Simulation — limiting reagent &amp; percent yield</h2>
+    <h2>Limiting Reagent Lab — limiting reagent &amp; percent yield</h2>
     <div style="margin-top:14px"><button class="btn primary" data-ui="close-intro">Go to the lab →</button></div>
   </header>
 
@@ -2893,7 +3385,7 @@ function prelabHTML() {
 
   return `<header class="plhead">
     <div class="eyebrow">Pre-laboratory assignment</div>
-    <h2>Experiment Simulation — pre-lab worksheet</h2>
+    <h2>Limiting Reagent Lab — pre-lab worksheet</h2>
     <p>Work through all four parts, then check your answers. This section never changes your experiment.${PRACTICE_NOTE}</p>
   </header>
 
@@ -3094,7 +3586,6 @@ function sourceKeys() {
   if (S.boilTime < DIGEST_MIN) keys.push('short');
   if (S.lowVol) keys.push('low');
   if (S.refilters > 0) keys.push('refilter');
-  if (!S.paperWet) keys.push('paper');
   if (!S.beakerRinsed) keys.push('beaker');
   if (S.washWarm) keys.push('warm');
   if (S.washCount < WASH_MIN) keys.push('wash');
@@ -3103,15 +3594,14 @@ function sourceKeys() {
   return keys;
 }
 const SOURCE_TEXT = {
-  vigorous: () => 'Vigorous boiling splattered the mixture and created fines that passed the paper.',
+  vigorous: () => 'Vigorous boiling splattered the mixture and created fines that passed the filter paper.',
   short: () => `The mixture was digested for only ${S.boilTime.toFixed(1)} min, so the crystals stayed small and fines were lost.`,
   low: () => `The volume fell below ${VOL_MIN} mL during digestion, baking product onto the beaker wall.`,
   refilter: () => 'The filtrate was cloudy, so the mixture had to be filtered again.',
-  paper: () => 'The filter paper was not seated with water, so solid slipped past its edge.',
   wash: () => `The precipitate was washed only ${S.washCount} of ${WASH_MIN} times, leaving soluble NaNO₃ in the solid.`,
   beaker: () => 'The beaker was never rinsed into the funnel, so the product still stuck to it never reached the dish.',
   warm: () => 'The cake was washed with warm water, which dissolved a little of the precipitate and carried it into the filtrate.',
-  charred: () => `The burner was left on for ${S.dryTime.toFixed(1)} min, past ${CHAR_MIN}, so the paper charred and the carbon stayed in the dish.`,
+  charred: () => `The burner was left on for ${S.dryTime.toFixed(1)} min, past ${CHAR_MIN}, so the filter paper charred and the carbon stayed in the dish.`,
   transfer: () => 'Some product always stays behind on the glassware and filter paper — unavoidable transfer loss.'
 };
 /* A tick-list counts as correct only when it matches the faults exactly. */
@@ -3125,7 +3615,7 @@ function postlabHTML() {
   if (S.measuredMass == null) {
     return `<header class="plhead">
       <div class="eyebrow">Post-laboratory assignment</div>
-      <h2>Experiment Simulation — post-lab analysis</h2>
+      <h2>Limiting Reagent Lab — post-lab analysis</h2>
       <p>Every question here is graded against the masses you recorded.</p>
     </header>
     <div class="card">
@@ -3143,7 +3633,7 @@ function postlabHTML() {
 
   return `<header class="plhead">
     <div class="eyebrow">Post-laboratory assignment</div>
-    <h2>Experiment Simulation — post-lab analysis</h2>
+    <h2>Limiting Reagent Lab — post-lab analysis</h2>
     <p>You weighed ${S.weighed.ca.toFixed(3)} g Ca(NO₃)₂·4H₂O and ${S.weighed.na.toFixed(3)} g Na₃PO₄·12H₂O, and obtained ${S.measuredMass.toFixed(3)} g of precipitate.${PRACTICE_NOTE}</p>
   </header>
 
@@ -3212,7 +3702,6 @@ function postlabHTML() {
       <label class="chk"><input type="checkbox" data-src="short"> Digested for less than ${DIGEST_MIN} minutes</label>
       <label class="chk"><input type="checkbox" data-src="low"> The volume dropped below ${VOL_MIN} mL while digesting</label>
       <label class="chk"><input type="checkbox" data-src="refilter"> The filtrate was cloudy and needed refiltering</label>
-      <label class="chk"><input type="checkbox" data-src="paper"> The filter paper was not seated properly</label>
       <label class="chk"><input type="checkbox" data-src="wash"> The precipitate was not washed enough</label>
       <label class="chk"><input type="checkbox" data-src="beaker"> The beaker was not rinsed into the funnel</label>
       <label class="chk"><input type="checkbox" data-src="warm"> The precipitate was washed with warm water</label>
@@ -3292,12 +3781,12 @@ function resetPostlab() { resetSheet('#postlabView', postlabHTML); }
 
 /* ---------- notebook ---------- */
 function notebookHTML() {
-  const title = LITE ? 'Experiment Simulation — data record' : 'Experiment Simulation — hand-in sheet';
+  const title = LITE ? 'Limiting Reagent Lab — data record' : 'Limiting Reagent Lab — hand-in sheet';
   const note = LITE
     ? 'Fill in your name, course and section, then print again.'
     : 'Fill in your name, course and section on the lab notebook, then print again.';
   let h = notebookHeader(title, note);
-  h += `<h3 class="nbtitle">${LITE ? 'Experiment Simulation — recorded data' : 'Experiment Simulation — limiting reagent and percent yield'}</h3>
+  h += `<h3 class="nbtitle">${LITE ? 'Limiting Reagent Lab — recorded data' : 'Limiting Reagent Lab — limiting reagent and percent yield'}</h3>
   <table class="data" data-nb="Data">${rowTable(dataRowList())}</table>
   <p class="small nb-rules" style="margin:8px 0 0">${BENCH_RULES}</p>
   <h3 style="margin-top:16px">Observations</h3>
@@ -3338,7 +3827,7 @@ function closeModal() {
 
 /* The notebook as plain text, read off the rendered sheet so there is only one copy of the data. */
 function notebookText() {
-  const lines = ['Experiment Simulation — limiting reagent and percent yield'];
+  const lines = ['Limiting Reagent Lab — limiting reagent and percent yield'];
   if (STUDENT.name) lines.push(`Name: ${STUDENT.name}`);
   if (STUDENT.course) lines.push(`Course: ${STUDENT.course}${STUDENT.section ? ' · Section ' + STUDENT.section : ''}`);
   if (STUDENT.date) lines.push(`Date: ${STUDENT.date}`);
@@ -3470,7 +3959,8 @@ addEventListener('afterprint', () => {
 function restart() {
   Object.assign(S, defaults());
   POSTLAB = null;
-  sprinkleAt = -1e9; topupAt = -1e9; pourMixAt = -1e9; rinseBeakerAt = -1e9; washAt = -1e9;
+  sprinkleAt = -1e9; topupAt = -1e9; pourMixAt = -1e9; rinseBeakerAt = -1e9; washAt = -1e9; wetAt = -1e9;
+  dishAt = -1e9;
   vacDryLeft = 0; pumpStall = 0; pumpOffAt = 0;
   pourAt.ca = -1e9; pourAt.na = -1e9; mixPourAt.ca = -1e9; mixPourAt.na = -1e9;
   swirlAt.ca = -1e9; swirlAt.na = -1e9;
@@ -3557,12 +4047,11 @@ $('#btnPrelab').addEventListener('click', openPrelab);
 $('#btnPostlab').addEventListener('click', openPostlab);
 $('#btnNotebook').addEventListener('click', openNotebook);
 $('#chkAnim').addEventListener('change', e => {
-  animOverride = e.target.checked;
-  try { localStorage.setItem(MOTION_KEY, animOverride ? 'on' : 'off'); } catch (err) {}
+  animOn = e.target.checked;
+  try { localStorage.setItem(MOTION_KEY, animOn ? 'on' : 'off'); } catch (err) {}
   applyMotion();
   if (!$('#labView').classList.contains('hidden')) render();   /* the step panel notes when motion is off */
 });
-motionQuery.addEventListener('change', () => { if (animOverride === null) applyMotion(); });
 applyMotion();
 $('#modalClose').addEventListener('click', closeModal);
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
@@ -3622,22 +4111,270 @@ if (LITE) {
   if (tag) tag.textContent = 'Data record · ';
 }
 
+/* ==========================================================================
+   Theme switch
+   The bench, the panels and the worksheets all read their colours from CSS, so switching is one attribute on
+   <html>; nothing is redrawn. A tiny script in <head> applies the saved choice before first paint.
+   ========================================================================== */
+const THEME_KEY = 'experiment-simulation.theme';
+const THEME_COLOR = { dark: '#070d18', light: '#edf2f9' };
+const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg>';
+const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.2A8.5 8.5 0 1 1 10.8 3.5a6.8 6.8 0 0 0 9.7 9.7z"/></svg>';
+const currentTheme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+function setTheme(t, save = true) {
+  t = t === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', THEME_COLOR[t]);
+  const b = $('#btnTheme');
+  if (b) {
+    /* The icon names where the click goes: a sun on the dark bench, a moon on the light one. */
+    b.innerHTML = t === 'dark' ? ICON_SUN : ICON_MOON;
+    const to = t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    b.title = to; b.setAttribute('aria-label', to);
+  }
+  if (save) { try { localStorage.setItem(THEME_KEY, t); } catch (e) {} }
+}
+setTheme(currentTheme(), false);
+$('#btnTheme').addEventListener('click', () => setTheme(currentTheme() === 'light' ? 'dark' : 'light'));
+
+/* ==========================================================================
+   Calculator — the standard draggable scientific calculator (recursive-descent parser, no eval).
+   Opened from the top-bar button, not a floating one: the step panel's Continue button owns the bottom-right corner.
+   "Use result in answer box" fills whichever worksheet answer box was focused last.
+   ========================================================================== */
+(function () {
+/* ---------- expression engine (no eval) ---------- */
+function tokenize(s) {
+  const out = []; let i = 0;
+  while (i < s.length) {
+    const rest = s.slice(i); let m;
+    if (/^\s/.test(rest)) { i++; continue; }
+    if ((m = /^(\d+\.?\d*|\.\d+)(E[+-]?\d+)?/.exec(rest))) { out.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue; }
+    if ((m = /^(asin|acos|atan|sin|cos|tan|ln|log|sqrt|pi|ans|e)/.exec(rest))) {
+      const w = m[1]; out.push({ t: (w === 'pi' || w === 'e' || w === 'ans') ? 'const' : 'fn', v: w }); i += w.length; continue;
+    }
+    if ('+-*/^()'.includes(rest[0])) { out.push({ t: 'op', v: rest[0] }); i++; continue; }
+    throw new Error('Syntax error');
+  }
+  return out;
+}
+function evaluate(str, opts) {
+  const tk = tokenize(str); let p = 0;
+  const peek = () => tk[p], nxt = () => tk[p++];
+  const isOp = (t, v) => t && t.t === 'op' && t.v === v;
+  const starts = (t) => t && (t.t === 'num' || t.t === 'const' || t.t === 'fn' || isOp(t, '('));
+  const toRad = (x) => (opts.deg ? x * Math.PI / 180 : x);
+  const fromRad = (x) => (opts.deg ? x * 180 / Math.PI : x);
+  const F = {
+    sin: (x) => Math.sin(toRad(x)), cos: (x) => Math.cos(toRad(x)), tan: (x) => Math.tan(toRad(x)),
+    asin: (x) => fromRad(Math.asin(x)), acos: (x) => fromRad(Math.acos(x)), atan: (x) => fromRad(Math.atan(x)),
+    ln: Math.log, log: Math.log10, sqrt: Math.sqrt,
+  };
+  function expr() {
+    let v = term();
+    while (isOp(peek(), '+') || isOp(peek(), '-')) { const o = nxt().v; const r = term(); v = o === '+' ? v + r : v - r; }
+    return v;
+  }
+  function term() {
+    let v = unary();
+    for (;;) {
+      const t = peek();
+      if (isOp(t, '*') || isOp(t, '/')) { nxt(); const r = unary(); v = t.v === '*' ? v * r : v / r; }
+      else if (starts(t)) v *= unary();
+      else return v;
+    }
+  }
+  function unary() {
+    if (isOp(peek(), '-')) { nxt(); return -unary(); }
+    if (isOp(peek(), '+')) { nxt(); return unary(); }
+    return power();
+  }
+  function power() {
+    const b = primary();
+    if (isOp(peek(), '^')) { nxt(); return Math.pow(b, unary()); }
+    return b;
+  }
+  function primary() {
+    const t = nxt();
+    if (!t) throw new Error('Incomplete');
+    if (t.t === 'num') return t.v;
+    if (t.t === 'const') return t.v === 'pi' ? Math.PI : t.v === 'e' ? Math.E : opts.ans;
+    if (t.t === 'fn') {
+      if (!isOp(peek(), '(')) throw new Error('Use ( after ' + t.v);
+      nxt(); const a = expr(); if (isOp(peek(), ')')) nxt();
+      return F[t.v](a);
+    }
+    if (isOp(t, '(')) { const v = expr(); if (isOp(peek(), ')')) nxt(); return v; }
+    throw new Error('Syntax error');
+  }
+  const v = expr();
+  if (p < tk.length) throw new Error('Syntax error');
+  if (!isFinite(v)) throw new Error('Math error');
+  return v;
+}
+function fmt(x) {
+  if (x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 1e10 || a < 1e-6) return x.toExponential(6).replace(/\.?0+e/, 'e').replace('e+', 'e');
+  return String(Number(x.toPrecision(10)));
+}
+const pretty = (s) => s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−').replace(/pi/g, 'π').replace(/sqrt\(/g, '√(').replace(/asin\(/g, 'sin⁻¹(').replace(/acos\(/g, 'cos⁻¹(').replace(/atan\(/g, 'tan⁻¹(');
+
+/* ---------- UI ---------- */
+function initCalculator(getLastInput) {
+  const st = { expr: '', deg: true, inv: false, ans: 0, done: false, err: '' };
+  const panel = document.getElementById('calc'), fab = document.getElementById('fab');
+  const K = (label, act, cls, extra) => ({ label, act, cls: cls || '', extra: extra || '' });
+  const rows = () => [
+    [K('2nd', 'inv', st.inv ? 'on fn' : 'fn'), K(st.deg ? 'DEG' : 'RAD', 'deg', 'fn'), K('(', '('), K(')', ')'), K('⌫', 'back', 'clr')],
+    [K(st.inv ? 'sin⁻¹' : 'sin', st.inv ? 'asin(' : 'sin(', 'fn'), K(st.inv ? 'cos⁻¹' : 'cos', st.inv ? 'acos(' : 'cos(', 'fn'), K(st.inv ? 'tan⁻¹' : 'tan', st.inv ? 'atan(' : 'tan(', 'fn'), K(st.inv ? 'eˣ' : 'ln', st.inv ? 'e^(' : 'ln(', 'fn'), K(st.inv ? '10ˣ' : 'log', st.inv ? '10^(' : 'log(', 'fn')],
+    [K('√', 'sqrt(', 'fn'), K('x²', '^2', 'fn'), K('xʸ', '^', 'fn'), K('π', 'pi', 'fn'), K('e', 'e', 'fn')],
+    [K('7', '7'), K('8', '8'), K('9', '9'), K('÷', '/', 'op'), K('C', 'clear', 'clr')],
+    [K('4', '4'), K('5', '5'), K('6', '6'), K('×', '*', 'op'), K('Ans', 'ans', 'fn')],
+    [K('1', '1'), K('2', '2'), K('3', '3'), K('−', '-', 'op'), K('EE', 'E', 'fn')],
+    [K('0', '0'), K('.', '.'), K('+', '+', 'op'), K('=', '=', 'eq', 'grid-column:span 2')],
+  ];
+  panel.innerHTML = `
+    <div class="calc-head" id="calcHead"><span class="grip"><span class="dots" aria-hidden="true">⠿</span>Calculator</span>
+      <button type="button" id="calcClose" aria-label="Close calculator">&times;</button></div>
+    <div class="disp"><div class="expr"><span id="cExpr"></span></div><div class="res" id="cRes">0</div>
+      <div class="meta"><span id="cMode"></span><span>drag the header to move</span></div></div>
+    <div class="keys" id="cKeys"></div>
+    <div class="calc-foot"><button type="button" class="btn teal" id="cUse">Use result in answer box</button></div>`;
+  const $c = (s) => panel.querySelector(s);
+
+  function preview() {
+    if (!st.expr.trim()) return { txt: '' };
+    try { return { txt: fmt(evaluate(st.expr, st)) }; } catch (e) { return { txt: '' }; }
+  }
+  function paint() {
+    const keys = $c('#cKeys'), flat = rows().flat();
+    keys.innerHTML = flat.map((k, i) => `<button type="button" data-i="${i}" class="${k.cls}" style="${k.extra}">${k.label}</button>`).join('');
+    keys.onclick = (e) => { const b = e.target.closest('button'); if (b) press(flat[Number(b.dataset.i)].act); };
+    keys.onmousedown = (e) => e.preventDefault();
+    $c('#cExpr').textContent = st.done ? pretty(st.shown) + ' =' : pretty(st.expr);
+    const r = $c('#cRes');
+    if (st.err) r.textContent = st.err;
+    else if (st.done && !st.expr) r.textContent = fmt(st.ans);
+    else r.textContent = preview().txt || '0';
+    r.classList.toggle('err', !!st.err);
+    $c('#cMode').textContent = (st.deg ? 'degrees' : 'radians') + (st.ans ? '   ans = ' + fmt(st.ans) : '');
+  }
+  function append(s) {
+    if (st.done) {
+      st.done = false;
+      st.expr = (/^[+\-*/^]/.test(s) ? 'ans' : '') + s;   // operators continue from the last answer
+      return;
+    }
+    st.expr += s;
+  }
+  function press(a) {
+    st.err = '';
+    if (a === 'inv') st.inv = !st.inv;
+    else if (a === 'deg') st.deg = !st.deg;
+    else if (a === 'clear') { st.expr = ''; st.done = false; }
+    else if (a === 'back') {
+      if (st.done) { st.done = false; st.expr = ''; }
+      else st.expr = st.expr.replace(/(asin\(|acos\(|atan\(|sqrt\(|sin\(|cos\(|tan\(|log\(|ln\(|ans|pi|.)$/, '');
+    } else if (a === '=') {
+      if (st.expr.trim()) {
+        try { st.ans = evaluate(st.expr, st); st.shown = st.expr; st.expr = ''; st.done = true; }
+        catch (e) { st.err = e.message; }
+      }
+    } else append(a);
+    paint();
+  }
+
+  /* Opens under the top bar, at the right edge, unless the user has already dragged it somewhere. */
+  function place() {
+    if (panel.style.left) return;
+    const bar = document.querySelector('.topbar');
+    const top = Math.max(8, (bar ? bar.getBoundingClientRect().bottom : 60) + 8);
+    const side = document.querySelector('.panel');
+    const pr = side && side.offsetParent !== null ? side.getBoundingClientRect() : null;
+    /* Beside the step panel, on the bench's side of it, so it never covers the Continue button. */
+    const right = pr && pr.width && window.innerWidth > 1020 ? Math.max(12, window.innerWidth - pr.left + 12) : 12;
+    panel.style.right = right + 'px'; panel.style.bottom = 'auto'; panel.style.top = top + 'px';
+    panel.style.top = Math.max(4, Math.min(top, window.innerHeight - panel.offsetHeight - 4)) + 'px';
+  }
+  function setOpen(o) {
+    panel.hidden = !o; fab.setAttribute('aria-expanded', String(o));
+    fab.setAttribute('aria-label', o ? 'Close calculator' : 'Open calculator');
+    fab.title = o ? 'Close calculator' : 'Calculator';
+    if (o) { paint(); place(); }
+  }
+  fab.onclick = () => setOpen(panel.hidden);
+  $c('#calcClose').onclick = () => setOpen(false);
+  fab.setAttribute('aria-controls', 'calc'); setOpen(false);
+
+  /* insert result into the last-focused answer box */
+  $c('#cUse').onclick = () => {
+    const inp = getLastInput && getLastInput();
+    let v = st.done ? st.ans : (() => { try { return evaluate(st.expr || '0', st); } catch (e) { return NaN; } })();
+    if (!isFinite(v) || !inp || !document.contains(inp) || inp.disabled) {
+      $c('#cUse').textContent = inp && !inp.disabled ? 'Nothing to insert yet' : 'Tap an answer box first';
+      setTimeout(() => { $c('#cUse').textContent = 'Use result in answer box'; }, 1400); return;
+    }
+    inp.value = String(Number(v.toPrecision(6)));
+    inp.dispatchEvent(new Event('input', { bubbles: true }));   /* the sheet's own listeners see a typed answer */
+    $c('#cUse').textContent = 'Inserted';
+    setTimeout(() => { $c('#cUse').textContent = 'Use result in answer box'; }, 1000);
+  };
+
+  /* keyboard (only when focus is not in a form field) */
+  document.addEventListener('keydown', (e) => {
+    if (panel.hidden || /^(INPUT|SELECT|TEXTAREA)$/.test((e.target.tagName || ''))) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key;
+    if (/^[0-9.]$/.test(k) || '+-*/^()'.includes(k)) { press(k); e.preventDefault(); }
+    else if (k === 'Enter' || k === '=') { press('='); e.preventDefault(); }
+    else if (k === 'Backspace') { press('back'); e.preventDefault(); }
+    else if (k === 'Escape') { setOpen(false); }
+    else if (k === 'p') press('pi'); else if (k === 'e') press('e');
+  });
+
+  /* drag by header (mouse, touch, pen) */
+  const head = $c('#calcHead'); let drag = null;
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    const r = panel.getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    panel.style.left = r.left + 'px'; panel.style.top = r.top + 'px'; panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    head.setPointerCapture(e.pointerId);
+  });
+  head.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const x = Math.min(Math.max(4, e.clientX - drag.dx), window.innerWidth - w - 4);
+    const y = Math.min(Math.max(4, e.clientY - drag.dy), window.innerHeight - h - 4);
+    panel.style.left = x + 'px'; panel.style.top = y + 'px';
+  });
+  const end = () => { drag = null; };
+  head.addEventListener('pointerup', end); head.addEventListener('pointercancel', end);
+  window.addEventListener('resize', () => {
+    if (panel.style.left) {
+      const r = panel.getBoundingClientRect();
+      panel.style.left = Math.min(Math.max(4, r.left), Math.max(4, window.innerWidth - r.width - 4)) + 'px';
+      panel.style.top = Math.min(Math.max(4, r.top), Math.max(4, window.innerHeight - r.height - 4)) + 'px';
+    }
+  });
+}
+window.initCalculator = initCalculator;
+})();
+
+/* The last numeric answer box the reader touched is where "Use result" puts the number. Name, course and section
+   boxes are text for the hand-in sheet, so they are not answer boxes. */
+let lastAnswerBox = null;
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if (el && el.matches && el.matches('input[data-ans], input[type="number"], input[inputmode="decimal"]')) lastAnswerBox = el;
+});
+$('#fab').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="8" y="5.5" width="8" height="4" rx="1"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01"/></svg>';
+window.initCalculator(() => lastAnswerBox);
+
 render();
 openIntro();
-/* ---------- light / dark theme ---------- */
-const THEME_KEY = 'experiment-simulation.theme';
-function applyTheme(t) {
-  document.documentElement.dataset.theme = t;
-  const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = t === 'light' ? '#eef3fa' : '#070d18';
-  const b = $('#btnTheme');
-  if (b) b.textContent = t === 'light' ? '🌙 Dark' : '☀️ Light';
-}
-applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
-$('#btnTheme').addEventListener('click', () => {
-  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-  applyTheme(next);
-  try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
-});
 </script>
+</body>
 </html>
