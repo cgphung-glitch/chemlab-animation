@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Isomer Generator</title>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--fg:#14202e;--mut:#5b6879;--bd:#d5dce6;--ac:#0b6e8a;--acf:#fff;--O:#d02a1e;--N:#2358d6;--S:#946200;--X:#14803c;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e141c;--card:#17202b;--fg:#e6ecf4;--mut:#93a1b3;--bd:#283343;--ac:#4cc3e6;--acf:#05202a;--O:#ff7b6e;--N:#8bb0ff;--S:#f5b942;--X:#4ade80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e141c;--card:#17202b;--fg:#e6ecf4;--mut:#93a1b3;--bd:#283343;--ac:#4cc3e6;--acf:#05202a;--O:#ff7b6e;--N:#8bb0ff;--S:#f5b942;--X:#4ade80;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:1000px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+h1{font-size:1.45rem;margin:0;letter-spacing:-.01em}
+.sub{color:var(--mut);margin:2px 0 0;font-size:.92rem}
+button,input,select{font:inherit;color:inherit}
+.tg{border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:8px 14px;cursor:pointer;min-height:40px}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+#f{flex:1 1 180px;min-width:0;font-size:1.15rem;padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);letter-spacing:.02em}
+#go{background:var(--ac);color:var(--acf);border:0;border-radius:8px;padding:10px 20px;font-weight:600;cursor:pointer;min-height:44px}
+#go:disabled{opacity:.55}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.ex{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.ex button{border:1px solid var(--bd);background:transparent;border-radius:6px;padding:5px 10px;cursor:pointer}
+#st{margin:14px 2px 6px;color:var(--mut);min-height:1.4em}
+#st b{color:var(--fg)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 2px 10px}
+.bar select{border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:6px 8px}
+#out{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;display:flex;flex-direction:column;min-width:0}
+.c svg{width:100%;height:150px;display:block;color:var(--fg)}
+.c code{font:12px/1.3 ui-monospace,Menlo,Consolas,monospace;color:var(--mut);word-break:break-all;cursor:pointer;padding:6px 2px 0;border-top:1px solid var(--bd);margin-top:4px}
+#more{display:block;margin:14px auto;border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:10px 18px;cursor:pointer}
+.ctl{display:flex;gap:8px;align-items:center}.ctl .tg{padding:6px 12px;min-height:36px}
+.note{color:var(--mut);font-size:.85rem;margin-top:18px}
+</style></head><body>
+<div class="w">
+<header>
+<div><h1>Isomer generator</h1><p class="sub">Enter a molecular formula to see its constitutional isomers.</p></div>
+<button class="tg" id="th" type="button" aria-label="Toggle dark and light theme"></button>
+</header>
+<div class="panel">
+<div class="row">
+<input id="f" value="C4H10" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="text" aria-label="Molecular formula" placeholder="e.g. C4H8O">
+<button id="go" type="button">Generate</button>
+</div>
+<div class="ex" id="ex"></div>
+</div>
+<div id="st" role="status" aria-live="polite"></div>
+<div class="bar" id="bar" hidden><span id="cnt"></span>
+<span class="ctl"><button class="tg" id="pdf" type="button" hidden>Export PDF</button><select id="flt" aria-label="Filter structures"><option value="all">All structures</option><option value="acy">Acyclic only</option><option value="ring">Contains a ring</option></select></span></div>
+<div id="out"></div>
+<button id="more" type="button" hidden>Show more</button>
+<p class="note">Constitutional isomers only (no stereoisomers). Supports C, H, N, O, S, F, Cl, Br, I with valences 4, 1, 3, 2, 2, 1, 1, 1, 1, up to 10 non-hydrogen atoms. Tap a SMILES string to copy it.</p>
+</div>
+<script>
+const VAL={C:4,N:3,O:2,S:2,F:1,Cl:1,Br:1,I:1};
+const $=id=>document.getElementById(id);
+const R=document.documentElement;
+function setTheme(t){R.dataset.theme=t;$('th').textContent=t==='dark'?'Light mode':'Dark mode';try{localStorage.setItem('iso-theme',t)}catch(e){}}
+let t0=null;try{t0=localStorage.getItem('iso-theme')}catch(e){}
+setTheme(t0||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
+$('th').onclick=()=>setTheme(R.dataset.theme==='dark'?'light':'dark');
+
+let calls=0;const CAP=150000;
+function canon(t,E){
+ if(++calls>CAP)throw Error('That formula produces too many candidates. Try fewer atoms or less unsaturation.');
+ const n=t.length,adj=t.map(()=>[]);
+ for(const [i,j,o] of E){adj[i].push([j,o]);adj[j].push([i,o]);}
+ const el=[...new Set(t)].sort();
+ const refine=c=>{for(;;){
+  const sig=c.map((x,i)=>x+'|'+adj[i].map(([j,o])=>c[j]+':'+o).sort().join(','));
+  const u=[...new Set(sig)].sort(),m=new Map(u.map((s,k)=>[s,k])),nc=sig.map(s=>m.get(s));
+  if(u.length===new Set(c).size)return nc;c=nc;}};
+ let best=null;
+ const go=c=>{
+  c=refine(c);const cnt=new Map();c.forEach(x=>cnt.set(x,(cnt.get(x)||0)+1));
+  let cls=-1;for(const [k,v] of [...cnt].sort((a,b)=>a[0]-b[0]))if(v>1){cls=k;break;}
+  if(cls<0){const ty=[];t.forEach((e,i)=>ty[c[i]]=e);
+   const b=E.map(([i,j,o])=>{const a=c[i],d=c[j];return(a<d?a:d)+'-'+(a<d?d:a)+'-'+o}).sort().join(',');
+   const s=ty.join('.')+'#'+b;if(best===null||s<best)best=s;return;}
+  for(let v=0;v<n;v++)if(c[v]===cls){const c2=c.map(x=>x*2+1);c2[v]=cls*2;go(c2);}
+ };
+ go(t.map(e=>el.indexOf(e)));return best;
+}
+
+function parse(s){
+ s=s.replace(/\s+/g,'');
+ if(!/^([A-Z][a-z]?\d*)+$/.test(s))throw Error('Enter a formula such as C4H10 or C3H6O (capital letters matter).');
+ const m={};
+ for(const [,e,k] of s.matchAll(/([A-Z][a-z]?)(\d*)/g)){
+  if(!(e in VAL)&&e!=='H')throw Error('Supported elements: C, H, N, O, S, F, Cl, Br, I.');
+  m[e]=(m[e]||0)+(k===''?1:+k);}
+ return m;
+}
+
+async function gen(m,prog){
+ const H=m.H||0,types=[];
+ for(const e in m)if(e!=='H')for(let i=0;i<m[e];i++)types.push(e);
+ const n=types.length;
+ if(!n)throw Error('Include at least one non-hydrogen atom.');
+ if(n>10)throw Error('This tool handles up to 10 non-hydrogen atoms.');
+ const V=types.reduce((a,e)=>a+VAL[e],0),tb=V-H,D=tb/2-(n-1);
+ if(tb<0||tb%2||D<0)throw Error('No neutral, connected structure fits that formula.');
+ calls=0;
+ let cur=new Map();
+ for(const e in m)if(e!=='H'&&m[e]>0){const rem={...m};delete rem.H;rem[e]--;const t=[e];cur.set(canon(t,[]),{t,E:[],u:[0],e:0,rem});}
+ for(let k=1;k<n;k++){
+  prog('Building structures: '+(k+1)+' of '+n+' atoms…');
+  await new Promise(r=>setTimeout(r,0));
+  const nx=new Map(),last=k===n-1;
+  for(const s of cur.values())for(const e in s.rem){
+   if(!s.rem[e])continue;
+   const v=VAL[e],fr=s.t.map((x,i)=>VAL[x]-s.u[i]),pick=[];
+   const add=b=>{
+    if(b<1||s.e+b-1>D||(last&&s.e+b-1!==D))return;
+    const t=[...s.t,e],E=[...s.E,...pick.map(([j,o])=>[j,k,o])],u=s.u.slice();
+    pick.forEach(([j,o])=>u[j]+=o);u.push(b);
+    const key=canon(t,E);
+    if(!nx.has(key)){const rem={...s.rem};rem[e]--;nx.set(key,{t,E,u,e:s.e+b-1,rem});}
+   };
+   const rec=(i,b)=>{
+    if(i===k){add(b);return;}
+    rec(i+1,b);
+    for(let o=1;o<=3&&b+o<=v&&o<=fr[i];o++){
+     if(s.e+b+o-1>D)break;
+     pick.push([i,o]);rec(i+1,b+o);pick.pop();}
+   };
+   rec(0,0);
+  }
+  cur=nx;
+ }
+ return {D,res:[...cur.values()].filter(s=>s.e===D)};
+}
+
+function smiles(g){
+ const n=g.t.length,adj=g.t.map(()=>[]);
+ g.E.forEach(([i,j,o])=>{adj[i].push([j,o]);adj[j].push([i,o]);});
+ const seen=Array(n).fill(0),ch=[],rc=g.t.map(()=>[]),done=new Set();let rn=0;
+ const sym=o=>o===2?'=':o===3?'#':'';
+ const d1=(i,p)=>{seen[i]=1;ch[i]=[];
+  for(const [j,o] of adj[i]){
+   if(j===p)continue;
+   const k=Math.min(i,j)+'-'+Math.max(i,j);if(done.has(k))continue;done.add(k);
+   if(!seen[j]){ch[i].push([j,o]);d1(j,i);}
+   else{rn++;rc[i].push([rn,o]);rc[j].push([rn,o]);}
+  }};
+ let st=adj.findIndex(a=>a.length===1);if(st<0)st=0;
+ d1(st,-1);
+ const d2=i=>{
+  let s=g.t[i]+rc[i].map(([r,o])=>sym(o)+(r>9?'%'+r:r)).join('');
+  ch[i].forEach(([j,o],idx)=>{const part=sym(o)+d2(j);s+=idx<ch[i].length-1?'('+part+')':part;});
+  return s;};
+ return d2(st);
+}
+
+function score(g,p){
+ const n=p.length;let s=0;const nb=Array.from({length:n},()=>new Set());g.E.forEach(([i,j])=>{nb[i].add(j);nb[j].add(i);});
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){if(nb[i].has(j)||[...nb[i]].some(x=>nb[j].has(x)))continue;const d=Math.hypot(p[i][0]-p[j][0],p[i][1]-p[j][1]);if(d<1.2)s+=(1.2-d)**2;}
+ const E=g.E,o=(A,B,C)=>(B[0]-A[0])*(C[1]-A[1])-(B[1]-A[1])*(C[0]-A[0]);
+ for(let a=0;a<E.length;a++)for(let b=a+1;b<E.length;b++){
+  const [i,j]=E[a],[k,l]=E[b];if(i===k||i===l||j===k||j===l)continue;
+  if(o(p[i],p[j],p[k])*o(p[i],p[j],p[l])<0&&o(p[k],p[l],p[i])*o(p[k],p[l],p[j])<0)s+=5;}
+ return s;
+}
+/* Acyclic molecules: zigzag chains with 120° bond angles; branches at ±60° from the chain */
+function tree(g,rnd){
+ const n=g.t.length,adj=g.t.map(()=>[]),D=Math.PI/180,p=Array(n);
+ g.E.forEach(([i,j])=>{adj[i].push(j);adj[j].push(i);});
+ const far=s=>{const d=Array(n).fill(-1);d[s]=0;const q=[s];let last=s;
+  while(q.length){const x=q.shift();last=x;for(const y of adj[x])if(d[y]<0){d[y]=d[x]+1;q.push(y);}}return last;};
+ const root=far(far(0));p[root]=[0,0];
+ const go=(i,par,th,t)=>{
+  const ch=adj[i].filter(j=>j!==par).map(j=>[rnd(),j]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]),k=ch.length;
+  if(!k)return;
+  let dirs,ts;
+  if(par<0){const base=rnd()<.5?-30*D:-60*D;dirs=ch.map((_,m)=>base+m*2*Math.PI/k);ts=ch.map((_,m)=>m%2?1:-1);}
+  else if(k===1){const tt=rnd()<.12?t:-t;dirs=[th+tt*60*D];ts=[tt];}
+  else if(k===2){dirs=[th+60*D,th-60*D];ts=[1,-1];}
+  else{dirs=[th-90*D,th,th+90*D];ts=[-1,t,1];}
+  ch.forEach((j,m)=>{p[j]=[p[i][0]+Math.cos(dirs[m]),p[i][1]+Math.sin(dirs[m])];go(j,i,dirs[m],ts[m]);});
+ };
+ go(root,-1,0,1);return p;
+}
+/* Rings: find a minimal ring set, draw each as a regular polygon (fused rings share an edge, spiro rings share an atom) */
+function ringBase(g){
+ const n=g.t.length,m=g.E.length,adj=g.t.map(()=>[]),eid=new Map();
+ g.E.forEach(([i,j],k)=>{adj[i].push(j);adj[j].push(i);eid.set(i+'-'+j,k);eid.set(j+'-'+i,k);});
+ const cyc=new Map();
+ for(const [u,v] of g.E){
+  const prev=Array(n).fill(-2);prev[u]=-1;const q=[u];
+  while(q.length){const x=q.shift();if(x===v)break;for(const y of adj[x]){if(x===u&&y===v)continue;if(prev[y]===-2){prev[y]=x;q.push(y);}}}
+  if(prev[v]===-2)continue;
+  const path=[];for(let x=v;x!==-1;x=prev[x])path.push(x);
+  cyc.set([...path].sort((a,b)=>a-b).join(),path);
+ }
+ const need=m-n+1,rows=[],todo=[];
+ for(const c of [...cyc.values()].sort((a,b)=>a.length-b.length)){
+  const r=Array(m).fill(0);for(let i=0;i<c.length;i++)r[eid.get(c[i]+'-'+c[(i+1)%c.length])]^=1;
+  for(const [pv,row] of rows)if(r[pv])for(let k=0;k<m;k++)r[k]^=row[k];
+  const pv=r.indexOf(1);if(pv<0)continue;
+  rows.push([pv,r]);todo.push(c);if(todo.length===need)break;
+ }
+ if(todo.length!==need)return null;
+ const p=Array(n).fill(null),placed=[],TP=2*Math.PI;
+ const c0=todo.shift(),k0=c0.length,R0=1/(2*Math.sin(Math.PI/k0));
+ c0.forEach((a,i)=>p[a]=[R0*Math.cos(TP*i/k0),R0*Math.sin(TP*i/k0)]);
+ placed.push({c:c0,ctr:[0,0]});
+ let prog=true;
+ while(todo.length&&prog){
+  prog=false;
+  for(let ti=0;ti<todo.length;ti++){
+   const c=todo[ti],k=c.length,sh=c.filter(a=>p[a]);
+   if(!sh.length)continue;
+   const R=1/(2*Math.sin(Math.PI/k));let o=[],ctr;
+   if(sh.length===2){
+    const A=sh[0],B=sh[1],ia=c.indexOf(A),ib=c.indexOf(B);
+    if((ia+1)%k!==ib&&(ib+1)%k!==ia)return null;
+    const fw=(ia+1)%k===ib;
+    for(let i=0;i<k;i++)o.push(c[(ia+(fw?i:-i)+k)%k]);
+    const host=placed.find(r=>r.c.includes(A)&&r.c.includes(B));
+    if(!host)return null;
+    const M=[(p[A][0]+p[B][0])/2,(p[A][1]+p[B][1])/2];
+    let nx=-(p[B][1]-p[A][1]),ny=p[B][0]-p[A][0];
+    if((host.ctr[0]-M[0])*nx+(host.ctr[1]-M[1])*ny>0){nx=-nx;ny=-ny;}
+    const ap=R*Math.cos(Math.PI/k);
+    ctr=[M[0]+nx*ap,M[1]+ny*ap];
+   }else if(sh.length===1){
+    const A=sh[0];let sx=0,sy=0;
+    for(const y of adj[A])if(p[y]){const d=Math.hypot(p[y][0]-p[A][0],p[y][1]-p[A][1])||1;sx+=(p[y][0]-p[A][0])/d;sy+=(p[y][1]-p[A][1])/d;}
+    const d=Math.hypot(sx,sy)||1;ctr=[p[A][0]-sx/d*R,p[A][1]-sy/d*R];
+    for(let i=0;i<k;i++)o.push(c[(c.indexOf(A)+i)%k]);
+   }else return null;
+   const a0=Math.atan2(p[o[0]][1]-ctr[1],p[o[0]][0]-ctr[0]);
+   let sg=1;
+   if(p[o[1]]){const ax=p[o[0]][0]-ctr[0],ay=p[o[0]][1]-ctr[1],bx=p[o[1]][0]-ctr[0],by=p[o[1]][1]-ctr[1];sg=ax*by-ay*bx>0?1:-1;}
+   for(let i=1;i<k;i++)if(!p[o[i]])p[o[i]]=[ctr[0]+R*Math.cos(a0+sg*TP*i/k),ctr[1]+R*Math.sin(a0+sg*TP*i/k)];
+   placed.push({c,ctr});todo.splice(ti,1);prog=true;break;
+  }
+ }
+ if(todo.length)return null;
+ return {p,adj};
+}
+/* Attach chains and substituents to the ring skeleton: zigzag, 120° angles */
+function grow(base,rnd){
+ const {adj}=base,D=Math.PI/180,p=base.p.map(a=>a&&a.slice());
+ const ex=(i,th,t)=>{
+  const ch=adj[i].filter(j=>!p[j]).map(j=>[rnd(),j]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]),k=ch.length;
+  if(!k)return;
+  let dirs,ts;
+  if(th===null){
+   let sx=0,sy=0;
+   for(const y of adj[i])if(p[y]){const d=Math.hypot(p[y][0]-p[i][0],p[y][1]-p[i][1])||1;sx+=(p[y][0]-p[i][0])/d;sy+=(p[y][1]-p[i][1])/d;}
+   const out=Math.atan2(-sy,-sx);
+   if(k===1){dirs=[out];ts=[rnd()<.5?1:-1];}
+   else{dirs=ch.map((_,m)=>out+(m-(k-1)/2)*(k===2?120:70)*D);ts=ch.map((_,m)=>m%2?1:-1);}
+  }else if(k===1){const tt=rnd()<.12?t:-t;dirs=[th+tt*60*D];ts=[tt];}
+  else if(k===2){dirs=[th+60*D,th-60*D];ts=[1,-1];}
+  else{dirs=[th-90*D,th,th+90*D];ts=[-1,t,1];}
+  ch.forEach((j,m)=>{p[j]=[p[i][0]+Math.cos(dirs[m]),p[i][1]+Math.sin(dirs[m])];ex(j,dirs[m],ts[m]);});
+ };
+ p.forEach((a,i)=>{if(a)ex(i,null,0);});
+ return p;
+}
+function layout(g){
+ const n=g.t.length,cyc=g.E.length>n-1,base=cyc?ringBase(g):null,seeds=cyc&&!base?6:60;let best=null,bs=1e9;
+ for(let s=0;s<seeds;s++){
+  let x=s*7919+13;
+  const rnd=s===0?()=>.5:()=>((x=(Math.imul(x,1103515245)+12345)&0x7fffffff)/0x7fffffff);
+  const p=cyc?(base?grow(base,rnd):force(g,s)):tree(g,rnd),sc=score(g,p);
+  if(sc<bs){bs=sc;best=p;if(!sc)break;}
+ }
+ return best;
+}
+function force(g,seed){
+ const n=g.t.length;
+ const p=g.t.map((_,i)=>[Math.cos(i*2.4+seed*1.3)*(.5+i*.2)*(1+.1*seed),Math.sin(i*2.4+seed*1.3)*(.5+i*.2)*(1+.1*seed)]);
+ const T=400;
+ for(let it=0;it<T;it++){
+  const f=p.map(()=>[0,0]);
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+   let dx=p[j][0]-p[i][0],dy=p[j][1]-p[i][1];const d=Math.hypot(dx,dy)||.01,r=.3/(d*d);
+   dx/=d;dy/=d;f[i][0]-=dx*r;f[i][1]-=dy*r;f[j][0]+=dx*r;f[j][1]+=dy*r;}
+  for(const [i,j] of g.E){
+   let dx=p[j][0]-p[i][0],dy=p[j][1]-p[i][1];const d=Math.hypot(dx,dy)||.01,s=(d-1)*.8;
+   dx/=d;dy/=d;f[i][0]+=dx*s;f[i][1]+=dy*s;f[j][0]-=dx*s;f[j][1]-=dy*s;}
+  const st=.2*(1-it/T)+.005;
+  for(let i=0;i<n;i++){const m=Math.hypot(f[i][0],f[i][1]),c=m>1?1/m:1;p[i][0]+=f[i][0]*c*st;p[i][1]+=f[i][1]*c*st;}
+ }
+ return p;
+}
+
+function draw(g){
+ const n=g.t.length,p=g.pos||(g.pos=layout(g)),S=34,P=22;
+ const x0=Math.min(...p.map(a=>a[0])),y0=Math.min(...p.map(a=>a[1])),x1=Math.max(...p.map(a=>a[0])),y1=Math.max(...p.map(a=>a[1]));
+ const W0=(x1-x0)*S+2*P,H0=(y1-y0)*S+2*P,W=Math.max(W0,130),H=Math.max(H0,100),ox=(W-W0)/2,oy=(H-H0)/2;
+ const q=p.map(([x,y])=>[(x-x0)*S+P+ox,(y-y0)*S+P+oy]);
+ const deg=g.t.map(()=>0);g.E.forEach(([i,j])=>{deg[i]++;deg[j]++;});
+ let s='<svg viewBox="0 0 '+W.toFixed(0)+' '+H.toFixed(0)+'" role="img" aria-label="Structural formula"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round">';
+ for(const [i,j,o] of g.E){
+  const a=q[i],b=q[j],dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d;
+  for(const k of(o===1?[0]:o===2?[-3,3]:[-5,0,5]))
+   s+='<line x1="'+(a[0]+nx*k).toFixed(1)+'" y1="'+(a[1]+ny*k).toFixed(1)+'" x2="'+(b[0]+nx*k).toFixed(1)+'" y2="'+(b[1]+ny*k).toFixed(1)+'"/>';
+ }
+ s+='</g>';
+ g.t.forEach((e,i)=>{
+  if(e==='C'&&deg[i])return;
+  const h=VAL[e]-g.u[i],L=e+(h?'H'+(h>1?'₀₁₂₃₄'[h]:''):''),w=L.length*9+6;
+  const col=e==='C'?'currentColor':'var(--'+(e==='O'||e==='N'||e==='S'?e:'X')+')';
+  s+='<rect x="'+(q[i][0]-w/2).toFixed(1)+'" y="'+(q[i][1]-11).toFixed(1)+'" width="'+w+'" height="22" rx="4" fill="var(--card)"/>'
+   +'<text x="'+q[i][0].toFixed(1)+'" y="'+(q[i][1]+5.5).toFixed(1)+'" text-anchor="middle" font-size="16" font-weight="600" font-family="system-ui,sans-serif" fill="'+col+'">'+L+'</text>';
+ });
+ return s+'</svg>';
+}
+
+let DL=null,lastF='';
+function syncPdf(){$('pdf').hidden=!DL||!R_.length;}
+try{if(window.claude&&claude.use)claude.use('downloads').then(d=>{DL=d;syncPdf();},()=>{});}catch(e){}
+const PCOL={O:[208,42,30],N:[35,88,214],S:[148,98,0]};
+function pdfMol(doc,g,x,y,w,h){
+ const p=g.pos||(g.pos=layout(g));
+ const xs=p.map(a=>a[0]),ys=p.map(a=>a[1]),x0=Math.min(...xs),y0=Math.min(...ys),bw=Math.max(...xs)-x0,bh=Math.max(...ys)-y0;
+ const pad=16,s=Math.min((w-2*pad)/Math.max(bw,.01),(h-2*pad)/Math.max(bh,.01),30);
+ const ox=x+(w-bw*s)/2,oy=y+(h-bh*s)/2,q=p.map(a=>[ox+(a[0]-x0)*s,oy+(a[1]-y0)*s]);
+ const deg=g.t.map(()=>0);g.E.forEach(([i,j])=>{deg[i]++;deg[j]++;});
+ doc.setDrawColor(20,32,46);doc.setLineWidth(1.1);
+ for(const [i,j,o] of g.E){
+  const a=q[i],b=q[j],dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d;
+  for(const k of(o===1?[0]:o===2?[-1.8,1.8]:[-3.2,0,3.2]))doc.line(a[0]+nx*k,a[1]+ny*k,b[0]+nx*k,b[1]+ny*k);
+ }
+ g.t.forEach((e,i)=>{
+  if(e==='C'&&deg[i])return;
+  const hh=VAL[e]-g.u[i],c=PCOL[e]||(e==='C'?[20,32,46]:[20,128,60]),num=hh>1?String(hh):'',lab=e+(hh?'H':'');
+  doc.setFont('helvetica','bold');doc.setFontSize(10);const w1=doc.getTextWidth(lab);
+  doc.setFontSize(7);const tw=w1+(num?doc.getTextWidth(num):0);
+  doc.setFillColor(255,255,255);doc.rect(q[i][0]-tw/2-1.5,q[i][1]-6,tw+3,12,'F');
+  doc.setTextColor(c[0],c[1],c[2]);doc.setFontSize(10);doc.text(lab,q[i][0]-tw/2,q[i][1]+3.5);
+  if(num){doc.setFontSize(7);doc.text(num,q[i][0]-tw/2+w1,q[i][1]+6);}
+ });
+}
+async function exportPdf(){
+ const J=window.jspdf&&window.jspdf.jsPDF,btn=$('pdf');
+ if(!J){$('st').textContent='The PDF library is still loading. Try again in a moment.';return;}
+ btn.disabled=true;
+ try{
+  const doc=new J({unit:'pt',format:'letter'}),W=612,HT=792,M=36,cols=3,rows=4,cw=(W-2*M)/cols,top=M+34,ch=(HT-top-M)/rows,per=cols*rows,pages=Math.ceil(R_.length/per);
+  for(let pg=0;pg<pages;pg++){
+   if(pg)doc.addPage();
+   doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(20,32,46);doc.text('Isomers of '+lastF,M,M+10);
+   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(95,104,121);
+   doc.text(R_.length+(R_.length===1?' structure':' structures')+', page '+(pg+1)+' of '+pages,M,M+25);
+   for(let k=0;k<per;k++){
+    const idx=pg*per+k;if(idx>=R_.length)break;
+    const r=R_[idx],cx=M+(k%cols)*cw,cy=top+Math.floor(k/cols)*ch;
+    doc.setDrawColor(215,220,228);doc.setLineWidth(.5);doc.rect(cx+3,cy+3,cw-6,ch-6);
+    pdfMol(doc,r,cx+3,cy+3,cw-6,ch-6-16);
+    doc.setFont('courier','normal');let fs=8;doc.setFontSize(fs);
+    const tw=doc.getTextWidth(r.smi);if(tw>cw-16){fs=Math.max(4.5,8*(cw-16)/tw);doc.setFontSize(fs);}
+    doc.setTextColor(95,104,121);doc.text(r.smi,cx+cw/2,cy+ch-9,{align:'center'});
+    if(idx%8===7){btn.textContent='Building PDF… '+(idx+1)+'/'+R_.length;await new Promise(z=>setTimeout(z,0));}
+   }
+  }
+  btn.textContent='Saving…';
+  await DL.save({filename:'isomers-'+lastF+'.pdf',data:doc.output('blob')});
+ }catch(e){
+  if(!e||e.code!=='declined')$('st').textContent='Could not save the PDF'+(e&&e.message?': '+e.message:'.');
+ }finally{btn.disabled=false;btn.textContent='Export PDF';}
+}
+$('pdf').onclick=exportPdf;
+let R_=[],shown=60;const PAGE=60;
+function render(){
+ const f=$('flt').value,list=R_.filter(r=>f==='all'||(f==='ring')===r.ring);
+ $('cnt').textContent=list.length+(list.length===1?' structure':' structures');
+ $('out').innerHTML=list.slice(0,shown).map(r=>{r.svg=r.svg||draw(r);return '<div class="c">'+r.svg+'<code title="Copy SMILES">'+r.smi+'</code></div>';}).join('');
+ $('more').hidden=list.length<=shown;syncPdf();
+ if(list.length>shown)$('more').textContent='Show more ('+(list.length-shown)+' left)';
+}
+$('flt').onchange=()=>{shown=PAGE;render();};
+$('more').onclick=()=>{shown+=PAGE;render();};
+$('out').onclick=e=>{
+ const c=e.target.closest('code');if(!c)return;
+ const old=c.textContent;
+ try{navigator.clipboard.writeText(old).then(()=>{c.textContent='Copied';setTimeout(()=>c.textContent=old,900);},()=>{});}catch(x){}
+};
+
+async function run(){
+ const st=$('st');let m;
+ $('out').innerHTML='';$('bar').hidden=true;$('more').hidden=true;
+ try{m=parse($('f').value);}catch(e){st.textContent=e.message;return;}
+ $('go').disabled=true;
+ try{
+  const {D,res}=await gen(m,x=>st.textContent=x);
+  R_=res.map(g=>({...g,ring:g.E.length>g.t.length-1,smi:smiles(g)}));
+  R_.sort((a,b)=>(a.ring-b.ring)||(a.smi.length-b.smi.length)||(a.smi<b.smi?-1:1));
+  const keys=Object.keys(m).filter(k=>k!=='C'&&k!=='H').sort();
+  const fm=['C','H',...keys].filter(k=>m[k]).map(k=>k+(m[k]>1?'<sub>'+m[k]+'</sub>':'')).join('');
+  st.innerHTML='<b>'+fm+'</b>: '+R_.length+' isomer'+(R_.length===1?'':'s')+', degrees of unsaturation '+D+'.';
+  lastF=['C','H',...keys].filter(k=>m[k]).map(k=>k+(m[k]>1?m[k]:'')).join('');shown=PAGE;$('bar').hidden=false;render();
+ }catch(e){st.textContent=e.message;}
+ finally{$('go').disabled=false;}
+}
+$('go').onclick=run;
+$('f').addEventListener('keydown',e=>{if(e.key==='Enter')run();});
+['C4H10','C5H12','C2H6O','C3H6O','C4H8O','C6H6','C3H7Cl','C4H11N'].forEach(f=>{
+ const b=document.createElement('button');b.type='button';b.textContent=f;
+ b.onclick=()=>{$('f').value=f;run();};$('ex').appendChild(b);
+});
+run();
+</script>
+</body></html>
